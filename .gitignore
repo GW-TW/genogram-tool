@@ -8,7 +8,6 @@ _出工報告/
 .claude/
 # 真實個案檔案（含個資）絕不進版控
 *.gno
-!tests/fixtures/*.gno
 *.ged
 # 暫存與備份
 *.bak-*

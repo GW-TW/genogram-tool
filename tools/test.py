@@ -5,7 +5,7 @@
 
 怎麼「等跑完」：用瀏覽器除錯協定（CDP，只綁 127.0.0.1、隨機埠）連進頁面，每 0.2 秒實際查一次完成旗標。
 （2026-09-18 起改用這個方式：原本的 --dump-dom＋--virtual-time-budget 在有背景執行緒的非同步工作
-  ——例如解壓 .gno 的 DecompressionStream——時，虛擬時間會直接快轉到底，頁面在測試跑完前就被匯出，
+  ——例如解壓縮串流、產生 PNG——時，虛擬時間會直接快轉到底，頁面在測試跑完前就被匯出，
   Edge 153 上 8 次失敗 3 次。）
 
 用法：PYTHONIOENCODING=utf-8 python tools/test.py          （全部）

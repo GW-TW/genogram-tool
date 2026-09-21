@@ -4,7 +4,7 @@
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.4.0';
+  const APP_VERSION = '0.5.0';
   const BUILD = '__BUILD__';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
@@ -990,7 +990,6 @@
 
   // ───── 檔案 ─────
   const TYPES_JSON = [{ description: '家系圖檔案', accept: { 'application/json': ['.json'] } }];
-  const TYPES_OPEN = [{ description: '家系圖檔案（本工具 .json、GenoPro .gno）', accept: { 'application/json': ['.json'], 'application/octet-stream': ['.gno'] } }];
 
   const confirmDiscard = () => !state.dirty || confirm('目前的圖還沒儲存，確定要放棄這些變更嗎？');
 
@@ -1001,30 +1000,14 @@
     renderAll(); fitView();
   }
 
-  function looksGno(name, bytes) {
-    if (/\.gno$/i.test(name) || (bytes[0] === 0x50 && bytes[1] === 0x4b)) return true;
-    return /<GenoPro[\s>]/.test(new TextDecoder('latin1').decode(bytes.subarray(0, 400)));
-  }
-
-  // 開檔大小上限（驗收發現：原本整個檔案無條件讀進記憶體）。.gno 可能內含照片，給寬一點；本工具的 .json 不會超過數 MB
-  const MAX_GNO_FILE = 150 * 1024 * 1024, MAX_JSON_FILE = 30 * 1024 * 1024;
+  // 開檔大小上限（驗收發現：原本整個檔案無條件讀進記憶體）；本工具的 .json 不會超過數 MB
+  const MAX_JSON_FILE = 30 * 1024 * 1024;
 
   async function loadFile(file, handle) {
-    const isGnoName = /\.(gno|xml)$/i.test(file.name);
-    if (file.size > (isGnoName ? MAX_GNO_FILE : MAX_JSON_FILE)) { showError(GT.fail('TOO_LARGE', new Error(`file size ${file.size}`))); return; }
+    // GenoPro 的 .gno 檔不再支援（使用者 2026-09-21 決定拿掉匯入）：講清楚原因，不要讓人以為檔案壞了
+    if (/\.gno$/i.test(file.name)) { toast('這個工具不支援 GenoPro 的 .gno 檔，請用 GenoPro 開啟。', 'warn', 7000); return; }
+    if (file.size > MAX_JSON_FILE) { showError(GT.fail('TOO_LARGE', new Error(`file size ${file.size}`))); return; }
     const bytes = new Uint8Array(await file.arrayBuffer());
-    if (looksGno(file.name, bytes)) {
-      if (bytes.length > MAX_GNO_FILE) { showError(GT.fail('TOO_LARGE', new Error(`file size ${bytes.length}`))); return; }
-      let res;
-      try { res = await GT.gno.readGno(bytes); }
-      catch (e) {
-        const code = e instanceof GT.gno.GnoLockedError ? 'GNO_LOCK' : e instanceof GT.gno.GnoTooLargeError ? 'TOO_LARGE' : 'GNO';
-        showError(GT.fail(code, e)); return;
-      }
-      setDoc(res.doc, { handle: null, fileName: file.name.replace(/\.(gno|xml)$/i, '') + '（GenoPro 匯入，尚未存檔）', dirty: true });
-      dialog('GenoPro 匯入結果', GT.gno.describeReport(res.report).map(l => `<p>${esc(l)}</p>`).join(''), [{ label: '知道了', primary: true }]);
-      return;
-    }
     let parsed;
     try { parsed = GT.normalizeDoc(JSON.parse(new TextDecoder('utf-8').decode(bytes))); }
     catch (e) { showError(GT.fail('OPEN', e)); return; }
@@ -1037,7 +1020,7 @@
     if (!confirmDiscard()) return;
     if (window.showOpenFilePicker) {
       let h;
-      try { [h] = await window.showOpenFilePicker({ types: TYPES_OPEN, multiple: false }); }
+      try { [h] = await window.showOpenFilePicker({ types: TYPES_JSON, multiple: false }); }
       catch (e) { if (e && e.name === 'AbortError') return; throw e; }
       await loadFile(await h.getFile(), h);
     } else { $('fileInput').value = ''; $('fileInput').click(); }
@@ -1045,7 +1028,7 @@
 
   function suggestName(ext) {
     const base = state.doc.meta.title.trim()
-      || state.fileName.replace(/（.*?）$/, '').replace(/\.(json|gno|xml)$/i, '').trim()
+      || state.fileName.replace(/\.json$/i, '').trim()
       || `家系圖_${state.doc.meta.assessDate}`;
     return base.replace(/[\\/:*?"<>|]/g, '_').slice(0, 80) + ext;
   }
@@ -1376,6 +1359,11 @@
       const helpUl = document.querySelector('#helpBody ul');
       checks.helpcss = !!helpUl && getComputedStyle(helpUl).marginBottom === '8px';
       $('dlg').close();
+      // 不再支援 .gno（使用者 2026-09-21 拿掉匯入）：開 .gno 要說清楚原因，目前的圖不能被動到
+      const beforeGno = JSON.stringify(state.doc);
+      await loadFile(new File(['<GenoPro></GenoPro>'], '舊個案.gno'), null);
+      checks.gnorefused = JSON.stringify(state.doc) === beforeGno &&
+                          [...document.querySelectorAll('.toast')].some(t => t.textContent.includes('不支援 GenoPro'));
       const blob = await pngBlob();
       const bad = Object.keys(checks).filter(k => !checks[k]);
       document.body.dataset.selftest = `${bad.length ? 'fail-' + bad.join('-') : 'ok'}:${Object.keys(state.doc.persons).length}:${blob.size}`;

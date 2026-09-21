@@ -17,7 +17,7 @@
   };
   // 黑白模式下原本只靠顏色區分的類型改畫灰色（使用者 2026-09-18：和諧相處跟一般在黑白、灰階列印時要分得出來）
   const BW_GRAY = { Harmony: '#9A9A9A' };
-  const INDEX_FILL = '#E4E4E4';     // 案主（指標人物）灰底——刻意比「疑似濫用」的灰淺很多，兩者同時出現也分得出來
+  const INDEX_FILL = '#E4E4E4';     // 服務對象（指標人物）灰底——刻意比「疑似濫用」的灰淺很多，兩者同時出現也分得出來
   const SUSPECT_FILL = '#8A8A8A';   // 疑似酒精或藥物濫用（參考圖：下半部灰色）
   const FONT = "'Microsoft JhengHei UI','Microsoft JhengHei','微軟正黑體','Noto Sans TC','PingFang TC',sans-serif";
   const HALF = GT.S / 2;
@@ -144,7 +144,7 @@
     const ink = tint(doc, G.BLACK);
     const addictions = (p.conditions || []).map(k => GT.CONDITIONS.find(c => c.key === k)).filter(c => c && c.kind === 'addiction');
     const border = addictions.length ? tint(doc, addictions[0].color) : ink;
-    const sw = p.index ? 3.6 : 2;                       // 案主＝框線加粗＋灰底
+    const sw = p.index ? 3.6 : 2;                       // 服務對象＝框線加粗＋灰底
     const fill = p.index ? INDEX_FILL : '#FFFFFF';
     if (p.life === 'pregnancy') {
       out.push(`<polygon points="0,-15 14,13 -14,13" fill="${fill}" stroke="${ink}" stroke-width="${sw}" stroke-linejoin="round"/>`);

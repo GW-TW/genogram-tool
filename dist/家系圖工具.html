@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Jxm4BzRi66kqbNRN5FIEVXbiRbTCAtB/MROLKP4gzBA=' 'sha256-yAA+EttaQzHmgL+TCmQY7AnpgdXv3/3INBGYRgVMJ2U=' 'sha256-KPAWntUk/JgbOjyza5K+F7UtI8a7v05G1BFhHF0CoMg=' 'sha256-Ri4ic0Py8pZlvQM18i79IGpVzEfN46qv55Ub7B4qOJg='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-YKTAoZ9a7XdQnQPv4Gkh1c1vSf4ezn/lkguxQINMov0=' 'sha256-TnQ12XOzcXEo/5sBle8Y0RrzB0cqCYQhVC24YN0rKbM=' 'sha256-W+ef2U1RnDWdGplaUW2QBvdnXuJQySOEloz6S5mPsQc=' 'sha256-ghTRYXlAQ5vhwfSm3V/vvQmlC/2ng3bfl0KbtWhF5QQ='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>家系圖工具</title>
 <style>
@@ -638,7 +638,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
   }
 
   // 預設檔名：個案編號_家系生態圖_建立日期（使用者 2026-09-21 決定）。
-  // 隱私規則「預設檔名不放姓名」：只用個案編號，案主姓名與標題都不進檔名
+  // 隱私規則「預設檔名不放姓名」：只用個案編號，服務對象姓名與標題都不進檔名
   function defaultFileName(doc, ext) {
     const m = doc.meta || {};
     const parts = [String(m.caseNo || '').trim(), '家系生態圖', m.created || m.assessDate || todayISO()].filter(Boolean);
@@ -1262,7 +1262,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
   };
   // 黑白模式下原本只靠顏色區分的類型改畫灰色（使用者 2026-09-18：和諧相處跟一般在黑白、灰階列印時要分得出來）
   const BW_GRAY = { Harmony: '#9A9A9A' };
-  const INDEX_FILL = '#E4E4E4';     // 案主（指標人物）灰底——刻意比「疑似濫用」的灰淺很多，兩者同時出現也分得出來
+  const INDEX_FILL = '#E4E4E4';     // 服務對象（指標人物）灰底——刻意比「疑似濫用」的灰淺很多，兩者同時出現也分得出來
   const SUSPECT_FILL = '#8A8A8A';   // 疑似酒精或藥物濫用（參考圖：下半部灰色）
   const FONT = "'Microsoft JhengHei UI','Microsoft JhengHei','微軟正黑體','Noto Sans TC','PingFang TC',sans-serif";
   const HALF = GT.S / 2;
@@ -1389,7 +1389,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     const ink = tint(doc, G.BLACK);
     const addictions = (p.conditions || []).map(k => GT.CONDITIONS.find(c => c.key === k)).filter(c => c && c.kind === 'addiction');
     const border = addictions.length ? tint(doc, addictions[0].color) : ink;
-    const sw = p.index ? 3.6 : 2;                       // 案主＝框線加粗＋灰底
+    const sw = p.index ? 3.6 : 2;                       // 服務對象＝框線加粗＋灰底
     const fill = p.index ? INDEX_FILL : '#FFFFFF';
     if (p.life === 'pregnancy') {
       out.push(`<polygon points="0,-15 14,13 -14,13" fill="${fill}" stroke="${ink}" stroke-width="${sw}" stroke-linejoin="round"/>`);
@@ -2308,8 +2308,8 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
 ` },
     { key: 'data', title: '填寫資料', body: `
 ## 基本資料
-點選一個人，右邊「基本資料」可以填姓名、選性別，勾選「案主」或「已歿」。
-- **案主**：這張圖主要服務的對象，圖上畫成粗框加灰底。
+點選一個人，右邊「基本資料」可以填姓名、選性別，勾選「服務對象」或「已歿」。
+- **服務對象**：這張圖主要服務的人，圖上畫成粗框加灰底。
 - **已歿**：符號上會打叉；符號中間的數字改成「過世時的年齡」。
 
 ## 年齡
@@ -2482,7 +2482,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
   const LEGEND_DESC = {
     // 人物
     'sym:M': '男性。', 'sym:F': '女性。', 'sym:U': '性別不確定或不知道。', 'sym:P': '家中飼養的寵物。',
-    'sym:index': '這張圖主要服務的對象（案主、指標人物）。',
+    'sym:index': '這張圖主要服務的人（指標人物）。',
     'sym:deceased': '已過世；符號中間的數字是過世時的年齡。',
     'life:pregnancy': '目前懷孕中。', 'life:miscarriage': '自然流產。', 'life:abortion': '人工流產（墮胎）。',
     'culture:immigration': '從其他國家或文化地區移入。', 'culture:multiple': '住過兩個以上的國家或文化地區。',
@@ -2613,8 +2613,8 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.6.0';
-  const BUILD = '2026-09-21 12:38';
+  const APP_VERSION = '0.6.1';
+  const BUILD = '2026-09-21 12:44';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -3108,7 +3108,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       <input type="text" data-f="name" data-autofocus value="${esc(p.name)}" maxlength="60" placeholder="例：王小明（可留空）">
       <label class="field">性別</label>
       ${segHTML('gender', GT.GENDERS, p.gender)}
-      <label class="check" style="margin-top:8px"><input type="checkbox" data-flag="index"${p.index ? ' checked' : ''}>案主（粗框灰底）</label>
+      <label class="check" style="margin-top:8px"><input type="checkbox" data-flag="index"${p.index ? ' checked' : ''}>服務對象（粗框灰底）</label>
       <label class="check"><input type="checkbox" data-flag="deceased"${p.deceased ? ' checked' : ''}>已歿（打叉）</label>
     </section>
     <section class="card"><h3><span class="badge">2</span>狀態<span class="right symprev" title="圖上的樣子">${R.symbolSVG(d, p, 34)}</span></h3>
@@ -3533,7 +3533,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     const tabs = [
       { key: 'person', label: '人物', html: grid([
         [sym({}, 'M'), '男性', 'sym:M'], [sym({}, 'F'), '女性', 'sym:F'], [sym({}, 'U'), '未知性別', 'sym:U'], [sym({}, 'P'), '寵物', 'sym:P'],
-        [sym({ index: true }), '案主（指標人物）：粗框灰底', 'sym:index'], [sym({ deceased: true }), '已歿：打叉', 'sym:deceased'],
+        [sym({ index: true }), '服務對象（指標人物）：粗框灰底', 'sym:index'], [sym({ deceased: true }), '已歿：打叉', 'sym:deceased'],
         [sym({ life: 'pregnancy' }, 'U'), '懷孕', 'life:pregnancy'], [sym({ life: 'miscarriage' }, 'U'), '流產', 'life:miscarriage'],
         [sym({ life: 'abortion' }, 'U'), '墮胎', 'life:abortion'],
         [sym({ culture: 'immigration' }), '移民', 'culture:immigration'], [sym({ culture: 'multiple' }), '住過兩個以上的文化地區', 'culture:multiple'],
@@ -3973,6 +3973,14 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       await loadFile(new File(['<GenoPro></GenoPro>'], '舊個案.gno'), null);
       checks.gnorefused = JSON.stringify(state.doc) === beforeGno &&
                           [...document.querySelectorAll('.toast')].some(t => t.textContent.includes('不支援 GenoPro'));
+      // 用詞統一為「服務對象」（使用者 2026-09-21）：人物面板、整個畫面、圖例都不可以再出現舊用詞
+      // （舊用詞拆開寫，程式碼裡才不會殘留；看的是畫面上的字 innerText，不含腳本本身）
+      const oldTerm = '案' + '主';
+      select([a]);
+      const panelTerm = $('props').innerText.includes('服務對象');
+      openLegend('person');
+      checks.term = panelTerm && $('dlgBody').innerText.includes('服務對象') && !document.body.innerText.includes(oldTerm);
+      $('dlg').close();
       // 預設檔名：個案編號_家系生態圖_建立日期（使用者 2026-09-21）；面板即時顯示，檔名不放姓名
       select([]);
       const caseInput = document.querySelector('#props [data-meta=caseNo]');

@@ -4,7 +4,7 @@
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.6.0';
+  const APP_VERSION = '0.6.1';
   const BUILD = '__BUILD__';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
@@ -499,7 +499,7 @@
       <input type="text" data-f="name" data-autofocus value="${esc(p.name)}" maxlength="60" placeholder="例：王小明（可留空）">
       <label class="field">性別</label>
       ${segHTML('gender', GT.GENDERS, p.gender)}
-      <label class="check" style="margin-top:8px"><input type="checkbox" data-flag="index"${p.index ? ' checked' : ''}>案主（粗框灰底）</label>
+      <label class="check" style="margin-top:8px"><input type="checkbox" data-flag="index"${p.index ? ' checked' : ''}>服務對象（粗框灰底）</label>
       <label class="check"><input type="checkbox" data-flag="deceased"${p.deceased ? ' checked' : ''}>已歿（打叉）</label>
     </section>
     <section class="card"><h3><span class="badge">2</span>狀態<span class="right symprev" title="圖上的樣子">${R.symbolSVG(d, p, 34)}</span></h3>
@@ -924,7 +924,7 @@
     const tabs = [
       { key: 'person', label: '人物', html: grid([
         [sym({}, 'M'), '男性', 'sym:M'], [sym({}, 'F'), '女性', 'sym:F'], [sym({}, 'U'), '未知性別', 'sym:U'], [sym({}, 'P'), '寵物', 'sym:P'],
-        [sym({ index: true }), '案主（指標人物）：粗框灰底', 'sym:index'], [sym({ deceased: true }), '已歿：打叉', 'sym:deceased'],
+        [sym({ index: true }), '服務對象（指標人物）：粗框灰底', 'sym:index'], [sym({ deceased: true }), '已歿：打叉', 'sym:deceased'],
         [sym({ life: 'pregnancy' }, 'U'), '懷孕', 'life:pregnancy'], [sym({ life: 'miscarriage' }, 'U'), '流產', 'life:miscarriage'],
         [sym({ life: 'abortion' }, 'U'), '墮胎', 'life:abortion'],
         [sym({ culture: 'immigration' }), '移民', 'culture:immigration'], [sym({ culture: 'multiple' }), '住過兩個以上的文化地區', 'culture:multiple'],
@@ -1364,6 +1364,14 @@
       await loadFile(new File(['<GenoPro></GenoPro>'], '舊個案.gno'), null);
       checks.gnorefused = JSON.stringify(state.doc) === beforeGno &&
                           [...document.querySelectorAll('.toast')].some(t => t.textContent.includes('不支援 GenoPro'));
+      // 用詞統一為「服務對象」（使用者 2026-09-21）：人物面板、整個畫面、圖例都不可以再出現舊用詞
+      // （舊用詞拆開寫，程式碼裡才不會殘留；看的是畫面上的字 innerText，不含腳本本身）
+      const oldTerm = '案' + '主';
+      select([a]);
+      const panelTerm = $('props').innerText.includes('服務對象');
+      openLegend('person');
+      checks.term = panelTerm && $('dlgBody').innerText.includes('服務對象') && !document.body.innerText.includes(oldTerm);
+      $('dlg').close();
       // 預設檔名：個案編號_家系生態圖_建立日期（使用者 2026-09-21）；面板即時顯示，檔名不放姓名
       select([]);
       const caseInput = document.querySelector('#props [data-meta=caseNo]');

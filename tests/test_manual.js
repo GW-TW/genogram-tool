@@ -18,6 +18,9 @@ T.test('使用說明：關鍵功能都有寫到（功能改名時這裡會紅）
   }
   T.ok(!/\.gno/i.test(all), '不再提 GenoPro 檔（使用者 2026-09-21：之後不匯入也不產生 .gno）');
   T.ok(all.includes('個案編號_家系生態圖_建立日期'), '寫到預設檔名的規則（使用者 2026-09-21）');
+  const legend = Object.values(GT.manual.LEGEND_DESC).join(''), oldTerm = '案' + '主';
+  T.ok(!all.includes(oldTerm) && !legend.includes(oldTerm), '用詞統一為「服務對象」，不用舊用詞（使用者 2026-09-21）');
+  T.ok(all.includes('服務對象'), '使用說明有寫到「服務對象」');
 });
 
 T.test('使用說明：Markdown 轉換正確，內容一律跳脫', () => {

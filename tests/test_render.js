@@ -29,12 +29,12 @@ T.test('空白文件', () => {
   T.eq(GT.render.bbox(d), { x: 0, y: 0, w: 400, h: 300 });
 });
 
-T.test('人物符號：男女、未知性別、案主粗框灰底、已歿打叉、年齡', () => {
+T.test('人物符號：男女、未知性別、服務對象粗框灰底、已歿打叉、年齡', () => {
   const { d, a, b, c } = sampleDoc();
   const svg = GT.render.renderWorld(d, {});
   const ga = groupOf(svg, a), gb = groupOf(svg, b), gc = groupOf(svg, c);
-  T.ok(ga.includes(`fill="${GT.render.INDEX_FILL}"`) && /stroke-width="3.6"/.test(ga), '案主＝框線加粗＋灰底（使用者指定，2026-09-17）');
-  T.eq((groupOf(svg, Object.keys(d.persons).find(k => d.persons[k].gender === 'F' && !d.persons[k].deceased)).match(/<circle [^>]*stroke="[^"]+" stroke-width="2"/g) || []).length, 1, '非案主：一般粗細的單框');
+  T.ok(ga.includes(`fill="${GT.render.INDEX_FILL}"`) && /stroke-width="3.6"/.test(ga), '服務對象＝框線加粗＋灰底（使用者指定，2026-09-17）');
+  T.eq((groupOf(svg, Object.keys(d.persons).find(k => d.persons[k].gender === 'F' && !d.persons[k].deceased)).match(/<circle [^>]*stroke="[^"]+" stroke-width="2"/g) || []).length, 1, '非服務對象：一般粗細的單框');
   T.ok(ga.includes('>45<'), '年齡在符號中');
   T.ok(gb.includes('<circle'), '女＝圓形');
   T.ok(/<path d="M-[\d.]+,-[\d.]+L/.test(gb), '已歿＝打叉');
@@ -126,7 +126,7 @@ T.test('伴侶線在標籤文字下方，不橫切「工人」「低收入戶」
   const { d, a, u } = sampleDoc();
   const g = GT.render.unionGeometry(d, d.unions[u]);
   const p = d.persons[a], lb = GT.render.labelBox(d, p);
-  T.ok(lb.lines.length >= 3, '案主有 3 行標籤');
+  T.ok(lb.lines.length >= 3, '服務對象有 3 行標籤');
   T.ok(g.yLine >= p.y + GT.render.HALF + 5 + lb.h, '伴侶線低於標籤底部');
   T.ok(g.ySib > g.yLine, '手足線在伴侶線下方');
   const top = Math.min(...d.unions[u].children.map(c => d.persons[c.id].y)) - GT.render.HALF;
@@ -165,7 +165,7 @@ T.test('子女被拖到很靠近父母：線不往上折（回歸）', () => {
 T.test('生活圈不會把不同住的人圈進去（回歸）', () => {
   const d = GT.newDoc();
   const P = (x, y, g) => GT.addPerson(d, { gender: g || 'M', x, y });
-  // 情境：案主與同居人在第一列，右邊的妹妹不同住；第二列兩個孩子同住
+  // 情境：服務對象與同居人在第一列，右邊的妹妹不同住；第二列兩個孩子同住
   const fang = P(-100, 0, 'F'), dad = P(0, 0), aunt = P(100, 0, 'F'), kid1 = P(-50, 160), kid2 = P(60, 160);
   const h = GT.addHousehold(d, [fang, dad, kid1, kid2]);
   T.eq(GT.render.householdIntruders(d, d.households[h]), [], '右邊的妹妹沒被圈進去');
@@ -280,7 +280,7 @@ T.test('成癮與疾病：左半＝疾病、下半＝濫用、灰＝疑似、復
   T.ok(groupOf(svg, ill).includes(`<path d="M-20,-20H0V20H-20Z" fill="${black}"`), '疾病＝左半塗黑');
   T.ok(groupOf(svg, sub).includes(`<path d="M-20,0H20V20H-20Z" fill="${black}"`), '濫用＝下半塗黑');
   T.ok(groupOf(svg, sus).includes(`fill="${GT.render.SUSPECT_FILL}"`), '疑似＝下半灰');
-  T.ok(GT.render.SUSPECT_FILL !== GT.render.INDEX_FILL, '疑似的灰跟案主的灰不同');
+  T.ok(GT.render.SUSPECT_FILL !== GT.render.INDEX_FILL, '疑似的灰跟服務對象的灰不同');
   const gb = groupOf(svg, both);
   T.ok(gb.includes('M-20,-20H0V20H-20Z') && gb.includes('M-20,0H20V20H-20Z'), '兩者都有＝左半＋下半（3/4）');
   T.ok(groupOf(svg, rec).includes('<rect x="-15" y="-15" width="10" height="30" fill="#FFFFFF"'), '復原中＝塗色區中間留白');

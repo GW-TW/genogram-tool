@@ -536,7 +536,7 @@ T.test('預設檔名：個案編號_家系生態圖_建立日期，絕不放姓�
   T.eq(GT.defaultFileName(d, '.png'), 'A113-0921_家系生態圖_2026-09-21.png', '有個案編號：個案編號_家系生態圖_建立日期');
   const p = GT.addPerson(d, { gender: 'M', x: 0, y: 0 });
   d.persons[p].name = '王小明'; d.persons[p].index = true; d.meta.title = '王小明的家';
-  T.ok(!GT.defaultFileName(d, '.json').includes('王小明'), '案主姓名、標題都不會進檔名');
+  T.ok(!GT.defaultFileName(d, '.json').includes('王小明'), '服務對象姓名、標題都不會進檔名');
   d.meta.caseNo = 'A/1:2*3\\4';
   T.ok(!/[\\/:*?"<>|]/.test(GT.defaultFileName(d, '').replace(/_/g, '')), '檔名不合法的字元（含反斜線）都換成底線');
   d.meta.caseNo = 'A1\u0000B\u001fC';

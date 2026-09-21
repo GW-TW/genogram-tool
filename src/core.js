@@ -278,7 +278,7 @@
   }
 
   // 預設檔名：個案編號_家系生態圖_建立日期（使用者 2026-09-21 決定）。
-  // 隱私規則「預設檔名不放姓名」：只用個案編號，案主姓名與標題都不進檔名
+  // 隱私規則「預設檔名不放姓名」：只用個案編號，服務對象姓名與標題都不進檔名
   function defaultFileName(doc, ext) {
     const m = doc.meta || {};
     const parts = [String(m.caseNo || '').trim(), '家系生態圖', m.created || m.assessDate || todayISO()].filter(Boolean);

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<!--CSP-->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>家系圖工具</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+      <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1B5E7E"/><stop offset="1" stop-color="#38BDF8"/></linearGradient></defs>
+      <rect x="1" y="1" width="32" height="32" rx="8" fill="url(#lg)" stroke="#fff" stroke-opacity=".5"/>
+      <rect x="6" y="6" width="8" height="8" fill="none" stroke="#fff" stroke-width="1.8"/>
+      <circle cx="24" cy="10" r="4.2" fill="none" stroke="#fff" stroke-width="1.8"/>
+      <path d="M10 14v4h14v-4M17 18v4M11 22h12M11 22v3M23 22v3" fill="none" stroke="#fff" stroke-width="1.6"/>
+      <circle cx="23" cy="27.5" r="2.5" fill="#fff"/><rect x="8.6" y="25" width="5" height="5" fill="#fff"/>
+    </svg>
+    <h1>家系圖工具</h1>
+    <span class="file" id="fileLabel">未命名</span>
+  </div>
+  <nav class="filebar">
+    <button id="btnNew" title="開一張新的空白家系圖">新增</button>
+    <button id="btnOpen" title="開啟本工具的檔案，或匯入 GenoPro 的 .gno 檔（Ctrl+O）">開啟／匯入…</button>
+    <button id="btnSave" class="primary" title="儲存（Ctrl+S）">儲存</button>
+    <button id="btnSaveAs" title="另存新檔（Ctrl+Shift+S）">另存新檔…</button>
+    <span class="sep"></span>
+    <button id="btnCopy" title="複製成圖片，直接到 Word 貼上">複製圖片</button>
+    <button id="btnPng" title="存成高解析 PNG 圖檔">匯出 PNG</button>
+    <button id="btnSvg" title="存成向量 SVG 圖檔（放大不失真）">匯出 SVG</button>
+    <span class="sep"></span>
+    <button id="btnHelp">使用說明</button>
+  </nav>
+</header>
+
+<main class="layout">
+  <aside class="tools" id="tools">
+    <section class="card">
+      <h3><span class="badge">1</span>新增人物</h3>
+      <div class="grid3">
+        <button class="addbtn" data-add="M" title="新增男性"><svg viewBox="0 0 26 26"><rect x="3" y="3" width="20" height="20" fill="#fff" stroke="#173F52" stroke-width="2"/></svg>男</button>
+        <button class="addbtn" data-add="F" title="新增女性"><svg viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" fill="#fff" stroke="#173F52" stroke-width="2"/></svg>女</button>
+        <button class="addbtn" data-add="U" title="新增未知性別"><svg viewBox="0 0 26 26"><text x="13" y="22" text-anchor="middle" font-size="24" font-weight="700" fill="#173F52">?</text></svg>未知</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3><span class="badge">2</span>家庭關係</h3>
+      <div class="grid2">
+        <button data-kin="partner">＋伴侶</button>
+        <button data-kin="parents">＋父母</button>
+        <button data-kin="son">＋兒子</button>
+        <button data-kin="daughter">＋女兒</button>
+        <button data-kin="brother">＋兄弟</button>
+        <button data-kin="sister">＋姊妹</button>
+      </div>
+      <div class="stack" style="margin-top:6px">
+        <button data-kin="linkPartner" class="secondary">連結為伴侶…</button>
+        <button data-kin="attachChild">設為某段關係的子女…</button>
+      </div>
+      <p class="hint-text" id="kinHint">先在畫布上點選一個人。</p>
+    </section>
+
+    <section class="card">
+      <h3><span class="badge">3</span>情感關係</h3>
+      <div class="soft">新拉的線用這個類型：</div>
+      <button id="relTypeBtn" class="typebtn" title="選擇類型：先選大類，再選線條"></button>
+      <div class="stack" style="margin-top:6px">
+        <button id="btnRelation" class="secondary">從選取的人拉線…</button>
+        <button id="btnLegend" class="link">看圖例（符號與線條）</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3><span class="badge">4</span>標註</h3>
+      <div class="stack">
+        <button id="btnHousehold" title="先選取同住的人（按住 Shift 可多選）">圈成生活圈（同住）</button>
+        <button id="btnLabel">新增文字說明</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3><span class="badge">5</span>生態圖</h3>
+      <div class="soft">顯示：</div>
+      <div id="viewModes"></div>
+      <div class="stack" style="margin-top:6px">
+        <button id="btnSystem" class="secondary">＋新增資源…</button>
+        <button id="btnTie">拉生態連結…</button>
+      </div>
+      <p class="hint-text" id="tieHint">先點選一個人或資源，再按「拉生態連結」。</p>
+    </section>
+
+    <section class="card">
+      <h3><span class="badge">6</span>顯示設定</h3>
+      <div class="soft">圖上顯示哪些資料：</div>
+      <div id="showFields"></div>
+      <label class="check"><input type="checkbox" id="optYears">生卒年</label>
+      <div class="soft" style="margin-top:8px">標籤格式：</div>
+      <label class="check"><input type="radio" name="labelMode" value="value">只顯示內容（例：工人）</label>
+      <label class="check"><input type="radio" name="labelMode" value="labelled">欄位名＋內容（例：職業：工人）</label>
+      <label class="check" style="margin-top:8px"><input type="checkbox" id="optColor">情感關係線用彩色</label>
+      <button id="btnFields" style="margin-top:8px;width:100%">管理欄位（新增／改名／刪除）…</button>
+    </section>
+  </aside>
+
+  <section class="stage" id="stage">
+    <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+          <path d="M20 0H0V20" fill="none" stroke="#EEF4F8" stroke-width="1"/>
+        </pattern>
+      </defs>
+      <g id="viewport"><rect id="gridRect" x="-100000" y="-100000" width="200000" height="200000" fill="url(#grid)"/><g id="world"></g><g id="overlay"></g></g>
+    </svg>
+    <div class="empty" id="empty"><div class="box">
+      按左邊「<b>男</b>」「<b>女</b>」開始畫，<br>
+      或按上方「<b>開啟／匯入…</b>」打開 GenoPro 的 .gno 檔。<br>
+      <span class="muted">點選人物後，右邊可以填年齡、職業、經濟等資料，會自動顯示在圖上。</span>
+    </div></div>
+    <div class="zoombar editbar">
+      <button id="btnUndo" title="復原（Ctrl+Z）">↶ 復原</button><button id="btnRedo" title="重做（Ctrl+Y）">↷ 重做</button>
+      <button id="btnDelete" title="刪除選取的項目（Delete）">刪除</button>
+    </div>
+    <div class="banner" id="banner" hidden><span id="bannerText"></span><button id="bannerCancel">取消（Esc）</button></div>
+    <div class="zoombar">
+      <button id="zoomOut" title="縮小">－</button><span class="zv" id="zoomVal">100%</span>
+      <button id="zoomIn" title="放大">＋</button><button id="zoomFit" title="整張圖放進畫面">符合畫面</button>
+    </div>
+  </section>
+
+  <aside class="props" id="props"></aside>
+</main>
+
+<footer class="statusbar">
+  <span id="stCount">0 人</span>
+  <span id="stDate"></span>
+  <span class="lock" title="本工具不連網路：所有資料只存在你的電腦">● 離線運作，資料不離開這台電腦</span>
+  <span class="ver" id="stVer"></span>
+</footer>
+
+<div id="toasts" aria-live="polite"></div>
+<dialog id="dlg"><div class="dh" id="dlgTitle"></div><div class="db" id="dlgBody"></div><div class="df" id="dlgFoot"></div></dialog>
+<input type="file" id="fileInput" accept=".json,.gno,.xml" hidden>
+
+<script src="core.js"></script>
+<script src="gno.js"></script>
+<script src="render.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

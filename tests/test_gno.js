@@ -248,3 +248,18 @@ T.test('匯入：寵物、流產、墮胎、死產、懷孕、移民、看護、
   T.eq(report.unknownTypes, 1, '不認得的家庭關係（Bogus）計入報告');
   T.ok(GT.gno.describeReport(report).some(l => l.includes('不認得')), '報告有說明');
 });
+
+T.test('回歸：GenoPro 不認得的伴侶關係類型，原名寫進線旁說明（審查 2026-09-21）', async () => {
+  const xml = `<?xml version="1.0"?><GenoPro><Individuals>
+    <Individual ID="m"><Position>0,0</Position><Gender>M</Gender></Individual>
+    <Individual ID="f"><Position>100,0</Position><Gender>F</Gender></Individual></Individuals>
+    <Families><Family ID="f1"><Relation>Bogus</Relation></Family></Families>
+    <PedigreeLinks><PedigreeLink PedigreeLink="Parent" Family="f1" Individual="m"/>
+      <PedigreeLink PedigreeLink="Parent" Family="f1" Individual="f"/></PedigreeLinks></GenoPro>`;
+  const { doc, report } = await GT.gno.readGno(new TextEncoder().encode(xml));
+  const u = Object.values(doc.unions)[0];
+  T.eq(u.type, 'Other', '不認得的類型標成「其他」');
+  T.eq(u.note, 'Bogus', '原本的類型寫在線旁說明（跟情感關係一致）');
+  T.ok(GT.render.lineLabels(doc).some(L => L.text.includes('Bogus')), '圖上看得到原本的類型');
+  T.ok(GT.gno.describeReport(report).some(l => l.includes('線旁說明')), '匯入報告說的位置跟實際一致');
+});

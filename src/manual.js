@@ -228,6 +228,7 @@
     'health:illrec': '疾病正在復原中。', 'health:subrec': '酒精或藥物濫用正在復原中。',
     'health:bothrec': '疾病與濫用都在復原中。', 'health:ill-subrec': '濫用在復原中，但仍有疾病。',
     'health:illrec-sub': '疾病在復原中，但仍有濫用。',
+    'cond:medical': '疾病別：顏色填在符號左上角那一格。', 'cond:addiction': '成癮類別：改符號外框的顏色。',
     // 家庭關係
     Marriage: '有法律上的婚姻關係。',
     Separation: '仍有婚姻關係，但已經分開生活（沒有經過法律程序）。',

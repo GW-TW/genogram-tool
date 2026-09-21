@@ -562,3 +562,27 @@ T.test('回歸：線旁說明要包進匯出範圍（依 2026-09-20 教訓：新
   T.ok(box.x2 - box.x1 > 200, '前提：這段說明比兩個人還寬');
   T.ok(bb.x <= box.x1 && bb.x + bb.w >= box.x2 && bb.y + bb.h >= box.y2, '圖的範圍包得住線旁說明（匯出不會裁掉）');
 });
+
+T.test('回歸：子女拉得很近時，伴侶線的說明不可以壓到線上的同居記號或斜線（審查 2026-09-21）', () => {
+  // 記號的位置從實際畫出來的 SVG 量（class="house"／class="slash" 的路徑），測的是使用者看到的樣子
+  const marksOf = (svgGroup) => [...svgGroup.matchAll(/class="(?:house|slash)" d="([^"]+)"/g)].map(m => {
+    const n = m[1].match(/-?\d+(?:\.\d+)?/g).map(Number), xs = n.filter((_, i) => i % 2 === 0), ys = n.filter((_, i) => i % 2 === 1);
+    return { x1: Math.min(...xs) - 1, x2: Math.max(...xs) + 1, y1: Math.min(...ys) - 1, y2: Math.max(...ys) + 1 };
+  });
+  const marked = GT.FAMILY_TYPES.filter(t => { const st = GT.render.FAMILY_STYLE[t.key]; return st && (st.house || st.slash); });
+  for (const note of ['', '2010 同居、2018 分開，孩子由母親照顧']) {
+    for (const t of marked) {
+      const d = GT.newDoc();
+      const a = GT.addPerson(d, { gender: 'M', x: 0, y: 0 }), b = GT.addPerson(d, { gender: 'F', x: 160, y: 0 });
+      const u = GT.linkPartners(d, a, b, t.key);
+      d.unions[u].note = note;
+      const k = GT.addChild(d, u, 'F');
+      d.persons[k].y = 100;                                  // 拉得很近：伴侶線下方放不下說明
+      const L = GT.render.lineLabels(d).find(x => x.id === u);
+      if (!L) continue;                                     // 基本線條、又沒寫說明 → 不標
+      const box = GT.render.lineLabelBox(L), marks = marksOf(groupOf(GT.render.renderWorld(d, {}), u));
+      const hit = marks.some(q => box.x1 < q.x2 && box.x2 > q.x1 && box.y1 < q.y2 && box.y2 > q.y1);
+      T.ok(marks.length > 0 && !hit, `${t.label}${note ? '＋長說明' : ''}：說明沒有壓到線上的記號`);
+    }
+  }
+});

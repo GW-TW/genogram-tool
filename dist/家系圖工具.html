@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-zUiN64RI64IRddQZqEOH9SJjEJ3YMCPzohlaozTCAtU=' 'sha256-MnzcFftjSLS4kihaYeBZwuK3udqlHIPc3xE4R0sg5l4=' 'sha256-uvAFAByETn3xIZTqMHSo7N4smVSHKjR6qnDXcFlhsG0=' 'sha256-1SSADl2NgIyHkxgpEagrKsXZRFca8OjviBv8oNTgBJo=' 'sha256-Tj+NJE8B76ZMjMjJTZ5qKmYFhO+TDg4PTnMJdo0n1EU='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-zUiN64RI64IRddQZqEOH9SJjEJ3YMCPzohlaozTCAtU=' 'sha256-YXSuazKaUjWEUiw13LETTnKPRUEBBi3bBnAzp3YR2c8=' 'sha256-yAA+EttaQzHmgL+TCmQY7AnpgdXv3/3INBGYRgVMJ2U=' 'sha256-ST02E1pqGHFlb1pAwO0Kj8EznfIBjA7SVI5oSZGFwJk=' 'sha256-Fil9YMZU3QvUaJMaixkzE1BWHlAEiyFNZdtKw4nNgf4='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>家系圖工具</title>
 <style>
@@ -173,10 +173,9 @@ dialog.wide { width: min(780px, 94vw); }
 .help h4 { margin: 14px 0 6px; color: var(--brand-deep); }
 .help p { margin: 0 0 8px; }
 .help ol { margin: 0 0 8px; padding-left: 22px; }
-.help ul { margin: 0 0 8px; }
 .help .tip { background: var(--warn-bg); border-left: 4px solid var(--warn); border-radius: 4px; padding: 6px 10px; margin: 8px 0; }
 .legend .desc { font-size: 12px; color: var(--ink-soft); line-height: 1.5; margin-top: 1px; }
-.help ul { margin: 0; padding-left: 20px; }
+.help ul { margin: 0 0 8px; padding-left: 20px; }
 .help kbd { background: var(--field); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: 12px; }
 .legend { display: grid; grid-template-columns: 64px 1fr; gap: 4px 10px; align-items: center; font-size: 13px; }
 
@@ -1550,7 +1549,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       // 沒寫關係＝GenoPro 預設的結婚；寫了但不認得 → 「其他」並計入報告
       const type = !rel ? 'Marriage' : isFamilyType(rel) ? rel : 'Other';
       if (rel && !isFamilyType(rel)) report.unknownTypes++;
-      famMap[gid] = { partners: [], children: [], type };
+      famMap[gid] = { partners: [], children: [], type, note: rel && !isFamilyType(rel) ? rel.slice(0, 60) : '' };
     }
     for (const pl of kids(kid(root, 'PedigreeLinks'), 'PedigreeLink')) {
       const f = famMap[pl.getAttribute('Family')], pid = idMap[pl.getAttribute('Individual')];
@@ -1565,7 +1564,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       if (f.partners.length === 1 && !f.children.length) continue;
       const id = GT.newId(doc, 'u');
       f.partners.sort((a, b) => doc.persons[a].x - doc.persons[b].x);
-      doc.unions[id] = { id, partners: f.partners, children: f.children, type: f.type, twins: [], note: '' };
+      doc.unions[id] = { id, partners: f.partners, children: f.children, type: f.type, twins: [], note: f.note };
     }
     report.unions = Object.keys(doc.unions).length;
 
@@ -1640,7 +1639,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
   function describeReport(r) {
     const lines = [`已匯入 ${r.persons} 人、${r.unions} 段伴侶／親子關係、${r.relations} 條情感關係` +
       (r.twins ? `、${r.twins} 組雙胞胎` : '') + (r.labels ? `、${r.labels} 個文字說明` : '') + '。'];
-    if (r.unknownTypes) lines.push(`有 ${r.unknownTypes} 條關係的類型本工具不認得，已標成「其他」，原本的類型寫在備註裡。`);
+    if (r.unknownTypes) lines.push(`有 ${r.unknownTypes} 條關係的類型本工具不認得，已標成「其他」，原本的類型寫在那條線的線旁說明裡。`);
     if (r.genomaps > 1) lines.push(`原檔有 ${r.genomaps} 張 GenoMap，已並排在同一張畫布上。`);
     if (r.customFields.length) lines.push(`帶入的其他欄位：${r.customFields.join('、')}（可在左側「顯示設定」勾選是否顯示在圖上）。`);
     const s = r.skipped, miss = [];
@@ -1914,6 +1913,13 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     return { ps, kids, yLine, midX, legs, marriage, ySib };
   }
 
+  // 伴侶線上的同居記號與斜線放在哪裡（畫線與擺線旁說明共用，兩邊才不會各算各的）
+  function unionMarks(g, st) {
+    const [A, B] = g.ps, at = (r) => A.x + (B.x - A.x) * r, hasKids = g.kids.length > 0;
+    return { house: st.house ? at(hasKids ? 0.28 : st.slash ? 0.38 : 0.5) : null,
+             slash: st.slash ? at(st.house ? 0.72 : hasKids ? 0.3 : 0.5) : null };
+  }
+
   // 同居記號（參考圖的小房子）與斜線
   const houseMark = (x, y, color) =>
     `<path class="house" d="M${f(x - 6)},${f(y + 5)}V${f(y - 2)}L${f(x)},${f(y - 8)}L${f(x + 6)},${f(y - 2)}V${f(y + 5)}Z" fill="#FFFFFF" stroke="${color}" stroke-width="1.6" stroke-linejoin="round"/>`;
@@ -1943,11 +1949,9 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       out.push(`<path d="${g.legs}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="${dash}"/>`);
       const hz = (dy) => `<path d="M${f(A.x)},${f(y + dy)}H${f(B.x)}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="${dash}"/>`;
       out.push(st.double ? hz(-2.5) + hz(2.5) : hz(0));
-      // 記號位置：有子女時避開正中間的子女線
-      const at = (r) => A.x + (B.x - A.x) * r;
-      const hasKids = g.kids.length > 0;
-      if (st.house) out.push(houseMark(at(hasKids ? 0.28 : st.slash ? 0.38 : 0.5), y, color));
-      if (st.slash) out.push(slashMarks(at(st.house ? 0.72 : hasKids ? 0.3 : 0.5), y, st.slash, color, st.bold));
+      const m = unionMarks(g, st);                // 記號位置：有子女時避開正中間的子女線
+      if (m.house !== null) out.push(houseMark(m.house, y, color));
+      if (m.slash !== null) out.push(slashMarks(m.slash, y, st.slash, color, st.bold));
     }
     if (trunk) out.push(`<path d="${trunk}" fill="none" stroke="${ink}" stroke-width="2"/>`);
     const kidLine = (k) => {
@@ -2305,15 +2309,24 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     const n = String(note || '').trim();
     return [name, n].filter(Boolean).join('：');
   }
-  // 伴侶線：寫在橫線下方；有子女時靠子女線右側，避開線上的同居記號與斜線
+  // 伴侶線：寫在橫線下方（有子女時靠子女線右側）。線上的記號最低到線下 8px，字從線下 10px 起，不會重疊
   function unionLabel(doc, u, g) {
     if (!g || g.ps.length !== 2) return null;
     const text = lineLabelText(doc, GT.FAMILY_TYPES, u.type, u.note);
     if (!text) return null;
+    const base = { id: u.id, kind: 'union', text };
     const hasKids = g.kids.length > 0;
-    const below = !hasKids || g.ySib - g.yLine >= 28;       // 子女拉得太近，下方放不下 → 改寫在橫線上方
-    return { id: u.id, kind: 'union', text, anchor: hasKids ? 'start' : 'middle',
-             x: hasKids ? g.midX + 8 : g.midX, y: below ? g.yLine + 20 : g.yLine - 5 };
+    if (!hasKids || g.ySib - g.yLine >= 30)
+      return Object.assign(base, { anchor: hasKids ? 'start' : 'middle', x: hasKids ? g.midX + 8 : g.midX, y: g.yLine + 21 });
+    // 子女拉得很近、下方放不下 → 寫在橫線上方，左右挑一邊避開同居記號與斜線（審查 2026-09-21：原本會壓在斜線上）
+    const st = FAMILY_STYLE[u.type] || FAMILY_STYLE.Other, m = unionMarks(g, st), w = GT.textEm(text) * LINE_LABEL_PX;
+    const zones = [];
+    if (m.house !== null) zones.push([m.house - 10, m.house + 10]);
+    if (m.slash !== null) { const half = (st.slash - 1) * 3.5 + 9; zones.push([m.slash - half, m.slash + half]); }
+    const clear = (x1, x2) => zones.every(([a, b]) => x2 < a || x1 > b);
+    if (clear(g.midX + 8, g.midX + 8 + w)) return Object.assign(base, { anchor: 'start', x: g.midX + 8, y: g.yLine - 5 });
+    if (clear(g.midX - 8 - w, g.midX - 8)) return Object.assign(base, { anchor: 'end', x: g.midX - 8, y: g.yLine - 5 });
+    return Object.assign(base, { anchor: 'start', x: g.midX + 8, y: g.yLine - 13 });   // 兩邊都有記號：抬高到記號上方
   }
   // 情感關係：寫在線的中點旁（往上方那一側偏，垂直的線往右偏），避開中點的記號
   function relationLabel(doc, r) {
@@ -2332,7 +2345,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
   }
   function lineLabelBox(L) {
     const w = GT.textEm(L.text) * LINE_LABEL_PX;
-    const x1 = L.anchor === 'start' ? L.x : L.x - w / 2;
+    const x1 = L.anchor === 'start' ? L.x : L.anchor === 'end' ? L.x - w : L.x - w / 2;
     return { x1: x1 - 2, y1: L.y - 11, x2: x1 + w + 2, y2: L.y + 3 };
   }
   const lineLabelSVG = (L) => `<g class="linelabel" data-id="${esc(L.id)}" data-kind="${L.kind}">` +
@@ -2654,7 +2667,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
   }
 
   GT.render = { C, G, FONT, HALF, esc, renderWorld, exportSVG, bbox, unionGeometry, personBox, labelBox, sampleSVG, symbolSVG, itemsInRect, householdInterior,
-                tieGeometry, lineLabels, lineLabelBox, lineLabelText,
+                tieGeometry, lineLabels, lineLabelBox, lineLabelText, unionMarks,
                 viewMode, systemRadius, systemBox, familyNode, tieAnchor, edgePoint,
                 householdParts, householdIntruders, symExtent, symTop, symBottom,
                 FAMILY_STYLE, EMOTION_COLOR, BW_GRAY, CHILD_STYLE, INDEX_FILL, SUSPECT_FILL };
@@ -2892,6 +2905,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     'health:illrec': '疾病正在復原中。', 'health:subrec': '酒精或藥物濫用正在復原中。',
     'health:bothrec': '疾病與濫用都在復原中。', 'health:ill-subrec': '濫用在復原中，但仍有疾病。',
     'health:illrec-sub': '疾病在復原中，但仍有濫用。',
+    'cond:medical': '疾病別：顏色填在符號左上角那一格。', 'cond:addiction': '成癮類別：改符號外框的顏色。',
     // 家庭關係
     Marriage: '有法律上的婚姻關係。',
     Separation: '仍有婚姻關係，但已經分開生活（沒有經過法律程序）。',
@@ -3013,7 +3027,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
 (function (GT) {
   'use strict';
   const APP_VERSION = '0.4.0';
-  const BUILD = '2026-09-21 11:24';
+  const BUILD = '2026-09-21 11:51';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -3942,7 +3956,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
         [sym({ illness: 'active', substance: 'recovery' }), '濫用復原中，但有疾病', 'health:ill-subrec'],
         [sym({ illness: 'recovery', substance: 'active' }), '疾病復原中，但有濫用', 'health:illrec-sub'],
       ]) + '<h4 class="lh">疾病別（顏色填在左上角）與成癮（外框顏色）</h4>' + grid(GT.CONDITIONS.map(c =>
-        [sym(c.kind === 'medical' ? { illness: 'active', conditions: [c.key] } : { conditions: [c.key] }), c.label])) },
+        [sym(c.kind === 'medical' ? { illness: 'active', conditions: [c.key] } : { conditions: [c.key] }), c.label, 'cond:' + c.kind])) },
       { key: 'family', label: '家庭關係', html: special + byCat(GT.FAMILY_TYPES, GT.FAMILY_CATS, 'union') },
       { key: 'emotion', label: '情感關係', html: special + byCat(GT.EMOTION_TYPES, GT.EMOTION_CATS, 'relation') },
       { key: 'eco', label: '生態圖', html: grid([
@@ -4234,7 +4248,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       const tag = document.activeElement && document.activeElement.tagName;
       const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
       const mod = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
-      if (e.key === 'F1') { e.preventDefault(); openHelp(); return; }
+      if (e.key === 'F1') { e.preventDefault(); if (!$('dlg').open) openHelp(); return; }   // 對話框開著時不換掉它（審查 2026-09-21）
       if (mod && key === 's') { e.preventDefault(); act('SAVE', () => save(e.shiftKey)); return; }
       if (mod && key === 'o') { e.preventDefault(); act('OPEN', openFile); return; }
       if ($('dlg').open || typing) return;
@@ -4372,6 +4386,17 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       $('dlg').close();
       openLegend('family');
       checks.legenddesc = $('dlgBody').textContent.includes(GT.manual.LEGEND_DESC.SeparationLegal);
+      $('dlg').close();
+      // 回歸（審查 2026-09-21）：「管理欄位」開著時按 F1，不可以把它換掉（打到一半的字會無聲消失）
+      openFieldManager();
+      $('fmNew').value = '宗教';
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F1', code: 'F1', bubbles: true, cancelable: true }));
+      checks.f1dialog = !!$('fmNew') && $('fmNew').value === '宗教' && $('dlgTitle').textContent === '管理欄位';
+      $('dlg').close();
+      // 回歸（審查 2026-09-21）：使用說明的清單下方要有間距（新規則曾被後面的舊規則蓋掉）
+      openHelp('draw');
+      const helpUl = document.querySelector('#helpBody ul');
+      checks.helpcss = !!helpUl && getComputedStyle(helpUl).marginBottom === '8px';
       $('dlg').close();
       const blob = await pngBlob();
       const bad = Object.keys(checks).filter(k => !checks[k]);

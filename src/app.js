@@ -934,7 +934,7 @@
         [sym({ illness: 'active', substance: 'recovery' }), '濫用復原中，但有疾病', 'health:ill-subrec'],
         [sym({ illness: 'recovery', substance: 'active' }), '疾病復原中，但有濫用', 'health:illrec-sub'],
       ]) + '<h4 class="lh">疾病別（顏色填在左上角）與成癮（外框顏色）</h4>' + grid(GT.CONDITIONS.map(c =>
-        [sym(c.kind === 'medical' ? { illness: 'active', conditions: [c.key] } : { conditions: [c.key] }), c.label])) },
+        [sym(c.kind === 'medical' ? { illness: 'active', conditions: [c.key] } : { conditions: [c.key] }), c.label, 'cond:' + c.kind])) },
       { key: 'family', label: '家庭關係', html: special + byCat(GT.FAMILY_TYPES, GT.FAMILY_CATS, 'union') },
       { key: 'emotion', label: '情感關係', html: special + byCat(GT.EMOTION_TYPES, GT.EMOTION_CATS, 'relation') },
       { key: 'eco', label: '生態圖', html: grid([
@@ -1226,7 +1226,7 @@
       const tag = document.activeElement && document.activeElement.tagName;
       const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
       const mod = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
-      if (e.key === 'F1') { e.preventDefault(); openHelp(); return; }
+      if (e.key === 'F1') { e.preventDefault(); if (!$('dlg').open) openHelp(); return; }   // 對話框開著時不換掉它（審查 2026-09-21）
       if (mod && key === 's') { e.preventDefault(); act('SAVE', () => save(e.shiftKey)); return; }
       if (mod && key === 'o') { e.preventDefault(); act('OPEN', openFile); return; }
       if ($('dlg').open || typing) return;
@@ -1364,6 +1364,17 @@
       $('dlg').close();
       openLegend('family');
       checks.legenddesc = $('dlgBody').textContent.includes(GT.manual.LEGEND_DESC.SeparationLegal);
+      $('dlg').close();
+      // 回歸（審查 2026-09-21）：「管理欄位」開著時按 F1，不可以把它換掉（打到一半的字會無聲消失）
+      openFieldManager();
+      $('fmNew').value = '宗教';
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F1', code: 'F1', bubbles: true, cancelable: true }));
+      checks.f1dialog = !!$('fmNew') && $('fmNew').value === '宗教' && $('dlgTitle').textContent === '管理欄位';
+      $('dlg').close();
+      // 回歸（審查 2026-09-21）：使用說明的清單下方要有間距（新規則曾被後面的舊規則蓋掉）
+      openHelp('draw');
+      const helpUl = document.querySelector('#helpBody ul');
+      checks.helpcss = !!helpUl && getComputedStyle(helpUl).marginBottom === '8px';
       $('dlg').close();
       const blob = await pngBlob();
       const bad = Object.keys(checks).filter(k => !checks[k]);

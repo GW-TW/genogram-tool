@@ -249,6 +249,13 @@
     return { ps, kids, yLine, midX, legs, marriage, ySib };
   }
 
+  // 伴侶線上的同居記號與斜線放在哪裡（畫線與擺線旁說明共用，兩邊才不會各算各的）
+  function unionMarks(g, st) {
+    const [A, B] = g.ps, at = (r) => A.x + (B.x - A.x) * r, hasKids = g.kids.length > 0;
+    return { house: st.house ? at(hasKids ? 0.28 : st.slash ? 0.38 : 0.5) : null,
+             slash: st.slash ? at(st.house ? 0.72 : hasKids ? 0.3 : 0.5) : null };
+  }
+
   // 同居記號（參考圖的小房子）與斜線
   const houseMark = (x, y, color) =>
     `<path class="house" d="M${f(x - 6)},${f(y + 5)}V${f(y - 2)}L${f(x)},${f(y - 8)}L${f(x + 6)},${f(y - 2)}V${f(y + 5)}Z" fill="#FFFFFF" stroke="${color}" stroke-width="1.6" stroke-linejoin="round"/>`;
@@ -278,11 +285,9 @@
       out.push(`<path d="${g.legs}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="${dash}"/>`);
       const hz = (dy) => `<path d="M${f(A.x)},${f(y + dy)}H${f(B.x)}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="${dash}"/>`;
       out.push(st.double ? hz(-2.5) + hz(2.5) : hz(0));
-      // 記號位置：有子女時避開正中間的子女線
-      const at = (r) => A.x + (B.x - A.x) * r;
-      const hasKids = g.kids.length > 0;
-      if (st.house) out.push(houseMark(at(hasKids ? 0.28 : st.slash ? 0.38 : 0.5), y, color));
-      if (st.slash) out.push(slashMarks(at(st.house ? 0.72 : hasKids ? 0.3 : 0.5), y, st.slash, color, st.bold));
+      const m = unionMarks(g, st);                // 記號位置：有子女時避開正中間的子女線
+      if (m.house !== null) out.push(houseMark(m.house, y, color));
+      if (m.slash !== null) out.push(slashMarks(m.slash, y, st.slash, color, st.bold));
     }
     if (trunk) out.push(`<path d="${trunk}" fill="none" stroke="${ink}" stroke-width="2"/>`);
     const kidLine = (k) => {
@@ -640,15 +645,24 @@
     const n = String(note || '').trim();
     return [name, n].filter(Boolean).join('：');
   }
-  // 伴侶線：寫在橫線下方；有子女時靠子女線右側，避開線上的同居記號與斜線
+  // 伴侶線：寫在橫線下方（有子女時靠子女線右側）。線上的記號最低到線下 8px，字從線下 10px 起，不會重疊
   function unionLabel(doc, u, g) {
     if (!g || g.ps.length !== 2) return null;
     const text = lineLabelText(doc, GT.FAMILY_TYPES, u.type, u.note);
     if (!text) return null;
+    const base = { id: u.id, kind: 'union', text };
     const hasKids = g.kids.length > 0;
-    const below = !hasKids || g.ySib - g.yLine >= 28;       // 子女拉得太近，下方放不下 → 改寫在橫線上方
-    return { id: u.id, kind: 'union', text, anchor: hasKids ? 'start' : 'middle',
-             x: hasKids ? g.midX + 8 : g.midX, y: below ? g.yLine + 20 : g.yLine - 5 };
+    if (!hasKids || g.ySib - g.yLine >= 30)
+      return Object.assign(base, { anchor: hasKids ? 'start' : 'middle', x: hasKids ? g.midX + 8 : g.midX, y: g.yLine + 21 });
+    // 子女拉得很近、下方放不下 → 寫在橫線上方，左右挑一邊避開同居記號與斜線（審查 2026-09-21：原本會壓在斜線上）
+    const st = FAMILY_STYLE[u.type] || FAMILY_STYLE.Other, m = unionMarks(g, st), w = GT.textEm(text) * LINE_LABEL_PX;
+    const zones = [];
+    if (m.house !== null) zones.push([m.house - 10, m.house + 10]);
+    if (m.slash !== null) { const half = (st.slash - 1) * 3.5 + 9; zones.push([m.slash - half, m.slash + half]); }
+    const clear = (x1, x2) => zones.every(([a, b]) => x2 < a || x1 > b);
+    if (clear(g.midX + 8, g.midX + 8 + w)) return Object.assign(base, { anchor: 'start', x: g.midX + 8, y: g.yLine - 5 });
+    if (clear(g.midX - 8 - w, g.midX - 8)) return Object.assign(base, { anchor: 'end', x: g.midX - 8, y: g.yLine - 5 });
+    return Object.assign(base, { anchor: 'start', x: g.midX + 8, y: g.yLine - 13 });   // 兩邊都有記號：抬高到記號上方
   }
   // 情感關係：寫在線的中點旁（往上方那一側偏，垂直的線往右偏），避開中點的記號
   function relationLabel(doc, r) {
@@ -667,7 +681,7 @@
   }
   function lineLabelBox(L) {
     const w = GT.textEm(L.text) * LINE_LABEL_PX;
-    const x1 = L.anchor === 'start' ? L.x : L.x - w / 2;
+    const x1 = L.anchor === 'start' ? L.x : L.anchor === 'end' ? L.x - w : L.x - w / 2;
     return { x1: x1 - 2, y1: L.y - 11, x2: x1 + w + 2, y2: L.y + 3 };
   }
   const lineLabelSVG = (L) => `<g class="linelabel" data-id="${esc(L.id)}" data-kind="${L.kind}">` +
@@ -989,7 +1003,7 @@
   }
 
   GT.render = { C, G, FONT, HALF, esc, renderWorld, exportSVG, bbox, unionGeometry, personBox, labelBox, sampleSVG, symbolSVG, itemsInRect, householdInterior,
-                tieGeometry, lineLabels, lineLabelBox, lineLabelText,
+                tieGeometry, lineLabels, lineLabelBox, lineLabelText, unionMarks,
                 viewMode, systemRadius, systemBox, familyNode, tieAnchor, edgePoint,
                 householdParts, householdIntruders, symExtent, symTop, symBottom,
                 FAMILY_STYLE, EMOTION_COLOR, BW_GRAY, CHILD_STYLE, INDEX_FILL, SUSPECT_FILL };

@@ -45,3 +45,9 @@ T.test('圖例說明：選單裡的每一種線條、每一種符號都有說明
   T.ok(Object.values(D).every(v => typeof v === 'string' && v.length >= 3 && v.length <= 60), '每條說明都是一句話（3～60 字）');
   T.ok(GT.EMOTION_TYPES.filter(t => t.dir).every(t => D[t.key].includes('箭頭')), '有方向的線，說明都有講箭頭指向誰');
 });
+
+T.test('回歸：圖例的疾病別、成癮類別那幾列也有說明（審查 2026-09-21）', () => {
+  const D = GT.manual.LEGEND_DESC;
+  T.ok(D['cond:medical'] && D['cond:addiction'], '疾病別與成癮類別都有說明');
+  T.ok(GT.CONDITIONS.every(c => D['cond:' + c.kind]), '每一種疾病別、成癮類別都對得到說明');
+});

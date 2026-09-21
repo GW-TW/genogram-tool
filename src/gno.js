@@ -312,7 +312,7 @@
       // 沒寫關係＝GenoPro 預設的結婚；寫了但不認得 → 「其他」並計入報告
       const type = !rel ? 'Marriage' : isFamilyType(rel) ? rel : 'Other';
       if (rel && !isFamilyType(rel)) report.unknownTypes++;
-      famMap[gid] = { partners: [], children: [], type };
+      famMap[gid] = { partners: [], children: [], type, note: rel && !isFamilyType(rel) ? rel.slice(0, 60) : '' };
     }
     for (const pl of kids(kid(root, 'PedigreeLinks'), 'PedigreeLink')) {
       const f = famMap[pl.getAttribute('Family')], pid = idMap[pl.getAttribute('Individual')];
@@ -327,7 +327,7 @@
       if (f.partners.length === 1 && !f.children.length) continue;
       const id = GT.newId(doc, 'u');
       f.partners.sort((a, b) => doc.persons[a].x - doc.persons[b].x);
-      doc.unions[id] = { id, partners: f.partners, children: f.children, type: f.type, twins: [], note: '' };
+      doc.unions[id] = { id, partners: f.partners, children: f.children, type: f.type, twins: [], note: f.note };
     }
     report.unions = Object.keys(doc.unions).length;
 
@@ -402,7 +402,7 @@
   function describeReport(r) {
     const lines = [`已匯入 ${r.persons} 人、${r.unions} 段伴侶／親子關係、${r.relations} 條情感關係` +
       (r.twins ? `、${r.twins} 組雙胞胎` : '') + (r.labels ? `、${r.labels} 個文字說明` : '') + '。'];
-    if (r.unknownTypes) lines.push(`有 ${r.unknownTypes} 條關係的類型本工具不認得，已標成「其他」，原本的類型寫在備註裡。`);
+    if (r.unknownTypes) lines.push(`有 ${r.unknownTypes} 條關係的類型本工具不認得，已標成「其他」，原本的類型寫在那條線的線旁說明裡。`);
     if (r.genomaps > 1) lines.push(`原檔有 ${r.genomaps} 張 GenoMap，已並排在同一張畫布上。`);
     if (r.customFields.length) lines.push(`帶入的其他欄位：${r.customFields.join('、')}（可在左側「顯示設定」勾選是否顯示在圖上）。`);
     const s = r.skipped, miss = [];

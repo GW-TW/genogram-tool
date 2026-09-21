@@ -262,7 +262,7 @@
   function newDoc(now) {
     return {
       format: FORMAT, version: VERSION,
-      meta: { title: '', assessDate: todayISO(now) },
+      meta: { title: '', assessDate: todayISO(now), caseNo: '', created: todayISO(now) },   // created＝建立日期，之後不變
       settings: {
         fields: DEFAULT_FIELDS.map(f => ({ key: f.key, label: f.label, show: f.show })),
         labelMode: 'value',     // value＝只顯示內容；labelled＝「欄位名：內容」
@@ -275,6 +275,14 @@
       systems: {}, ties: {},    // 生態圖：外部系統（資源）與生態連結
       seq: 0,
     };
+  }
+
+  // 預設檔名：個案編號_家系生態圖_建立日期（使用者 2026-09-21 決定）。
+  // 隱私規則「預設檔名不放姓名」：只用個案編號，案主姓名與標題都不進檔名
+  function defaultFileName(doc, ext) {
+    const m = doc.meta || {};
+    const parts = [String(m.caseNo || '').trim(), '家系生態圖', m.created || m.assessDate || todayISO()].filter(Boolean);
+    return parts.join('_').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').slice(0, 80) + (ext || '');
   }
 
   function newId(doc, prefix) {
@@ -711,6 +719,8 @@
     const m = raw.meta || {};
     doc.meta.title = str(m.title, 100);
     if (parseDate(m.assessDate)) doc.meta.assessDate = str(m.assessDate, 20);
+    doc.meta.caseNo = str(m.caseNo, 40).trim();
+    doc.meta.created = parseDate(m.created) ? str(m.created, 20) : '';   // 舊檔沒有建立日期就留空，不自己編
 
     const s = raw.settings || {};
     if (Array.isArray(s.fields)) {
@@ -857,7 +867,7 @@
     FAMILY_CATS, FAMILY_TYPES, CHILD_LINKS, TWIN_KINDS, EMOTION_CATS, EMOTION_TYPES, GENDERS, DEFAULT_FIELDS,
     LIFE_STATES, CULTURES, ILLNESS, SUBSTANCE, CONDITIONS, V1_UNION, V1_RELATION,
     SYSTEM_CATS, SYSTEM_PRESETS, TIE_STRENGTHS, TIE_DIRS, VIEW_MODES,
-    labelOf, clone, snap, todayISO,
+    labelOf, clone, snap, todayISO, defaultFileName,
     newDoc, newId, parseDate, formatDate, yearsBetween, ageOf,
     charEm, textEm, wrapText, labelLines, LABEL_WRAP_EM, suggestionsFor,
     addField, renameField, fieldUsage, removeField, moveField,

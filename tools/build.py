@@ -48,6 +48,10 @@ def main() -> int:
         js = lf(path.read_text(encoding="utf-8")).replace("__BUILD__", stamp)
         if "</script" in js.lower():
             raise SystemExit(f"{name} 內含 </script，無法內嵌。")
+        # 原始碼不得含控制字元（2026-09-21：寫檔工具曾把跳脫序列變成真的 NUL 字元混進檔案）
+        bad = sorted({ord(ch) for ch in js if ord(ch) < 32 and ord(ch) not in (9, 10, 13)})
+        if bad:
+            raise SystemExit(f"{name} 含有控制字元（字碼 {bad}），請改寫成跳脫序列。")
         body = "\n" + js + "\n"
         digest = base64.b64encode(hashlib.sha256(body.encode("utf-8")).digest()).decode("ascii")
         hashes.append(f"'sha256-{digest}'")

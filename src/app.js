@@ -4,7 +4,7 @@
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.5.0';
+  const APP_VERSION = '0.6.0';
   const BUILD = '__BUILD__';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
@@ -703,8 +703,11 @@
     const dateVal = pd && pd.m && pd.d ? GT.formatDate(pd) : '';
     P.innerHTML = `
     <section class="card"><h3><span class="badge">i</span>這張家系圖</h3>
-      <label class="field">標題（選填；匯出檔名會用到）</label>
-      <input type="text" data-meta="title" value="${esc(m.title)}" maxlength="100" placeholder="例：個案 A 家系圖">
+      <label class="field">個案編號（選填；存檔的預設檔名會用到）</label>
+      <input type="text" data-meta="caseNo" value="${esc(m.caseNo || '')}" maxlength="40" placeholder="例：A113-0921">
+      <p class="hint-text" id="fileHint">預設檔名：${esc(GT.defaultFileName(state.doc, '.json'))}（不會放姓名）</p>
+      <label class="field">標題（選填，給自己辨認用）</label>
+      <input type="text" data-meta="title" value="${esc(m.title)}" maxlength="100" placeholder="例：第一次家訪">
       <label class="field">評估日期</label>
       <input type="date" id="assessDate" value="${esc(dateVal)}">
       <p class="hint-text">圖上的年齡以這個日期計算。兩年後重開這個檔，年齡仍會跟當時的紀錄一致。</p>
@@ -720,6 +723,8 @@
       </ul>
     </section>`;
     bindLive(P.querySelector('[data-meta=title]'), (d, v) => { d.meta.title = v.slice(0, 100); });
+    bindLive(P.querySelector('[data-meta=caseNo]'), (d, v) => { d.meta.caseNo = v.slice(0, 40); },
+             () => { $('fileHint').textContent = `預設檔名：${GT.defaultFileName(state.doc, '.json')}（不會放姓名）`; });
     $('assessDate').addEventListener('change', (e) => {
       if (!GT.parseDate(e.target.value)) { e.target.value = dateVal; return; }
       mutate(d => { d.meta.assessDate = e.target.value; }, { keepPanel: true });
@@ -1026,12 +1031,7 @@
     } else { $('fileInput').value = ''; $('fileInput').click(); }
   }
 
-  function suggestName(ext) {
-    const base = state.doc.meta.title.trim()
-      || state.fileName.replace(/\.json$/i, '').trim()
-      || `家系圖_${state.doc.meta.assessDate}`;
-    return base.replace(/[\\/:*?"<>|]/g, '_').slice(0, 80) + ext;
-  }
+  const suggestName = (ext) => GT.defaultFileName(state.doc, ext);   // 個案編號_家系生態圖_建立日期（不放姓名）
   async function writeHandle(h, data) { const w = await h.createWritable(); await w.write(data); await w.close(); }
   function download(blob, name) {
     const a = document.createElement('a');
@@ -1364,6 +1364,12 @@
       await loadFile(new File(['<GenoPro></GenoPro>'], '舊個案.gno'), null);
       checks.gnorefused = JSON.stringify(state.doc) === beforeGno &&
                           [...document.querySelectorAll('.toast')].some(t => t.textContent.includes('不支援 GenoPro'));
+      // 預設檔名：個案編號_家系生態圖_建立日期（使用者 2026-09-21）；面板即時顯示，檔名不放姓名
+      select([]);
+      const caseInput = document.querySelector('#props [data-meta=caseNo]');
+      caseInput.value = 'A001'; caseInput.dispatchEvent(new Event('input'));
+      checks.filename = state.doc.meta.caseNo === 'A001' && $('fileHint').textContent.includes('A001_家系生態圖_') &&
+                        suggestName('.png').startsWith('A001_家系生態圖_') && !suggestName('.json').includes('測試甲');
       const blob = await pngBlob();
       const bad = Object.keys(checks).filter(k => !checks[k]);
       document.body.dataset.selftest = `${bad.length ? 'fail-' + bad.join('-') : 'ok'}:${Object.keys(state.doc.persons).length}:${blob.size}`;

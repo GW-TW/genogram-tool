@@ -237,7 +237,24 @@ def run_smoke() -> bool:
     return ok
 
 
+def control_chars() -> list:
+    """原始碼與測試檔不得含控制字元（2026-09-21：寫檔工具曾把跳脫序列變成真的 NUL 字元混進檔案）。"""
+    found = []
+    for p in sorted(list((ROOT / "src").glob("*")) + list((ROOT / "tests").glob("*"))):
+        if p.suffix not in (".js", ".html", ".css") or ".bak-" in p.name:
+            continue
+        text = p.read_text(encoding="utf-8")
+        bad = sorted({ord(ch) for ch in text if ord(ch) < 32 and ord(ch) not in (9, 10, 13)})
+        if bad:
+            found.append(f"{p.relative_to(ROOT)}（字碼 {bad}）")
+    return found
+
+
 def main() -> int:
+    bad = control_chars()
+    if bad:
+        print("❌ 檔案裡有控制字元，請改寫成跳脫序列：" + "、".join(bad))
+        return 1
     if not browsers():
         print("找不到 Edge 或 Chrome，無法執行測試（可設定環境變數 EDGE_PATH）。")
         return 2

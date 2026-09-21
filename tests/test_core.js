@@ -524,3 +524,29 @@ T.test('線旁說明：伴侶線的說明與顯示設定跟著存檔（2026-09-2
   T.eq(GT.normalizeDoc({ format: 'genogram-tool', version: 3, persons: {} }).doc.settings.lineLabels, true, '舊檔沒有這個設定 → 預設顯示');
   T.ok(GT.isSpecialLine('SeparationLegal') && !GT.isSpecialLine('Marriage') && !GT.isSpecialLine('Harmony'), '基本線條與特殊線條的分類');
 });
+
+/* ── 預設檔名（2026-09-21）── */
+
+T.test('預設檔名：個案編號_家系生態圖_建立日期，絕不放姓名（使用者 2026-09-21；隱私規則）', () => {
+  const d = GT.newDoc(new Date(2026, 8, 21));
+  T.eq(d.meta.created, '2026-09-21', '新文件記下建立日期');
+  T.eq(d.meta.caseNo, '', '個案編號預設空白');
+  T.eq(GT.defaultFileName(d, '.json'), '家系生態圖_2026-09-21.json', '沒填個案編號：家系生態圖_建立日期');
+  d.meta.caseNo = 'A113-0921';
+  T.eq(GT.defaultFileName(d, '.png'), 'A113-0921_家系生態圖_2026-09-21.png', '有個案編號：個案編號_家系生態圖_建立日期');
+  const p = GT.addPerson(d, { gender: 'M', x: 0, y: 0 });
+  d.persons[p].name = '王小明'; d.persons[p].index = true; d.meta.title = '王小明的家';
+  T.ok(!GT.defaultFileName(d, '.json').includes('王小明'), '案主姓名、標題都不會進檔名');
+  d.meta.caseNo = 'A/1:2*3\\4';
+  T.ok(!/[\\/:*?"<>|]/.test(GT.defaultFileName(d, '').replace(/_/g, '')), '檔名不合法的字元（含反斜線）都換成底線');
+  d.meta.caseNo = 'A1\u0000B\u001fC';
+  T.eq(GT.defaultFileName(d, ''), 'A1_B_C_家系生態圖_2026-09-21', '控制字元也換成底線');
+  d.meta.caseNo = 'A113-0921';
+  d.meta.assessDate = '2026-10-01';
+  T.ok(GT.defaultFileName(d, '.json').includes('2026-09-21'), '改評估日期不影響檔名（用的是建立日期）');
+  const back = GT.normalizeDoc(JSON.parse(GT.serialize(d))).doc;
+  T.eq([back.meta.caseNo, back.meta.created], ['A113-0921', '2026-09-21'], '個案編號與建立日期存檔讀回不變');
+  const old = GT.normalizeDoc({ format: 'genogram-tool', version: 3, meta: { assessDate: '2025-01-02' } }).doc;
+  T.eq(old.meta.created, '', '舊檔沒有建立日期就留空，不自己編');
+  T.eq(GT.defaultFileName(old, '.json'), '家系生態圖_2025-01-02.json', '舊檔改用評估日期');
+});

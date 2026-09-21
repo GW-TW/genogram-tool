@@ -629,6 +629,57 @@
     return out.join('');
   }
 
+  /* ── 線旁說明（使用者 2026-09-21）──
+     比較特殊、一般人看不出意思的線（GT.isSpecialLine），自動在線旁寫出名稱；使用者寫的「線旁說明」一律顯示。
+     畫在人物之上的獨立一層，不會被標籤蓋住；點字也等於點那條線。 */
+  const LINE_LABEL_PX = 11;
+  function lineLabelText(doc, types, type, note) {
+    if (doc.settings.lineLabels === false) return '';
+    const t = types.find(x => x.key === type);
+    const name = t && GT.isSpecialLine(type) ? t.label : '';
+    const n = String(note || '').trim();
+    return [name, n].filter(Boolean).join('：');
+  }
+  // 伴侶線：寫在橫線下方；有子女時靠子女線右側，避開線上的同居記號與斜線
+  function unionLabel(doc, u, g) {
+    if (!g || g.ps.length !== 2) return null;
+    const text = lineLabelText(doc, GT.FAMILY_TYPES, u.type, u.note);
+    if (!text) return null;
+    const hasKids = g.kids.length > 0;
+    const below = !hasKids || g.ySib - g.yLine >= 28;       // 子女拉得太近，下方放不下 → 改寫在橫線上方
+    return { id: u.id, kind: 'union', text, anchor: hasKids ? 'start' : 'middle',
+             x: hasKids ? g.midX + 8 : g.midX, y: below ? g.yLine + 20 : g.yLine - 5 };
+  }
+  // 情感關係：寫在線的中點旁（往上方那一側偏，垂直的線往右偏），避開中點的記號
+  function relationLabel(doc, r) {
+    const text = lineLabelText(doc, GT.EMOTION_TYPES, r.type, r.note);
+    if (!text) return null;
+    const A = doc.persons[r.a], B = doc.persons[r.b];
+    if (!A || !B) return null;
+    const { pts } = relationTrack(doc, A, B);
+    if (pts.length < 2) return null;
+    const tk = trackInfo(pts);
+    if (tk.L < 12) return null;
+    const m = tk.at(tk.L / 2);
+    let nx = m.nx, ny = m.ny;
+    if (ny > 0.2 || (Math.abs(ny) <= 0.2 && nx < 0)) { nx = -nx; ny = -ny; }
+    return { id: r.id, kind: 'relation', text, anchor: 'middle', x: m.x + nx * 17, y: m.y + ny * 17 + 4 };
+  }
+  function lineLabelBox(L) {
+    const w = GT.textEm(L.text) * LINE_LABEL_PX;
+    const x1 = L.anchor === 'start' ? L.x : L.x - w / 2;
+    return { x1: x1 - 2, y1: L.y - 11, x2: x1 + w + 2, y2: L.y + 3 };
+  }
+  const lineLabelSVG = (L) => `<g class="linelabel" data-id="${esc(L.id)}" data-kind="${L.kind}">` +
+    `<text x="${f(L.x)}" y="${f(L.y)}" text-anchor="${L.anchor}" font-size="${LINE_LABEL_PX}" fill="${C.INK_SOFT}" ` +
+    `stroke="${C.WHITE}" stroke-width="3.5" stroke-linejoin="round" paint-order="stroke">${esc(L.text)}</text></g>`;
+  function lineLabels(doc) {
+    const out = [];
+    for (const u of Object.values(doc.unions)) { const L = unionLabel(doc, u, unionGeometry(doc, u)); if (L) out.push(L); }
+    for (const r of Object.values(doc.relations)) { const L = relationLabel(doc, r); if (L) out.push(L); }
+    return out;
+  }
+
   /* ── 生態圖：外部系統（資源）與生態連結 ──
      畫法依社工慣例：資源畫圓、名稱寫在圓裡；強＝雙線、弱＝虛線、有壓力＝鋸齒線、箭頭＝資源或能量的流向。
      線停在生活圈的界線＝連到整個家庭；穿進去連到人＝連到那個人（參考圖：家庭界線幫你分辨）。 */
@@ -782,6 +833,7 @@
       for (const u of Object.values(doc.unions)) parts.push(unionMarkup(doc, u, o));
       for (const r of Object.values(doc.relations)) parts.push(relationMarkup(doc, r, o));
       for (const p of Object.values(doc.persons)) parts.push(personMarkup(doc, p, o));
+      for (const L of lineLabels(doc)) parts.push(lineLabelSVG(L));                   // 線旁說明在人物之上
     } else {                                      // 生態圖：整張家系圖收成一個「家庭」圓
       for (const t of Object.values(doc.ties)) parts.push(tieMarkup(doc, t, o));
       parts.push(familyMarkup(doc, o));
@@ -819,6 +871,7 @@
       return { x: x0, y: y0, w: Math.max(...xs) - x0, h: Math.max(...ys) - y0 };
     }
     if (mode !== 'genogram') { for (const y of Object.values(doc.systems)) add(systemBox(y)); addTies(doc, add, mode); }
+    for (const L of lineLabels(doc)) add(lineLabelBox(L));                          // 線旁說明也要包進匯出範圍
     for (const p of Object.values(doc.persons)) add(personBox(doc, p));
     for (const h of Object.values(doc.households)) householdParts(doc, h).forEach(r => add({ x1: r.x1 - 4, y1: r.y1 - 4, x2: r.x2 + 4, y2: r.y2 + 4 }));
     for (const t of Object.values(doc.labels)) {
@@ -936,7 +989,7 @@
   }
 
   GT.render = { C, G, FONT, HALF, esc, renderWorld, exportSVG, bbox, unionGeometry, personBox, labelBox, sampleSVG, symbolSVG, itemsInRect, householdInterior,
-                tieGeometry,
+                tieGeometry, lineLabels, lineLabelBox, lineLabelText,
                 viewMode, systemRadius, systemBox, familyNode, tieAnchor, edgePoint,
                 householdParts, householdIntruders, symExtent, symTop, symBottom,
                 FAMILY_STYLE, EMOTION_COLOR, BW_GRAY, CHILD_STYLE, INDEX_FILL, SUSPECT_FILL };

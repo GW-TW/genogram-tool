@@ -520,3 +520,45 @@ T.test('資源名稱留空時，圖上顯示「資源」', () => {
   T.eq(d.systems[s].name, '', '資料裡存空字串');
   T.ok(groupOf(GT.render.renderWorld(d, {}), s).includes('資源'), '畫的時候顯示「資源」');
 });
+
+/* ── 線旁說明（2026-09-21）── */
+
+T.test('線旁說明：特殊線條自動標名稱，基本線條不標；使用者寫的說明一律顯示（使用者 2026-09-21）', () => {
+  const d = GT.newDoc();
+  const a = GT.addPerson(d, { gender: 'M', x: 0, y: 0 }), b = GT.addPerson(d, { gender: 'F', x: 200, y: 0 });
+  const u = GT.linkPartners(d, a, b);
+  const r = GT.addRelation(d, a, b, 'Harmony');
+  const labels = () => GT.render.lineLabels(d).map(L => L.text);
+  T.eq(labels(), [], '基本線條（結婚、和諧相處）沒寫說明就不標');
+  d.unions[u].type = 'SeparationLegal';
+  T.eq(labels(), ['合法分居'], '特殊的伴侶線自動標名稱');
+  d.relations[r].type = 'AbusePhysical';
+  T.ok(labels().includes('身體虐待'), '特殊的情感關係也自動標名稱');
+  d.unions[u].type = 'Marriage'; d.unions[u].note = '1990 結婚';
+  T.ok(labels().includes('1990 結婚'), '基本線條寫了說明也會顯示');
+  d.unions[u].type = 'Nullity';
+  T.ok(labels().includes('婚姻無效：1990 結婚'), '特殊線條＋說明＝「名稱：說明」');
+  const svg = GT.render.renderWorld(d, {});
+  T.ok(svg.includes('婚姻無效：1990 結婚'), '畫在圖上');
+  T.ok(svg.includes(`class="linelabel" data-id="${u}" data-kind="union"`), '點字等於點那條伴侶線');
+  T.ok(svg.indexOf('class="linelabel"') > svg.lastIndexOf('data-kind="person"'), '畫在人物之上，不會被標籤蓋住');
+  d.unions[u].note = '<img src=x onerror=alert(1)>';
+  T.ok(!GT.render.renderWorld(d, {}).includes('<img'), '線旁說明有跳脫（XSS 守衛）');
+  d.settings.lineLabels = false;
+  T.eq(labels(), [], '顯示設定關掉就全部不標');
+  T.ok(!GT.render.renderWorld(d, {}).includes('class="linelabel"'), '關掉後圖上沒有線旁說明');
+  d.settings.lineLabels = true;
+  d.settings.view = 'ecomap';
+  T.ok(!GT.render.renderWorld(d, {}).includes('class="linelabel"'), '生態圖模式（家庭收成一個圓）不畫家系圖的線旁說明');
+  d.settings.view = 'both';
+});
+
+T.test('回歸：線旁說明要包進匯出範圍（依 2026-09-20 教訓：新增看得見的元素要同步更新圖的範圍）', () => {
+  const d = GT.newDoc();
+  const a = GT.addPerson(d, { gender: 'M', x: 0, y: 0 }), b = GT.addPerson(d, { gender: 'F', x: 100, y: 0 });
+  const u = GT.linkPartners(d, a, b, 'LegalCohabitationAndLegalSeparation');
+  d.unions[u].note = '2010 同居、2018 分開，目前各自住，孩子由母親照顧';
+  const L = GT.render.lineLabels(d)[0], box = GT.render.lineLabelBox(L), bb = GT.render.bbox(d);
+  T.ok(box.x2 - box.x1 > 200, '前提：這段說明比兩個人還寬');
+  T.ok(bb.x <= box.x1 && bb.x + bb.w >= box.x2 && bb.y + bb.h >= box.y2, '圖的範圍包得住線旁說明（匯出不會裁掉）');
+});

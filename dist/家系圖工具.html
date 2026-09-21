@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-1TFqK43tBy+VOzA7ofdJGbulBAtAFu4Wh/ZRezUZB/o=' 'sha256-S9K9C364DsheMVynzMDxZH7V/Jj8z0xsbkxHZTgLl4E=' 'sha256-i/1GOyY3kaK2EFdFJJPArnsPDkNs7CHai1G3TgOoxx8=' 'sha256-7Nt7HsT4/wGc2SCKz+/6IitwbhVBDu+VZndcw0f/LKI='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-zUiN64RI64IRddQZqEOH9SJjEJ3YMCPzohlaozTCAtU=' 'sha256-MnzcFftjSLS4kihaYeBZwuK3udqlHIPc3xE4R0sg5l4=' 'sha256-uvAFAByETn3xIZTqMHSo7N4smVSHKjR6qnDXcFlhsG0=' 'sha256-1SSADl2NgIyHkxgpEagrKsXZRFca8OjviBv8oNTgBJo=' 'sha256-Tj+NJE8B76ZMjMjJTZ5qKmYFhO+TDg4PTnMJdo0n1EU='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>家系圖工具</title>
 <style>
@@ -169,7 +169,13 @@ dialog .df { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 1
 .fieldrow .n { font-size: 12px; color: var(--ink-soft); text-align: right; }
 .fieldrow .ops { display: flex; gap: 3px; }
 .fieldrow .ops button { padding: 3px 6px; }
-.help h4 { margin: 12px 0 4px; color: var(--brand-deep); }
+dialog.wide { width: min(780px, 94vw); }
+.help h4 { margin: 14px 0 6px; color: var(--brand-deep); }
+.help p { margin: 0 0 8px; }
+.help ol { margin: 0 0 8px; padding-left: 22px; }
+.help ul { margin: 0 0 8px; }
+.help .tip { background: var(--warn-bg); border-left: 4px solid var(--warn); border-radius: 4px; padding: 6px 10px; margin: 8px 0; }
+.legend .desc { font-size: 12px; color: var(--ink-soft); line-height: 1.5; margin-top: 1px; }
 .help ul { margin: 0; padding-left: 20px; }
 .help kbd { background: var(--field); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: 12px; }
 .legend { display: grid; grid-template-columns: 64px 1fr; gap: 4px 10px; align-items: center; font-size: 13px; }
@@ -238,7 +244,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     <button id="btnPng" title="存成高解析 PNG 圖檔">匯出 PNG</button>
     <button id="btnSvg" title="存成向量 SVG 圖檔（放大不失真）">匯出 SVG</button>
     <span class="sep"></span>
-    <button id="btnHelp">使用說明</button>
+    <button id="btnHelp" title="使用說明與圖例說明（F1）">使用說明</button>
   </nav>
 </header>
 
@@ -276,7 +282,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       <button id="relTypeBtn" class="typebtn" title="選擇類型：先選大類，再選線條"></button>
       <div class="stack" style="margin-top:6px">
         <button id="btnRelation" class="secondary">從選取的人拉線…</button>
-        <button id="btnLegend" class="link">看圖例（符號與線條）</button>
+        <button id="btnLegend" class="link">看圖例說明（符號與線條）</button>
       </div>
     </section>
 
@@ -308,6 +314,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       <label class="check"><input type="radio" name="labelMode" value="value">只顯示內容（例：工人）</label>
       <label class="check"><input type="radio" name="labelMode" value="labelled">欄位名＋內容（例：職業：工人）</label>
       <label class="check" style="margin-top:8px"><input type="checkbox" id="optColor">情感關係線用彩色</label>
+      <label class="check"><input type="checkbox" id="optLineLabels">線旁說明（特殊線條標名稱）</label>
       <button id="btnFields" style="margin-top:8px;width:100%">管理欄位（新增／改名／刪除）…</button>
     </section>
   </aside>
@@ -513,6 +520,12 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     { key: 'Alzheimer',    label: '失智症',   color: '#1565C0', kind: 'medical' },
   ];
 
+  // 線旁說明（使用者 2026-09-21）：比較特殊、一般人看不出意思的線，要在線旁標出用途。
+  // 這些是大家都認得的基本線條，不自動標；其他類型都自動標名稱。使用者寫的線旁說明一律顯示。
+  const BASIC_LINE_TYPES = new Set(['Marriage', 'Separation', 'Divorce', 'Engagement', 'Cohabitation',
+    'Harmony', 'Friendship', 'Distant', 'Cutoff', 'Discord', 'Hostile', 'Violence', 'Plain']);
+  const isSpecialLine = (type) => !BASIC_LINE_TYPES.has(type);
+
   // ── 生態圖（v3）：外部系統（資源）與生態連結 ──
   // 畫法依社工慣例：強＝雙線、弱＝虛線、有壓力＝鋸齒線、箭頭＝資源或能量的流向
   const SYSTEM_CATS = [
@@ -617,6 +630,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
         showYears: false,       // 圖上顯示生卒年
         colorRelations: true,   // 情感關係線彩色（關掉＝黑白列印友善）
         view: 'both',           // 顯示模式（VIEW_MODES）：只看家系圖／家系圖＋生態圖／生態圖
+        lineLabels: true,       // 線旁說明：特殊線條標名稱＋顯示使用者寫的說明
       },
       persons: {}, unions: {}, relations: {}, households: {}, labels: {},
       systems: {}, ties: {},    // 生態圖：外部系統（資源）與生態連結
@@ -823,7 +837,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     if (ex) return ex.id;
     const id = newId(doc, 'u');
     const [l, r] = doc.persons[a].x <= doc.persons[b].x ? [a, b] : [b, a];
-    doc.unions[id] = { id, partners: [l, r], type: has(FAMILY_TYPES, type) ? type : 'Marriage', children: [], twins: [] };
+    doc.unions[id] = { id, partners: [l, r], type: has(FAMILY_TYPES, type) ? type : 'Marriage', children: [], twins: [], note: '' };
     return id;
   }
 
@@ -867,7 +881,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     let uid = us.length ? us[0].id : null;
     if (!uid) {
       uid = newId(doc, 'u');
-      doc.unions[uid] = { id: uid, partners: [pid], type: 'Other', children: [], twins: [] };
+      doc.unions[uid] = { id: uid, partners: [pid], type: 'Other', children: [], twins: [], note: '' };
     }
     return { personId: addChild(doc, uid, gender), unionId: uid };
   }
@@ -1070,6 +1084,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     doc.settings.showYears = !!s.showYears;
     doc.settings.colorRelations = s.colorRelations !== false;
     doc.settings.view = has(VIEW_MODES, s.view) ? s.view : 'both';
+    doc.settings.lineLabels = s.lineLabels !== false;
 
     // id 在整份文件裡必須唯一：同一個 id 既是人又是資源的話，連結會靜默解析成其中一個（審查 2026-09-20）
     const taken = new Set();
@@ -1122,7 +1137,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
         ids.forEach(id => used.add(id));
         twins.push({ ids, kind: has(TWIN_KINDS, t.kind) ? t.kind : 'Fraternal' });
       }
-      doc.unions[u.id] = { id: u.id, partners, children, type, twins };
+      doc.unions[u.id] = { id: u.id, partners, children, type, twins, note: str(u.note, 60) };
     }
     for (const r of values(raw.relations)) {
       if (!r || !freeId(r.id) || !P[r.a] || !P[r.b] || r.a === r.b) { warn.push('relation'); continue; }
@@ -1213,7 +1228,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     addPerson, linkPartners, addPartner, addChild, addChildToPerson, addParents, addSibling, attachChild,
     commonParentUnion, setTwins, twinGroupOf, clearTwin,
     addRelation, addHousehold, addLabel, moveItems, snapItems, deleteItems,
-    addSystem, addTie, tieBetween, tieEndExists,
+    addSystem, addTie, tieBetween, tieEndExists, BASIC_LINE_TYPES, isSpecialLine,
     History, normalizeDoc, serialize, FormatError,
     MESSAGES, log, fail,
   });
@@ -1550,7 +1565,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       if (f.partners.length === 1 && !f.children.length) continue;
       const id = GT.newId(doc, 'u');
       f.partners.sort((a, b) => doc.persons[a].x - doc.persons[b].x);
-      doc.unions[id] = { id, partners: f.partners, children: f.children, type: f.type, twins: [] };
+      doc.unions[id] = { id, partners: f.partners, children: f.children, type: f.type, twins: [], note: '' };
     }
     report.unions = Object.keys(doc.unions).length;
 
@@ -2279,6 +2294,57 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     return out.join('');
   }
 
+  /* ── 線旁說明（使用者 2026-09-21）──
+     比較特殊、一般人看不出意思的線（GT.isSpecialLine），自動在線旁寫出名稱；使用者寫的「線旁說明」一律顯示。
+     畫在人物之上的獨立一層，不會被標籤蓋住；點字也等於點那條線。 */
+  const LINE_LABEL_PX = 11;
+  function lineLabelText(doc, types, type, note) {
+    if (doc.settings.lineLabels === false) return '';
+    const t = types.find(x => x.key === type);
+    const name = t && GT.isSpecialLine(type) ? t.label : '';
+    const n = String(note || '').trim();
+    return [name, n].filter(Boolean).join('：');
+  }
+  // 伴侶線：寫在橫線下方；有子女時靠子女線右側，避開線上的同居記號與斜線
+  function unionLabel(doc, u, g) {
+    if (!g || g.ps.length !== 2) return null;
+    const text = lineLabelText(doc, GT.FAMILY_TYPES, u.type, u.note);
+    if (!text) return null;
+    const hasKids = g.kids.length > 0;
+    const below = !hasKids || g.ySib - g.yLine >= 28;       // 子女拉得太近，下方放不下 → 改寫在橫線上方
+    return { id: u.id, kind: 'union', text, anchor: hasKids ? 'start' : 'middle',
+             x: hasKids ? g.midX + 8 : g.midX, y: below ? g.yLine + 20 : g.yLine - 5 };
+  }
+  // 情感關係：寫在線的中點旁（往上方那一側偏，垂直的線往右偏），避開中點的記號
+  function relationLabel(doc, r) {
+    const text = lineLabelText(doc, GT.EMOTION_TYPES, r.type, r.note);
+    if (!text) return null;
+    const A = doc.persons[r.a], B = doc.persons[r.b];
+    if (!A || !B) return null;
+    const { pts } = relationTrack(doc, A, B);
+    if (pts.length < 2) return null;
+    const tk = trackInfo(pts);
+    if (tk.L < 12) return null;
+    const m = tk.at(tk.L / 2);
+    let nx = m.nx, ny = m.ny;
+    if (ny > 0.2 || (Math.abs(ny) <= 0.2 && nx < 0)) { nx = -nx; ny = -ny; }
+    return { id: r.id, kind: 'relation', text, anchor: 'middle', x: m.x + nx * 17, y: m.y + ny * 17 + 4 };
+  }
+  function lineLabelBox(L) {
+    const w = GT.textEm(L.text) * LINE_LABEL_PX;
+    const x1 = L.anchor === 'start' ? L.x : L.x - w / 2;
+    return { x1: x1 - 2, y1: L.y - 11, x2: x1 + w + 2, y2: L.y + 3 };
+  }
+  const lineLabelSVG = (L) => `<g class="linelabel" data-id="${esc(L.id)}" data-kind="${L.kind}">` +
+    `<text x="${f(L.x)}" y="${f(L.y)}" text-anchor="${L.anchor}" font-size="${LINE_LABEL_PX}" fill="${C.INK_SOFT}" ` +
+    `stroke="${C.WHITE}" stroke-width="3.5" stroke-linejoin="round" paint-order="stroke">${esc(L.text)}</text></g>`;
+  function lineLabels(doc) {
+    const out = [];
+    for (const u of Object.values(doc.unions)) { const L = unionLabel(doc, u, unionGeometry(doc, u)); if (L) out.push(L); }
+    for (const r of Object.values(doc.relations)) { const L = relationLabel(doc, r); if (L) out.push(L); }
+    return out;
+  }
+
   /* ── 生態圖：外部系統（資源）與生態連結 ──
      畫法依社工慣例：資源畫圓、名稱寫在圓裡；強＝雙線、弱＝虛線、有壓力＝鋸齒線、箭頭＝資源或能量的流向。
      線停在生活圈的界線＝連到整個家庭；穿進去連到人＝連到那個人（參考圖：家庭界線幫你分辨）。 */
@@ -2432,6 +2498,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       for (const u of Object.values(doc.unions)) parts.push(unionMarkup(doc, u, o));
       for (const r of Object.values(doc.relations)) parts.push(relationMarkup(doc, r, o));
       for (const p of Object.values(doc.persons)) parts.push(personMarkup(doc, p, o));
+      for (const L of lineLabels(doc)) parts.push(lineLabelSVG(L));                   // 線旁說明在人物之上
     } else {                                      // 生態圖：整張家系圖收成一個「家庭」圓
       for (const t of Object.values(doc.ties)) parts.push(tieMarkup(doc, t, o));
       parts.push(familyMarkup(doc, o));
@@ -2469,6 +2536,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       return { x: x0, y: y0, w: Math.max(...xs) - x0, h: Math.max(...ys) - y0 };
     }
     if (mode !== 'genogram') { for (const y of Object.values(doc.systems)) add(systemBox(y)); addTies(doc, add, mode); }
+    for (const L of lineLabels(doc)) add(lineLabelBox(L));                          // 線旁說明也要包進匯出範圍
     for (const p of Object.values(doc.persons)) add(personBox(doc, p));
     for (const h of Object.values(doc.households)) householdParts(doc, h).forEach(r => add({ x1: r.x1 - 4, y1: r.y1 - 4, x2: r.x2 + 4, y2: r.y2 + 4 }));
     for (const t of Object.values(doc.labels)) {
@@ -2586,10 +2654,354 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
   }
 
   GT.render = { C, G, FONT, HALF, esc, renderWorld, exportSVG, bbox, unionGeometry, personBox, labelBox, sampleSVG, symbolSVG, itemsInRect, householdInterior,
-                tieGeometry,
+                tieGeometry, lineLabels, lineLabelBox, lineLabelText,
                 viewMode, systemRadius, systemBox, familyNode, tieAnchor, edgePoint,
                 householdParts, householdIntruders, symExtent, symTop, symBottom,
                 FAMILY_STYLE, EMOTION_COLOR, BW_GRAY, CHILD_STYLE, INDEX_FILL, SUSPECT_FILL };
+})(globalThis.GT = globalThis.GT || {});
+
+</script>
+<script>
+/* 家系圖工具 — manual.js
+ * 內建「使用說明」與「圖例說明」的原稿（使用者 2026-09-21 要求放在檔案裡；BASE 模式 16 A 案：原稿就是本檔）。
+ * 改了使用者看得到的功能，同一批要改這裡（測試會檢查每種線條都有說明、關鍵功能都有寫到）。
+ * 寫法：Markdown 子集——## 標題、- 清單、1. 編號、> 提示框、**粗體**、[[Ctrl]] 按鍵。
+ * 內文不要用反引號與「$ {」，也不要出現結束 script 的標籤（打包會擋）。
+ */
+(function (GT) {
+  'use strict';
+
+  const MANUAL = [
+    { key: 'start', title: '開始之前', body: `
+## 這是什麼
+家系圖工具可以畫家系圖和生態圖，畫好之後貼進 Word 報告。整個工具就是一個檔案（家系圖工具.html），用瀏覽器（Edge 或 Chrome）開啟就能用，不用安裝。
+
+## 資料存在哪裡
+- 這個工具**完全不連網路**，你畫的內容不會傳到任何地方。
+- 畫好的圖要自己按「儲存」，存成一個 .json 檔，這就是這張圖的存檔。下次按「開啟／匯入」選這個檔，就能接著修改。
+- 工具不會自動幫你存到別的地方。瀏覽器關掉之前沒有儲存的內容，就不見了。
+
+> 個案檔請存在機構規定的位置。存檔時的預設檔名不會帶入人名，建議改成個案編號。
+
+## 畫面上有什麼
+- **左邊**：新增人物、家庭關係、情感關係、標註、生態圖、顯示設定。
+- **中間**：畫布，家系圖畫在這裡。
+- **右邊**：點選畫布上的東西（人、線、生活圈、資源），右邊就會出現它的資料，可以直接修改。
+- **上方**：新增、開啟、儲存、複製圖片、匯出，以及這份使用說明。
+` },
+    { key: 'draw', title: '畫家系圖', body: `
+## 新增第一個人
+1. 按左邊「新增人物」的「男」或「女」；不確定性別就按「未知」。
+2. 畫布中間會出現一個符號，右邊的姓名欄已經可以直接打字。
+
+## 長出整個家庭
+先點選一個人，再按左邊「家庭關係」的按鈕：
+- 「＋伴侶」：在旁邊加一位伴侶，兩人之間會自動連上伴侶線。
+- 「＋父母」：在上方加父母。
+- 「＋兒子」「＋女兒」：加在這個人（和伴侶）的下方。
+- 「＋兄弟」「＋姊妹」：加在旁邊，接到同一對父母下面；還沒有父母的話會自動加上。
+
+> 一個人有兩段以上的伴侶關係時，要先點選「要加子女的那條伴侶線」，再按「＋兒子」「＋女兒」。
+
+## 把已經畫好的人連起來
+- 「連結為伴侶…」：點一個人，按這個按鈕，再點另一個人。
+- 「設為某段關係的子女…」：點孩子，按這個按鈕，再點父母之間的伴侶線。
+- 過程中想反悔，按畫面上方的「取消」，或按鍵盤 [[Esc]]。
+
+## 調整位置
+- 用滑鼠拖曳人物，線會自動跟著走。
+- 選好的東西可以用方向鍵微調；按住 [[Shift]] 再按方向鍵，一次只移一點點。
+` },
+    { key: 'data', title: '填寫資料', body: `
+## 基本資料
+點選一個人，右邊「基本資料」可以填姓名、選性別，勾選「案主」或「已歿」。
+- **案主**：這張圖主要服務的對象，圖上畫成粗框加灰底。
+- **已歿**：符號上會打叉；符號中間的數字改成「過世時的年齡」。
+
+## 年齡
+- 可以直接填年齡，也可以填出生日期讓工具自己算。
+- 出生日期可以只寫年份（例：1965），也可以寫民國年（例：民國54年）。
+- 年齡是用這張圖的**評估日期**計算，不是用今天。兩年後重開這個檔，年齡仍然是當時的紀錄。
+- 評估日期在「沒有選取任何東西」時，右邊可以修改。
+
+## 其他資料（職業、經濟⋯⋯）
+- 右邊「其他資料」可以填職業、經濟、教育程度、健康狀況、備註。
+- 要讓哪些欄位顯示在圖上：到左邊「顯示設定」打勾。
+- 要新增欄位（例如宗教、身分別）：按「管理欄位」。欄位改名不會影響已經填好的內容。
+` },
+    { key: 'states', title: '人物狀態', body: `
+## 狀態怎麼設
+點選一個人，右邊「狀態」有三類，平常是收起來的，點一下才展開：
+- **生命狀態**：懷孕、流產、墮胎。符號會換成三角形、小黑點、小叉。
+- **文化背景**：移民（符號上方一條波浪線），或住過兩個以上的文化地區（兩條波浪線）。
+- **健康與成癮**：身體或精神疾病、酒精或藥物濫用、成癮類別。
+
+## 健康與成癮的畫法
+- 身體或精神疾病：符號左半塗黑。選「有」之後，可以再勾是哪一種疾病，顏色會填在左上角那一格。
+- 酒精或藥物濫用：符號下半塗黑；「疑似」就塗灰色。
+- 成癮（賭博、藥物、酗酒）：改符號外框的顏色。
+- 「復原中」：塗色的地方中間會留白。
+
+「狀態」標題右邊的小圖，就是這個人在圖上的樣子。
+` },
+    { key: 'relations', title: '關係與線條', body: `
+## 伴侶關係
+1. 點兩人之間的伴侶線。
+2. 右邊先點大類（婚姻、婚約、同居、交往），再點下面的線條；每種線條都有縮圖。
+
+## 子女
+點伴侶線，右邊「子女」可以把每個孩子設成親生、收養或寄養。
+
+## 雙胞胎
+1. 按住 [[Shift]] 點選兩個孩子，或拖曳框住他們。
+2. 右邊會出現「設為雙胞胎」，選異卵、同卵或不確定。
+3. 要改類型或取消：點其中一個孩子，在右邊「家庭」修改。
+
+## 情感關係
+1. 左邊「情感關係」按類型按鈕，先選大類，再選線條。
+2. 點一個人，按「從選取的人拉線…」，再點另一個人。
+3. 也可以按住 [[Shift]] 選兩個人，再按「連結選取的兩個人」。
+4. 拉好的線，點它就能在右邊改類型；有方向的線（例如虐待、控制），可以按「對調方向」。
+
+## 線旁說明
+- 比較少見的線（例如合法分居、融合、身體虐待），圖上會自動在線旁寫出名稱，讓看報告的人也看得懂。
+- 點一條線，右邊「線旁說明」可以自己寫一句話，例如「1990 結婚」「自 2020 年起」，會寫在線的旁邊。
+- 圖太擠的時候，左邊「顯示設定」可以把線旁說明關掉。
+
+每種線條代表什麼，請看「圖例說明」。
+` },
+    { key: 'household', title: '生活圈與文字', body: `
+## 生活圈（同住）
+1. 選取住在一起的人：按住 [[Shift]] 點選，或拖曳框住。
+2. 按左邊「圈成生活圈」，會畫出一圈虛線把同住的人圈起來。
+3. 點虛線可以替生活圈取名稱，例如「同住」「祖父母家」。
+
+> 工具會盡量不把沒住在一起的人圈進去。如果右邊提醒「圈內有非成員」，請把那個人拖到圈外。
+
+## 文字說明
+按左邊「新增文字說明」，可以在圖上任何地方加一段文字，拖曳就能移動位置。
+` },
+    { key: 'ecomap', title: '生態圖', body: `
+## 生態圖是什麼
+生態圖畫的是這個家和外面的人、機構之間的關係，例如學校、醫院、社福中心，關係的強弱、有沒有壓力、資源往哪邊流。
+
+## 新增資源
+1. 左邊「生態圖」按「＋新增資源」。
+2. 先點大類（教育、醫療、社政、警政司法、社區與信仰、工作與經濟、其他），再點資源。
+3. 資源會畫成一個圓，放在整張圖的外圍。點它可以改名稱，例如把「學校」改成「○○國小」。
+
+## 拉生態連結
+1. 點一個人或一個資源。
+2. 按「拉生態連結…」，再點另一端。另一端可以是：
+- 一個人：這個資源只跟這個人有關（例如導師只連到孩子）。
+- 生活圈的虛線框：這個資源跟整個家庭有關。
+- 另一個資源：資源之間也可以連。
+
+## 設定這條線
+點那條線，右邊可以設：
+- 強度：強（雙線）、普通（單線）、弱（虛線）。
+- 有壓力或衝突：畫成紅色鋸齒線。
+- 流向：資源或能量往哪一邊，用箭頭表示。
+- 線上寫一件事：例如「通報 2025-03」「每週送餐」。
+
+## 三種畫法
+左邊「生態圖」的「顯示」可以切換：
+- **只看家系圖**：資源和連結先藏起來。
+- **家系圖＋生態圖**：整張家系圖放中間，資源可以連到特定的人。
+- **生態圖（家庭收成一個圓）**：整個家庭畫成一個「家庭」圓，是最常見的簡化生態圖。
+` },
+    { key: 'canvas', title: '操作畫面', body: `
+## 選取
+- 點一下：選取一個人、一條線、一個生活圈或資源。
+- 按住 [[Shift]] 再點：加選或取消。
+- 在空白處按住滑鼠左鍵拖曳：拉出方框，框到的人和他們之間的線都會選取。
+- 點空白處：取消選取。
+
+## 移動畫面與縮放
+- 按住 [[空白鍵]] 再拖曳，或按住滑鼠中間的滾輪拖曳：移動畫面。
+- 滾輪：上下捲動；按住 [[Shift]] 再滾：左右捲動。
+- 按住 [[Ctrl]] 再滾：放大縮小。
+- 右下角「符合畫面」：把整張圖放進畫面。
+
+## 復原與刪除
+- [[Ctrl]]+[[Z]] 復原，[[Ctrl]]+[[Y]] 重做。
+- [[Delete]]：刪除選取的東西（可以復原）。刪除一個人時，跟他有關的線會一起刪除。
+
+## 快捷鍵
+- [[Ctrl]]+[[S]] 儲存，[[Ctrl]]+[[O]] 開啟。
+- [[Ctrl]]+[[A]] 選取全部的人。
+- [[Esc]] 取消選取，或取消正在拉的線。
+- [[F1]] 打開這份使用說明。
+` },
+    { key: 'save', title: '存檔與放進 Word', body: `
+## 儲存與開啟
+- 「儲存」：存成 .json 檔。第一次會問要存在哪裡，之後按「儲存」就直接存回同一個檔。
+- 「另存新檔」：存成另一個檔，例如想保留舊版本的時候。
+- 「開啟／匯入」：打開之前存的 .json 檔。
+
+> 沒儲存就關掉視窗，畫的內容會不見。檔名旁邊出現「● 未儲存」時，記得先存。
+
+## 放進 Word
+- **複製圖片**：按上方「複製圖片」，到 Word 按 [[Ctrl]]+[[V]] 貼上。最快。
+- **匯出 PNG**：存成高解析度的圖檔，再插入 Word。適合列印。
+- **匯出 SVG**：向量圖，放大不會模糊。在 Word 插入 SVG 之後，對圖按右鍵選「轉換為圖形」，每條線、每個圓都可以再修改。
+
+匯出的圖會照目前的顯示設定，例如切到「生態圖」模式時，匯出的就是生態圖。
+` },
+    { key: 'faq', title: '常見問題', body: `
+## 符號中間沒有年齡
+- 看右邊「年齡」有沒有填，或出生日期有沒有填。
+- 已歿的人，數字是「過世時的年齡」：請填死亡日期或過世時年齡。
+
+## 找不到某條線
+兩端疊在一起的線畫不出來。點那個人、資源或生活圈，右邊「生態連結」清單可以直接選到那條線。
+
+## 圖太擠
+- 拖曳人物，把距離拉開。
+- 左邊「顯示設定」可以少顯示幾個欄位，或關掉線旁說明。
+
+## 要印黑白
+左邊「顯示設定」取消「情感關係線用彩色」，線條會改用樣式區分，黑白列印也看得出來。
+
+## 檔案打不開，或出現錯誤訊息
+- 請確認是這個工具存的 .json 檔。
+- 錯誤訊息裡會有一個代碼，請把代碼告訴負責維護的人。
+` },
+    { key: 'privacy', title: '隱私與安全', body: `
+## 資料不離開這台電腦
+- 工具不連網路，也不會把資料存在瀏覽器裡。資料只在你自己選的存檔位置。
+- 存檔的預設檔名不帶入人名；檔名請用個案編號，不要直接寫姓名。
+
+## 使用時請注意
+- 機構共用電腦用完，確認檔案存在規定的位置，再關掉瀏覽器視窗。
+- 匯出的圖片會包含圖上看得到的所有資料（姓名、年齡、職業⋯⋯），傳送之前請先確認。
+` },
+  ];
+
+  /* ── 圖例說明：每個符號、每種線條代表什麼（圖例視窗逐項顯示；key＝資料裡的類型代碼）── */
+  const LEGEND_DESC = {
+    // 人物
+    'sym:M': '男性。', 'sym:F': '女性。', 'sym:U': '性別不確定或不知道。', 'sym:P': '家中飼養的寵物。',
+    'sym:index': '這張圖主要服務的對象（案主、指標人物）。',
+    'sym:deceased': '已過世；符號中間的數字是過世時的年齡。',
+    'life:pregnancy': '目前懷孕中。', 'life:miscarriage': '自然流產。', 'life:abortion': '人工流產（墮胎）。',
+    'culture:immigration': '從其他國家或文化地區移入。', 'culture:multiple': '住過兩個以上的國家或文化地區。',
+    // 成癮與疾病
+    'health:illness': '有身體或精神上的疾病。', 'health:substance': '有酒精或藥物濫用。',
+    'health:suspected': '疑似有酒精或藥物濫用，尚未確認。', 'health:both': '同時有疾病與酒精或藥物濫用。',
+    'health:illrec': '疾病正在復原中。', 'health:subrec': '酒精或藥物濫用正在復原中。',
+    'health:bothrec': '疾病與濫用都在復原中。', 'health:ill-subrec': '濫用在復原中，但仍有疾病。',
+    'health:illrec-sub': '疾病在復原中，但仍有濫用。',
+    // 家庭關係
+    Marriage: '有法律上的婚姻關係。',
+    Separation: '仍有婚姻關係，但已經分開生活（沒有經過法律程序）。',
+    SeparationLegal: '經過法律程序分居，婚姻關係仍然存在。',
+    Divorce: '婚姻關係已經依法解除。',
+    Nullity: '婚姻經法院判定無效或被撤銷。',
+    Widowed: '配偶已經過世。',
+    Engagement: '已經訂婚，還沒結婚。',
+    EngagementAndCohabitation: '已經訂婚，並且住在一起。',
+    EngagementAndSeparation: '訂婚後解除了婚約。',
+    LegalCohabitation: '以法律認可的方式共同生活（例如登記的伴侶關係）。',
+    LegalCohabitationAndSeparation: '合法同居，但已經分開生活。',
+    LegalCohabitationAndLegalSeparation: '合法同居的關係已經依法解除。',
+    Cohabitation: '沒有結婚，但住在一起的伴侶。',
+    CohabitationAndSeparation: '曾經同居，後來分開。',
+    NonSentimentalCohabitation: '住在一起，但彼此沒有伴侶間的感情（例如為了經濟或照顧）。',
+    NonSentimentalCohabitationAndSeparation: '沒有感情的同居，後來分開。',
+    CommittedRelationship: '沒有結婚也沒有同居，但彼此承諾長期交往。',
+    CommittedRelationshipAndSeparation: '長期承諾的關係，後來分開。',
+    CasualRelationship: '短期、非正式的交往。',
+    CasualRelationshipAndSeparation: '短期交往，後來分開。',
+    TemporaryRelation: '只有短暫接觸的性關係（一夜情）。',
+    LoveAffair: '有感情的戀愛關係，包括婚外情。',
+    LoveAffairAndSeparation: '戀愛關係，後來分開。',
+    Liaison: '有往來，但沒有承諾的關係。',
+    Rape: '違反意願的性關係（性侵害）。',
+    Other: '不屬於上面任何一種（匯入時不認得的類型也歸在這裡）。',
+    // 親子與雙胞胎
+    'child:bio': '親生子女。', 'child:adopted': '法律上收養的子女。', 'child:foster': '寄養安置中的子女。',
+    'child:pet': '家中飼養的寵物。',
+    Fraternal: '同一次懷孕、不同卵的雙胞胎：兩條線從同一點分岔。',
+    Identical: '同卵雙胞胎：分岔的兩條線之間多一條橫槓。',
+    Unknown: '不確定是同卵還是異卵：分岔處加「?」。',
+    // 情感關係
+    Harmony: '相處融洽，沒有明顯的問題。',
+    Friendship: '關係親近，互相支持。',
+    Intimacy: '非常親近，彼此信任（知己、密友）。',
+    Fused: '過度緊密、界線不清，彼此的情緒互相牽動。',
+    Love: '對彼此有好感、喜愛對方。',
+    InLove: '正在談戀愛。',
+    Psyritual: '在情感或靈性上有特別的連結（例如宗教、信念）。',
+    Indifferent: '彼此冷淡、有戒心。',
+    Distant: '關係疏遠、互動很少。',
+    Cutoff: '切斷往來、不再聯絡。',
+    CutoffRepaired: '曾經斷絕往來，後來恢復關係。',
+    NeverMet: '知道彼此，但從來沒見過面。',
+    Discord: '經常起衝突、意見不合。',
+    Hate: '強烈的敵意與怨恨。',
+    Distrust: '彼此不信任。',
+    Hostile: '充滿敵意、互相對立。',
+    HostileDistant: '關係疏遠，而且帶有敵意。',
+    HostileClose: '關係親近，但同時帶有敵意（愛恨交織）。',
+    HostileFused: '過度緊密，又充滿敵意。',
+    Violence: '有肢體暴力。',
+    ViolenceDistant: '關係疏遠，而且有暴力。',
+    ViolenceClose: '關係親近，但有暴力。',
+    ViolenceFused: '過度緊密，又有暴力。',
+    Abuse: '一方虐待另一方；箭頭指向被虐待的人。',
+    AbusePhysical: '肢體上的虐待；箭頭指向被虐待的人。',
+    AbuseEmotional: '言語、情緒上的虐待；箭頭指向被虐待的人。',
+    AbuseSexual: '性方面的虐待；箭頭指向被虐待的人。',
+    AbuseNeglect: '疏於照顧、忽視對方的需求；箭頭指向被忽視的人。',
+    Manipulative: '一方操縱另一方；箭頭指向被操縱的人。',
+    Controlling: '一方控制、支配另一方；箭頭指向被控制的人。',
+    Jealous: '一方嫉妒另一方；箭頭指向被嫉妒的人。',
+    Fan: '一方崇拜、仰慕另一方；箭頭指向被崇拜的人。',
+    FocusedOn: '一方的注意力集中在另一方身上；箭頭指向被關注的人。',
+    FocusedOnNegatively: '一方用負面的方式關注另一方（挑剔、放大缺點）；箭頭指向被關注的人。',
+    Limerence: '一方單方面強烈迷戀另一方；箭頭指向被迷戀的人。',
+    Caretaker: '一方照顧另一方的生活起居；箭頭指向被照顧的人。',
+    Plain: '一般的關係，沒有特別的情感特徵。',
+    'emotion:Other': '不屬於上面任何一種（匯入時不認得的類型也歸在這裡，原本的類型寫在線旁說明）。',
+    // 生態圖
+    'eco:system': '家庭以外的人或機構，例如學校、醫院、社福中心；名稱寫在圓裡。',
+    'eco:normal': '一般的往來。',
+    'eco:strong': '關係緊密、資源穩定。',
+    'eco:weak': '關係薄弱或不穩定。',
+    'eco:stress': '關係有壓力或衝突。',
+    'eco:dir': '資源或能量往箭頭那一邊流，例如社福中心提供服務給家庭。',
+    'eco:both': '雙方互相提供資源或支持。',
+  };
+
+  // 極簡 Markdown → HTML：先整段跳脫，再套格式，所以內容永遠不會變成 HTML 標籤
+  function render(md) {
+    const esc = GT.render.esc;
+    const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\[\[(.+?)\]\]/g, '<kbd>$1</kbd>');
+    const out = [];
+    let list = null, para = [];
+    const flushPara = () => { if (para.length) { out.push('<p>' + para.map(inline).join('<br>') + '</p>'); para = []; } };
+    const flushList = () => {
+      if (!list) return;
+      out.push('<' + list.tag + '>' + list.items.map(i => '<li>' + inline(i) + '</li>').join('') + '</' + list.tag + '>');
+      list = null;
+    };
+    const item = (tag, text) => { flushPara(); if (!list || list.tag !== tag) { flushList(); list = { tag, items: [] }; } list.items.push(text); };
+    for (const raw of String(md).split('\n')) {
+      const line = raw.trim();
+      let m;
+      if (!line) { flushPara(); flushList(); continue; }
+      if ((m = line.match(/^##\s+(.*)$/))) { flushPara(); flushList(); out.push('<h4>' + inline(m[1]) + '</h4>'); continue; }
+      if ((m = line.match(/^>\s?(.*)$/))) { flushPara(); flushList(); out.push('<div class="tip">' + inline(m[1]) + '</div>'); continue; }
+      if ((m = line.match(/^-\s+(.*)$/))) { item('ul', m[1]); continue; }
+      if ((m = line.match(/^\d+\.\s+(.*)$/))) { item('ol', m[1]); continue; }
+      flushList(); para.push(line);
+    }
+    flushPara(); flushList();
+    return out.join('');
+  }
+
+  GT.manual = { MANUAL, LEGEND_DESC, render };
 })(globalThis.GT = globalThis.GT || {});
 
 </script>
@@ -2600,8 +3012,8 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.3.0';
-  const BUILD = '2026-09-21 11:11';
+  const APP_VERSION = '0.4.0';
+  const BUILD = '2026-09-21 11:24';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -2935,6 +3347,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       `<label class="check"><input type="checkbox" data-show="${esc(f.key)}"${f.show ? ' checked' : ''}>${esc(f.label)}</label>`).join('');
     $('optYears').checked = st.showYears;
     $('optColor').checked = st.colorRelations;
+    $('optLineLabels').checked = st.lineLabels !== false;
     document.querySelectorAll('input[name=labelMode]').forEach(r => { r.checked = r.value === st.labelMode; });
     const ps = selOf('person'), us = selOf('union'), one = ps.length === 1;
     document.querySelectorAll('[data-kin]').forEach(b => {
@@ -3177,7 +3590,10 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     <section class="card"><h3><span class="badge">1</span>${two ? '伴侶關係' : '單親家庭'}</h3>
       <div class="kin"><b>${u.partners.map(x => esc(personName(x))).join(' ＋ ')}</b></div>
       ${two ? `<label class="field">關係類型（先選大類，再選線條）</label>${curTypeHTML(GT.FAMILY_TYPES, u.type, 'union')}
-      ${pickerHTML('union:' + id, GT.FAMILY_TYPES, GT.FAMILY_CATS, u.type, 'union')}` : ''}
+      ${pickerHTML('union:' + id, GT.FAMILY_TYPES, GT.FAMILY_CATS, u.type, 'union')}
+      <label class="field">線旁說明（選填，會寫在線旁邊）</label>
+      <input type="text" data-unote value="${esc(u.note || '')}" maxlength="60" placeholder="例：1990 結婚、2015 離婚">
+      ${GT.isSpecialLine(u.type) ? '<p class="hint-text">這種線比較少見，圖上會自動寫出名稱（左邊「顯示設定」可以關掉）。</p>' : ''}` : ''}
     </section>
     <section class="card"><h3><span class="badge">2</span>子女<span class="right">${u.children.length} 位</span></h3>
       ${u.children.map(c => `<div class="childrow"><span>${esc(personName(c.id))}${(u.twins || []).some(t => t.ids.includes(c.id)) ? '<span class="muted">・雙胞胎</span>' : ''}</span>` +
@@ -3186,6 +3602,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       ${u.children.length >= 2 ? '<p class="hint-text">雙胞胎：按住 Shift 點選兩個孩子，右邊會出現「設為雙胞胎」。</p>' : ''}
     </section>
     <section class="card danger"><button class="danger" data-del style="width:100%">刪除這段關係（人會保留）</button></section>`;
+    if (two) bindLive(P.querySelector('[data-unote]'), (d, v) => { d.unions[id].note = v.slice(0, 60); });
     if (two) bindPicker(P, 'union:' + id, GT.FAMILY_TYPES, GT.FAMILY_CATS, () => state.doc.unions[id].type, 'union',
                         (k) => { if (state.doc.unions[id].type !== k) mutate(d => { d.unions[id].type = k; }); });
     P.querySelectorAll('[data-child]').forEach(s => s.addEventListener('change', () => mutate(d => {
@@ -3205,8 +3622,9 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       <div class="kin"><b>${esc(personName(r.a))}</b> ${isDir(r.type) ? '→' : '↔'} <b>${esc(personName(r.b))}</b></div>
       <label class="field">類型（先選大類，再選線條）</label>${curTypeHTML(GT.EMOTION_TYPES, r.type, 'relation')}
       ${pickerHTML('rel:' + id, GT.EMOTION_TYPES, GT.EMOTION_CATS, r.type, 'relation')}
-      <label class="field">備註（選填）</label>
+      <label class="field">線旁說明（選填，會寫在線旁邊）</label>
       <input type="text" data-rnote data-autofocus value="${esc(r.note)}" maxlength="300" placeholder="例：自 2020 年起、情緒虐待">
+      ${GT.isSpecialLine(r.type) ? '<p class="hint-text">這種線比較少見，圖上會自動寫出名稱（左邊「顯示設定」可以關掉）。</p>' : ''}
       ${isDir(r.type) ? '<button data-swap style="margin-top:8px;width:100%">對調方向（箭頭指向另一個人）</button>' : ''}
     </section>
     <section class="card danger"><button class="danger" data-del style="width:100%">刪除這條情感關係</button></section>`;
@@ -3417,8 +3835,9 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
   }
 
   // ───── 對話框 ─────
-  function dialog(title, bodyHTML, buttons) {
+  function dialog(title, bodyHTML, buttons, opts) {
     const dlg = $('dlg');
+    dlg.classList.toggle('wide', !!(opts && opts.wide));                // 使用說明、圖例用寬版
     $('dlgTitle').textContent = title;
     // 每次換一個新的 body 元素：掛在舊 body 上的監聽器跟著丟掉
     // （驗收發現：「管理欄位」開第二次後，一次點擊會被處理兩次，↑↓ 一次移兩格）
@@ -3485,95 +3904,96 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     });
   }
 
-  // 圖例：分頁（一次只看一類，跟選擇器同一種操作方式）
+  // 圖例：分頁（一次只看一類）；每一項都附一句說明（使用者 2026-09-21：做一份各圖例的說明）
+  // 說明文字的原稿在 src/manual.js 的 LEGEND_DESC
   let legendTab = 'person';
-  function openLegend() {
+  function openLegend(tab) {
+    if (tab) legendTab = tab;
     const colored = state.doc.settings.colorRelations;
-    const row = (svg, label) => `<div>${svg}</div><div>${esc(label)}</div>`;
+    const D = GT.manual.LEGEND_DESC;
+    const row = ([svg, label, key, special]) => `<div>${svg}</div><div><b>${special ? '● ' : ''}${esc(label)}</b>` +
+      (key && D[key] ? `<div class="desc">${esc(D[key])}</div>` : '') + '</div>';
     const sym = (over, g) => {
       const d = GT.newDoc(); d.settings.colorRelations = colored;
       const id = GT.addPerson(d, { gender: g || 'M', x: 0, y: 0 });
       Object.assign(d.persons[id], over);
       return R.symbolSVG(d, d.persons[id], 34);
     };
-    const grid = (rows) => `<div class="legend">${rows.map(([s, l]) => row(s, l)).join('')}</div>`;
+    const grid = (rows) => `<div class="legend">${rows.map(row).join('')}</div>`;
     const byCat = (types, cats, kind) => cats.map(c => `<h4 class="lh">${esc(c.label)}</h4>` +
-      grid(types.filter(t => t.cat === c.key && t.sheet !== false).map(t => [R.sampleSVG(kind, t.key, colored), t.label]))).join('');
+      grid(types.filter(t => t.cat === c.key && t.sheet !== false)
+        .map(t => [R.sampleSVG(kind, t.key, colored), t.label, t.key, GT.isSpecialLine(t.key)]))).join('');
+    const special = '<p class="hint-text">標 ● 的線比較少見，畫在圖上時會自動在線旁寫出名稱（左邊「顯示設定」可以關掉）。</p>';
     const tabs = [
       { key: 'person', label: '人物', html: grid([
-        [sym({}, 'M'), '男性'], [sym({}, 'F'), '女性'], [sym({}, 'U'), '未知性別'], [sym({}, 'P'), '寵物'],
-        [sym({ index: true }), '案主（指標人物）：粗框灰底'], [sym({ deceased: true }), '已歿：打叉'],
-        [sym({ life: 'pregnancy' }, 'U'), '懷孕'], [sym({ life: 'miscarriage' }, 'U'), '流產'], [sym({ life: 'abortion' }, 'U'), '墮胎'],
-        [sym({ culture: 'immigration' }), '移民'], [sym({ culture: 'multiple' }), '住過兩個以上的文化地區'],
-      ]) + '<p class="hint-text">符號中間的數字＝年齡。</p>' },
+        [sym({}, 'M'), '男性', 'sym:M'], [sym({}, 'F'), '女性', 'sym:F'], [sym({}, 'U'), '未知性別', 'sym:U'], [sym({}, 'P'), '寵物', 'sym:P'],
+        [sym({ index: true }), '案主（指標人物）：粗框灰底', 'sym:index'], [sym({ deceased: true }), '已歿：打叉', 'sym:deceased'],
+        [sym({ life: 'pregnancy' }, 'U'), '懷孕', 'life:pregnancy'], [sym({ life: 'miscarriage' }, 'U'), '流產', 'life:miscarriage'],
+        [sym({ life: 'abortion' }, 'U'), '墮胎', 'life:abortion'],
+        [sym({ culture: 'immigration' }), '移民', 'culture:immigration'], [sym({ culture: 'multiple' }), '住過兩個以上的文化地區', 'culture:multiple'],
+      ]) + '<p class="hint-text">符號中間的數字＝年齡；已歿的人是過世時的年齡。</p>' },
       { key: 'health', label: '成癮與疾病', html: grid([
-        [sym({ illness: 'active' }), '身體或精神疾病（左半）'], [sym({ substance: 'active' }), '酒精或藥物濫用（下半）'],
-        [sym({ substance: 'suspected' }), '疑似酒精或藥物濫用'], [sym({ illness: 'active', substance: 'active' }), '疾病合併酒精或藥物濫用'],
-        [sym({ illness: 'recovery' }), '疾病復原中'], [sym({ substance: 'recovery' }), '濫用復原中'],
-        [sym({ illness: 'recovery', substance: 'recovery' }), '兩者都在復原中'],
-        [sym({ illness: 'active', substance: 'recovery' }), '濫用復原中，但有疾病'], [sym({ illness: 'recovery', substance: 'active' }), '疾病復原中，但有濫用'],
+        [sym({ illness: 'active' }), '身體或精神疾病（左半）', 'health:illness'],
+        [sym({ substance: 'active' }), '酒精或藥物濫用（下半）', 'health:substance'],
+        [sym({ substance: 'suspected' }), '疑似酒精或藥物濫用（灰色）', 'health:suspected'],
+        [sym({ illness: 'active', substance: 'active' }), '疾病合併酒精或藥物濫用', 'health:both'],
+        [sym({ illness: 'recovery' }), '疾病復原中', 'health:illrec'], [sym({ substance: 'recovery' }), '濫用復原中', 'health:subrec'],
+        [sym({ illness: 'recovery', substance: 'recovery' }), '兩者都在復原中', 'health:bothrec'],
+        [sym({ illness: 'active', substance: 'recovery' }), '濫用復原中，但有疾病', 'health:ill-subrec'],
+        [sym({ illness: 'recovery', substance: 'active' }), '疾病復原中，但有濫用', 'health:illrec-sub'],
       ]) + '<h4 class="lh">疾病別（顏色填在左上角）與成癮（外框顏色）</h4>' + grid(GT.CONDITIONS.map(c =>
         [sym(c.kind === 'medical' ? { illness: 'active', conditions: [c.key] } : { conditions: [c.key] }), c.label])) },
-      { key: 'family', label: '家庭關係', html: byCat(GT.FAMILY_TYPES, GT.FAMILY_CATS, 'union') },
-      { key: 'emotion', label: '情感關係', html: byCat(GT.EMOTION_TYPES, GT.EMOTION_CATS, 'relation') },
+      { key: 'family', label: '家庭關係', html: special + byCat(GT.FAMILY_TYPES, GT.FAMILY_CATS, 'union') },
+      { key: 'emotion', label: '情感關係', html: special + byCat(GT.EMOTION_TYPES, GT.EMOTION_CATS, 'relation') },
       { key: 'eco', label: '生態圖', html: grid([
-        [R.sampleSVG('system', '學校', colored), '資源／外部系統（名稱寫在圓裡）'],
-        [R.sampleSVG('tie', 'normal', colored), '普通關係'],
-        [R.sampleSVG('tie', 'strong', colored), '強／緊密（雙線）'],
-        [R.sampleSVG('tie', 'weak', colored), '弱／不穩定（虛線）'],
-        [R.sampleSVG('tie', 'stress', colored), '有壓力／衝突（鋸齒線）'],
-        [R.sampleSVG('tie', 'dir', colored), '單向：資源或能量往箭頭那邊'],
-        [R.sampleSVG('tie', 'both', colored), '雙向'],
-      ]) + '<p class="hint-text">線停在生活圈的虛線框＝連到整個家庭；線穿進去連到某個人＝連到那個人。</p>' },
-      { key: 'child', label: '親子與雙胞胎', html: grid(GT.CHILD_LINKS.map(t => [R.sampleSVG('child', t.key, colored), t.label + '子女'])
-        .concat([[R.sampleSVG('child', 'pet', colored), '寵物']], GT.TWIN_KINDS.map(t => [R.sampleSVG('twins', t.key, colored), t.label]))) },
+        [R.sampleSVG('system', '學校', colored), '資源／外部系統', 'eco:system'],
+        [R.sampleSVG('tie', 'normal', colored), '普通（單線）', 'eco:normal'],
+        [R.sampleSVG('tie', 'strong', colored), '強（雙線）', 'eco:strong'],
+        [R.sampleSVG('tie', 'weak', colored), '弱（虛線）', 'eco:weak'],
+        [R.sampleSVG('tie', 'stress', colored), '有壓力／衝突（鋸齒線）', 'eco:stress'],
+        [R.sampleSVG('tie', 'dir', colored), '單向流向（箭頭）', 'eco:dir'],
+        [R.sampleSVG('tie', 'both', colored), '雙向', 'eco:both'],
+      ]) + '<p class="hint-text">線停在生活圈的虛線框＝連到整個家庭；線穿進去連到某個人＝只跟那個人有關。</p>' },
+      { key: 'child', label: '親子與雙胞胎', html: grid(GT.CHILD_LINKS.map(t => [R.sampleSVG('child', t.key, colored), t.label + '子女', 'child:' + t.key])
+        .concat([[R.sampleSVG('child', 'pet', colored), '寵物', 'child:pet']],
+                GT.TWIN_KINDS.map(t => [R.sampleSVG('twins', t.key, colored), t.label, t.key]))) },
     ];
-    const body = dialog('圖例', `<div class="picker ltabs"><div class="cats">${tabs.map(t =>
+    if (!tabs.some(t => t.key === legendTab)) legendTab = tabs[0].key;
+    const body = dialog('圖例說明', `<div class="picker ltabs"><div class="cats">${tabs.map(t =>
       `<button type="button" data-ltab="${t.key}" class="${t.key === legendTab ? 'on' : ''}">${esc(t.label)}</button>`).join('')}</div></div>` +
-      tabs.map(t => `<div data-lsec="${t.key}"${t.key === legendTab ? '' : ' hidden'}>${t.html}</div>`).join(''));
+      tabs.map(t => `<div data-lsec="${t.key}"${t.key === legendTab ? '' : ' hidden'}>${t.html}</div>`).join(''),
+      [{ label: '看使用說明', onClick: () => openHelp() }, { label: '關閉', primary: true }], { wide: true });
     body.querySelector('.ltabs').addEventListener('click', (e) => {
       const b = e.target.closest('[data-ltab]');
       if (!b) return;
       legendTab = b.dataset.ltab;
       body.querySelectorAll('[data-ltab]').forEach(x => x.classList.toggle('on', x === b));
       body.querySelectorAll('[data-lsec]').forEach(x => { x.hidden = x.dataset.lsec !== legendTab; });
+      body.scrollTop = 0;
     });
   }
 
-  function openHelp() {
-    dialog('使用說明', `<div class="help">
-      <h4>開始畫</h4><ul>
-        <li>按左邊「男」「女」新增人物，點選人物後用「＋伴侶」「＋父母」「＋兒子」快速長出整個家庭。</li>
-        <li>拖曳人物調整位置，線會自動跟著走。</li></ul>
-      <h4>填資料並顯示在圖上</h4><ul>
-        <li>點選人物，右邊可以填姓名、年齡（或出生日期）、職業、經濟等。</li>
-        <li>「狀態」可以標懷孕、流產、墮胎、移民、疾病與成癮：先點大類展開，再選細項。</li>
-        <li>要顯示哪些欄位：左邊「顯示設定」打勾。要新增欄位（如宗教、身分別）：按「管理欄位」。</li>
-        <li>年齡以「評估日期」計算（沒選任何東西時，右邊可以改）。</li></ul>
-      <h4>關係</h4><ul>
-        <li>伴侶關係：點兩人之間的伴侶線，右邊先選大類（婚姻、婚約、同居、交往），再選線條；子女可設親生、收養、寄養。</li>
-        <li>情感關係：左邊選類型 → 點一個人 → 按「從選取的人拉線」→ 點另一個人。拉好後點那條線，右邊可以改類型。</li>
-        <li>雙胞胎：按住 <kbd>Shift</kbd> 點選兩個孩子 → 右邊「設為雙胞胎」。</li>
-        <li>生活圈：選取同住的人（<kbd>Shift</kbd> 點選或框選）→ 按「圈成生活圈」。</li></ul>
-      <h4>生態圖</h4><ul>
-        <li>左邊「生態圖」→「＋新增資源」加學校、醫院、社福中心等；加進去之後可以改成實際名稱。</li>
-        <li>連線：點一個人或資源 → 按「拉生態連結」→ 點另一端（人、資源，或生活圈的虛線框＝整個家庭）。</li>
-        <li>點那條線，右邊可以設強弱、有沒有壓力、流向，還可以在線上寫一件事（例：通報 2025-03）。</li>
-        <li>「顯示」可以切換：只看家系圖／家系圖＋生態圖／生態圖（整個家庭收成一個圓）。</li></ul>
-      <h4>操作畫面</h4><ul>
-        <li>在空白處按住左鍵拖曳：框選多個人；按住 <kbd>Shift</kbd> 可以加選。</li>
-        <li>移動畫面：按住 <kbd>空白鍵</kbd> 拖曳，或按住滑鼠中鍵拖曳；滾輪上下捲動，<kbd>Shift</kbd>＋滾輪左右捲動。</li>
-        <li><kbd>Ctrl</kbd>＋滾輪放大縮小；右下角「符合畫面」把整張圖放進畫面。</li></ul>
-      <h4>存檔與放進 Word</h4><ul>
-        <li>「儲存」存成本工具的檔案（.json），之後可以再開啟修改。</li>
-        <li>「開啟／匯入」也可以直接打開 GenoPro 的 .gno 檔（原檔不會被修改）。</li>
-        <li>「複製圖片」→ 到 Word 按 <kbd>Ctrl</kbd>+<kbd>V</kbd>；或「匯出 PNG」再插入圖片。</li></ul>
-      <h4>快捷鍵</h4><ul>
-        <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> 復原、<kbd>Ctrl</kbd>+<kbd>Y</kbd> 重做、<kbd>Delete</kbd> 刪除、<kbd>Esc</kbd> 取消選取</li>
-        <li><kbd>Ctrl</kbd>+<kbd>S</kbd> 儲存、<kbd>Ctrl</kbd>+<kbd>O</kbd> 開啟、方向鍵微調位置</li></ul>
-      <h4>隱私</h4><ul>
-        <li>本工具完全不連網路，資料只存在你選擇的檔案裡。個案檔請存在機構規定的位置。</li></ul>
-      <p class="muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）</p></div>`);
+  // 使用說明：章節分頁（一次看一章）；原稿在 src/manual.js 的 MANUAL
+  let helpTab = 'start';
+  function openHelp(tab) {
+    const M = GT.manual.MANUAL;
+    if (tab) helpTab = tab;
+    if (!M.some(c => c.key === helpTab)) helpTab = M[0].key;
+    const body = dialog('使用說明', `<div class="picker htabs"><div class="cats">${M.map(c =>
+      `<button type="button" data-htab="${esc(c.key)}" class="${c.key === helpTab ? 'on' : ''}">${esc(c.title)}</button>`).join('')}</div></div>
+      <div class="help" id="helpBody"></div>
+      <p class="muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）</p>`,
+      [{ label: '看圖例說明', onClick: () => openLegend() }, { label: '關閉', primary: true }], { wide: true });
+    const draw = () => { body.querySelector('#helpBody').innerHTML = GT.manual.render(M.find(c => c.key === helpTab).body); };
+    draw();
+    body.querySelector('.htabs').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-htab]');
+      if (!b) return;
+      helpTab = b.dataset.htab;
+      body.querySelectorAll('[data-htab]').forEach(x => x.classList.toggle('on', x === b));
+      draw();
+      body.scrollTop = 0;
+    });
   }
 
   // ───── 檔案 ─────
@@ -3776,6 +4196,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
     });
     $('optYears').addEventListener('change', (e) => mutate(d => { d.settings.showYears = e.target.checked; }));
     $('optColor').addEventListener('change', (e) => mutate(d => { d.settings.colorRelations = e.target.checked; }));
+    $('optLineLabels').addEventListener('change', (e) => mutate(d => { d.settings.lineLabels = e.target.checked; }));
     document.querySelectorAll('input[name=labelMode]').forEach(r => r.addEventListener('change', () => mutate(d => { d.settings.labelMode = r.value; })));
     $('btnFields').addEventListener('click', openFieldManager);
 
@@ -3813,6 +4234,7 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       const tag = document.activeElement && document.activeElement.tagName;
       const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
       const mod = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
+      if (e.key === 'F1') { e.preventDefault(); openHelp(); return; }
       if (mod && key === 's') { e.preventDefault(); act('SAVE', () => save(e.shiftKey)); return; }
       if (mod && key === 'o') { e.preventDefault(); act('OPEN', openFile); return; }
       if ($('dlg').open || typing) return;
@@ -3936,6 +4358,21 @@ h4.lh { margin: 12px 0 6px; color: var(--brand-deep); }
       checks.viewmode = $('world').innerHTML.includes('class="famnode"') && !$('world').innerHTML.includes('data-kind="person"');
       document.querySelector('input[name=viewMode][value=both]').click();
       checks.viewback = $('world').innerHTML.includes('data-kind="person"') && $('world').innerHTML.includes('data-kind="system"');
+      // 線旁說明：特殊線條自動標名稱；顯示設定可以關掉
+      mutate(d => { d.unions[u0].type = 'SeparationLegal'; });
+      checks.linelabel = $('world').innerHTML.includes('合法分居');
+      $('optLineLabels').click();
+      checks.linelabeloff = !$('world').innerHTML.includes('class="linelabel"');
+      $('optLineLabels').click();
+      // 內建使用說明與圖例說明（BASE 模式 16 §6：開起來真的有內容）
+      openHelp('ecomap');
+      checks.manual = $('dlg').open && $('dlgBody').textContent.length > 500 && $('dlgBody').textContent.includes('拉生態連結');
+      document.querySelector('[data-htab=save]').click();
+      checks.manualtab = $('dlgBody').textContent.includes('轉換為圖形');
+      $('dlg').close();
+      openLegend('family');
+      checks.legenddesc = $('dlgBody').textContent.includes(GT.manual.LEGEND_DESC.SeparationLegal);
+      $('dlg').close();
       const blob = await pngBlob();
       const bad = Object.keys(checks).filter(k => !checks[k]);
       document.body.dataset.selftest = `${bad.length ? 'fail-' + bad.join('-') : 'ok'}:${Object.keys(state.doc.persons).length}:${blob.size}`;

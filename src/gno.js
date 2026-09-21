@@ -327,7 +327,7 @@
       if (f.partners.length === 1 && !f.children.length) continue;
       const id = GT.newId(doc, 'u');
       f.partners.sort((a, b) => doc.persons[a].x - doc.persons[b].x);
-      doc.unions[id] = { id, partners: f.partners, children: f.children, type: f.type, twins: [] };
+      doc.unions[id] = { id, partners: f.partners, children: f.children, type: f.type, twins: [], note: '' };
     }
     report.unions = Object.keys(doc.unions).length;
 

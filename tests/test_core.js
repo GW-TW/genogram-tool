@@ -510,3 +510,17 @@ T.test('回歸：外部檔的 id 在整份文件裡必須唯一（審查 2026-09
   T.eq(GT.normalizeDoc({ format: 'genogram-tool', version: 3, systems: { a: { id: 'a', name: '' } } }).doc.systems.a.name,
        '', '讀檔也保持空名稱（跟面板清空的結果一致）');
 });
+
+T.test('線旁說明：伴侶線的說明與顯示設定跟著存檔（2026-09-21）', () => {
+  const d = GT.newDoc();
+  const a = GT.addPerson(d, { gender: 'M', x: 0, y: 0 });
+  const r = GT.addPartner(d, a);
+  T.eq(d.unions[r.unionId].note, '', '新的伴侶線，說明是空的');
+  T.eq(d.settings.lineLabels, true, '預設顯示線旁說明');
+  d.unions[r.unionId].note = '1990 結婚'; d.settings.lineLabels = false;
+  const back = GT.normalizeDoc(JSON.parse(GT.serialize(d))).doc;
+  T.eq(back.unions[r.unionId].note, '1990 結婚', '說明讀回來不變');
+  T.eq(back.settings.lineLabels, false, '顯示設定讀回來不變');
+  T.eq(GT.normalizeDoc({ format: 'genogram-tool', version: 3, persons: {} }).doc.settings.lineLabels, true, '舊檔沒有這個設定 → 預設顯示');
+  T.ok(GT.isSpecialLine('SeparationLegal') && !GT.isSpecialLine('Marriage') && !GT.isSpecialLine('Harmony'), '基本線條與特殊線條的分類');
+});

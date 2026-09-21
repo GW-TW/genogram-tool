@@ -159,6 +159,12 @@
     { key: 'Alzheimer',    label: '失智症',   color: '#1565C0', kind: 'medical' },
   ];
 
+  // 線旁說明（使用者 2026-09-21）：比較特殊、一般人看不出意思的線，要在線旁標出用途。
+  // 這些是大家都認得的基本線條，不自動標；其他類型都自動標名稱。使用者寫的線旁說明一律顯示。
+  const BASIC_LINE_TYPES = new Set(['Marriage', 'Separation', 'Divorce', 'Engagement', 'Cohabitation',
+    'Harmony', 'Friendship', 'Distant', 'Cutoff', 'Discord', 'Hostile', 'Violence', 'Plain']);
+  const isSpecialLine = (type) => !BASIC_LINE_TYPES.has(type);
+
   // ── 生態圖（v3）：外部系統（資源）與生態連結 ──
   // 畫法依社工慣例：強＝雙線、弱＝虛線、有壓力＝鋸齒線、箭頭＝資源或能量的流向
   const SYSTEM_CATS = [
@@ -263,6 +269,7 @@
         showYears: false,       // 圖上顯示生卒年
         colorRelations: true,   // 情感關係線彩色（關掉＝黑白列印友善）
         view: 'both',           // 顯示模式（VIEW_MODES）：只看家系圖／家系圖＋生態圖／生態圖
+        lineLabels: true,       // 線旁說明：特殊線條標名稱＋顯示使用者寫的說明
       },
       persons: {}, unions: {}, relations: {}, households: {}, labels: {},
       systems: {}, ties: {},    // 生態圖：外部系統（資源）與生態連結
@@ -469,7 +476,7 @@
     if (ex) return ex.id;
     const id = newId(doc, 'u');
     const [l, r] = doc.persons[a].x <= doc.persons[b].x ? [a, b] : [b, a];
-    doc.unions[id] = { id, partners: [l, r], type: has(FAMILY_TYPES, type) ? type : 'Marriage', children: [], twins: [] };
+    doc.unions[id] = { id, partners: [l, r], type: has(FAMILY_TYPES, type) ? type : 'Marriage', children: [], twins: [], note: '' };
     return id;
   }
 
@@ -513,7 +520,7 @@
     let uid = us.length ? us[0].id : null;
     if (!uid) {
       uid = newId(doc, 'u');
-      doc.unions[uid] = { id: uid, partners: [pid], type: 'Other', children: [], twins: [] };
+      doc.unions[uid] = { id: uid, partners: [pid], type: 'Other', children: [], twins: [], note: '' };
     }
     return { personId: addChild(doc, uid, gender), unionId: uid };
   }
@@ -716,6 +723,7 @@
     doc.settings.showYears = !!s.showYears;
     doc.settings.colorRelations = s.colorRelations !== false;
     doc.settings.view = has(VIEW_MODES, s.view) ? s.view : 'both';
+    doc.settings.lineLabels = s.lineLabels !== false;
 
     // id 在整份文件裡必須唯一：同一個 id 既是人又是資源的話，連結會靜默解析成其中一個（審查 2026-09-20）
     const taken = new Set();
@@ -768,7 +776,7 @@
         ids.forEach(id => used.add(id));
         twins.push({ ids, kind: has(TWIN_KINDS, t.kind) ? t.kind : 'Fraternal' });
       }
-      doc.unions[u.id] = { id: u.id, partners, children, type, twins };
+      doc.unions[u.id] = { id: u.id, partners, children, type, twins, note: str(u.note, 60) };
     }
     for (const r of values(raw.relations)) {
       if (!r || !freeId(r.id) || !P[r.a] || !P[r.b] || r.a === r.b) { warn.push('relation'); continue; }
@@ -859,7 +867,7 @@
     addPerson, linkPartners, addPartner, addChild, addChildToPerson, addParents, addSibling, attachChild,
     commonParentUnion, setTwins, twinGroupOf, clearTwin,
     addRelation, addHousehold, addLabel, moveItems, snapItems, deleteItems,
-    addSystem, addTie, tieBetween, tieEndExists,
+    addSystem, addTie, tieBetween, tieEndExists, BASIC_LINE_TYPES, isSpecialLine,
     History, normalizeDoc, serialize, FormatError,
     MESSAGES, log, fail,
   });

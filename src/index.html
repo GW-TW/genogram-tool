@@ -31,7 +31,7 @@
     <button id="btnPng" title="存成高解析 PNG 圖檔">匯出 PNG</button>
     <button id="btnSvg" title="存成向量 SVG 圖檔（放大不失真）">匯出 SVG</button>
     <span class="sep"></span>
-    <button id="btnHelp">使用說明</button>
+    <button id="btnHelp" title="使用說明與圖例說明（F1）">使用說明</button>
   </nav>
 </header>
 
@@ -69,7 +69,7 @@
       <button id="relTypeBtn" class="typebtn" title="選擇類型：先選大類，再選線條"></button>
       <div class="stack" style="margin-top:6px">
         <button id="btnRelation" class="secondary">從選取的人拉線…</button>
-        <button id="btnLegend" class="link">看圖例（符號與線條）</button>
+        <button id="btnLegend" class="link">看圖例說明（符號與線條）</button>
       </div>
     </section>
 
@@ -101,6 +101,7 @@
       <label class="check"><input type="radio" name="labelMode" value="value">只顯示內容（例：工人）</label>
       <label class="check"><input type="radio" name="labelMode" value="labelled">欄位名＋內容（例：職業：工人）</label>
       <label class="check" style="margin-top:8px"><input type="checkbox" id="optColor">情感關係線用彩色</label>
+      <label class="check"><input type="checkbox" id="optLineLabels">線旁說明（特殊線條標名稱）</label>
       <button id="btnFields" style="margin-top:8px;width:100%">管理欄位（新增／改名／刪除）…</button>
     </section>
   </aside>
@@ -147,6 +148,7 @@
 <script src="core.js"></script>
 <script src="gno.js"></script>
 <script src="render.js"></script>
+<script src="manual.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

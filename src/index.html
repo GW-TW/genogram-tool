@@ -1,151 +1,184 @@
 <!doctype html>
-<html lang="zh-Hant-TW">
+<html lang="zh-TW">
 <head>
 <meta charset="utf-8">
 <!--CSP-->
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>家系圖工具</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="components.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<a class="skip-link" href="#canvas">跳到畫布</a>
+
 <header class="topbar">
-  <div class="brand">
-    <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
-      <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1B5E7E"/><stop offset="1" stop-color="#38BDF8"/></linearGradient></defs>
-      <rect x="1" y="1" width="32" height="32" rx="8" fill="url(#lg)" stroke="#fff" stroke-opacity=".5"/>
-      <rect x="6" y="6" width="8" height="8" fill="none" stroke="#fff" stroke-width="1.8"/>
-      <circle cx="24" cy="10" r="4.2" fill="none" stroke="#fff" stroke-width="1.8"/>
-      <path d="M10 14v4h14v-4M17 18v4M11 22h12M11 22v3M23 22v3" fill="none" stroke="#fff" stroke-width="1.6"/>
-      <circle cx="23" cy="27.5" r="2.5" fill="#fff"/><rect x="8.6" y="25" width="5" height="5" fill="#fff"/>
+  <span class="topbar__brand" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.5" y="2.5" width="7" height="7" rx="1"/><circle cx="18" cy="6" r="3.5"/>
+      <path d="M6 9.5V13h12V9.5M12 13v3M8 16h8v5.5h-8z"/>
     </svg>
-    <h1>家系圖工具</h1>
-    <span class="file" id="fileLabel">未命名</span>
-  </div>
-  <nav class="filebar">
-    <button id="btnNew" title="開一張新的空白家系圖">新增</button>
-    <button id="btnOpen" title="開啟之前存的家系圖檔（.json）（Ctrl+O）">開啟…</button>
-    <button id="btnSave" class="primary" title="儲存（Ctrl+S）">儲存</button>
-    <button id="btnSaveAs" title="另存新檔（Ctrl+Shift+S）">另存新檔…</button>
-    <span class="sep"></span>
-    <button id="btnCopy" title="複製成圖片，直接到 Word 貼上">複製圖片</button>
-    <button id="btnPng" title="存成高解析 PNG 圖檔">匯出 PNG</button>
-    <button id="btnSvg" title="存成向量 SVG 圖檔（放大不失真）">匯出 SVG</button>
-    <span class="sep"></span>
-    <button id="btnHelp" title="使用說明與圖例說明（F1）">使用說明</button>
+  </span>
+  <h1 class="topbar__title">家系圖工具</h1>
+  <p class="filebar" id="fileLabel">未命名</p>
+
+  <nav class="topbar__actions" aria-label="檔案與匯出">
+    <button id="btnNew" class="btn">新增</button>
+    <button id="btnOpen" class="btn">開啟…</button>
+    <button id="btnSave" class="btn btn--primary">儲存</button>
+    <button id="btnSaveAs" class="btn">另存新檔…</button>
+    <span class="menu">
+      <button id="btnExport" class="btn" aria-haspopup="true" aria-expanded="false" aria-controls="exportMenu">匯出</button>
+      <ul class="menu__list" id="exportMenu" role="menu" hidden>
+        <li><button class="menu__item" id="btnCopy" role="menuitem">複製圖片（貼進 Word）</button></li>
+        <li><button class="menu__item" id="btnPng" role="menuitem">匯出 PNG 圖檔</button></li>
+        <li><button class="menu__item" id="btnSvg" role="menuitem">匯出 SVG 向量圖</button></li>
+      </ul>
+    </span>
+    <span class="topbar__sep" aria-hidden="true"></span>
+    <button id="btnTheme" class="btn btn--icon tooltip" data-tip="配色：跟隨系統" aria-label="配色：跟隨系統"></button>
+    <button id="btnHelp" class="btn btn--ghost">使用說明</button>
   </nav>
 </header>
 
-<main class="layout">
-  <aside class="tools" id="tools">
-    <section class="card">
-      <h3><span class="badge">1</span>新增人物</h3>
+<main class="workspace">
+  <aside class="sidebar" id="tools" aria-label="工具">
+    <section class="toolgroup">
+      <h2 class="sidebar__group">新增人物</h2>
       <div class="grid3">
-        <button class="addbtn" data-add="M" title="新增男性"><svg viewBox="0 0 26 26"><rect x="3" y="3" width="20" height="20" fill="#fff" stroke="#173F52" stroke-width="2"/></svg>男</button>
-        <button class="addbtn" data-add="F" title="新增女性"><svg viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" fill="#fff" stroke="#173F52" stroke-width="2"/></svg>女</button>
-        <button class="addbtn" data-add="U" title="新增未知性別"><svg viewBox="0 0 26 26"><text x="13" y="22" text-anchor="middle" font-size="24" font-weight="700" fill="#173F52">?</text></svg>未知</button>
+        <button class="addbtn" data-add="M" title="新增男性"><svg viewBox="0 0 26 26" aria-hidden="true"><rect x="4" y="4" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"/></svg>男</button>
+        <button class="addbtn" data-add="F" title="新增女性"><svg viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="9" fill="none" stroke="currentColor" stroke-width="2"/></svg>女</button>
+        <button class="addbtn" data-add="U" title="新增未知性別"><svg viewBox="0 0 26 26" aria-hidden="true"><text x="13" y="21" text-anchor="middle" font-size="20" font-weight="700" fill="currentColor">?</text></svg>未知</button>
       </div>
     </section>
 
-    <section class="card">
-      <h3><span class="badge">2</span>家庭關係</h3>
+    <section class="toolgroup">
+      <h2 class="sidebar__group">家庭關係</h2>
       <div class="grid2">
-        <button data-kin="partner">＋伴侶</button>
-        <button data-kin="parents">＋父母</button>
-        <button data-kin="son">＋兒子</button>
-        <button data-kin="daughter">＋女兒</button>
-        <button data-kin="brother">＋兄弟</button>
-        <button data-kin="sister">＋姊妹</button>
+        <button class="btn" data-kin="partner">＋伴侶</button>
+        <button class="btn" data-kin="parents">＋父母</button>
+        <button class="btn" data-kin="son">＋兒子</button>
+        <button class="btn" data-kin="daughter">＋女兒</button>
+        <button class="btn" data-kin="brother">＋兄弟</button>
+        <button class="btn" data-kin="sister">＋姊妹</button>
       </div>
-      <div class="stack" style="margin-top:6px">
-        <button data-kin="linkPartner" class="secondary">連結為伴侶…</button>
-        <button data-kin="attachChild">設為某段關係的子女…</button>
+      <div class="stack-2 toolgroup__rows">
+        <button class="btn btn--block" data-kin="linkPartner">連結為伴侶…</button>
+        <button class="btn btn--block" data-kin="attachChild">設為某段關係的子女…</button>
       </div>
-      <p class="hint-text" id="kinHint">先在畫布上點選一個人。</p>
+      <p class="help" id="kinHint">先在畫布上點選一個人。</p>
     </section>
 
-    <section class="card">
-      <h3><span class="badge">3</span>情感關係</h3>
-      <div class="soft">新拉的線用這個類型：</div>
+    <section class="toolgroup">
+      <h2 class="sidebar__group">情感關係</h2>
+      <p class="help">新拉的線用這個類型：</p>
       <button id="relTypeBtn" class="typebtn" title="選擇類型：先選大類，再選線條"></button>
-      <div class="stack" style="margin-top:6px">
-        <button id="btnRelation" class="secondary">從選取的人拉線…</button>
-        <button id="btnLegend" class="link">看圖例說明（符號與線條）</button>
+      <div class="stack-2 toolgroup__rows">
+        <button id="btnRelation" class="btn btn--block">從選取的人拉線…</button>
+        <button id="btnLegend" class="btn btn--ghost btn--block">看圖例說明</button>
       </div>
     </section>
 
-    <section class="card">
-      <h3><span class="badge">4</span>標註</h3>
-      <div class="stack">
-        <button id="btnHousehold" title="先選取同住的人（按住 Shift 可多選）">圈成生活圈（同住）</button>
-        <button id="btnLabel">新增文字說明</button>
+    <section class="toolgroup">
+      <h2 class="sidebar__group">標註</h2>
+      <div class="stack-2">
+        <button id="btnHousehold" class="btn btn--block" title="先選取同住的人（按住 Shift 可多選）">圈成生活圈（同住）</button>
+        <button id="btnLabel" class="btn btn--block">新增文字說明</button>
       </div>
     </section>
 
-    <section class="card">
-      <h3><span class="badge">5</span>生態圖</h3>
-      <div class="soft">顯示：</div>
-      <div id="viewModes"></div>
-      <div class="stack" style="margin-top:6px">
-        <button id="btnSystem" class="secondary">＋新增資源…</button>
-        <button id="btnTie">拉生態連結…</button>
+    <section class="toolgroup">
+      <h2 class="sidebar__group">生態圖</h2>
+      <fieldset class="field">
+        <legend class="help">顯示</legend>
+        <div id="viewModes"></div>
+      </fieldset>
+      <div class="stack-2 toolgroup__rows">
+        <button id="btnSystem" class="btn btn--block">＋新增資源…</button>
+        <button id="btnTie" class="btn btn--block">拉生態連結…</button>
       </div>
-      <p class="hint-text" id="tieHint">先點選一個人或資源，再按「拉生態連結」。</p>
+      <p class="help" id="tieHint">先點選一個人或資源，再按「拉生態連結」。</p>
     </section>
 
-    <section class="card">
-      <h3><span class="badge">6</span>顯示設定</h3>
-      <div class="soft">圖上顯示哪些資料：</div>
-      <div id="showFields"></div>
-      <label class="check"><input type="checkbox" id="optYears">生卒年</label>
-      <div class="soft" style="margin-top:8px">標籤格式：</div>
-      <label class="check"><input type="radio" name="labelMode" value="value">只顯示內容（例：工人）</label>
-      <label class="check"><input type="radio" name="labelMode" value="labelled">欄位名＋內容（例：職業：工人）</label>
-      <label class="check" style="margin-top:8px"><input type="checkbox" id="optColor">情感關係線用彩色</label>
-      <label class="check"><input type="checkbox" id="optLineLabels">線旁說明（特殊線條標名稱）</label>
-      <button id="btnFields" style="margin-top:8px;width:100%">管理欄位（新增／改名／刪除）…</button>
+    <section class="toolgroup">
+      <h2 class="sidebar__group">顯示設定</h2>
+      <fieldset class="field">
+        <legend class="help">圖上顯示哪些資料</legend>
+        <div id="showFields"></div>
+      </fieldset>
+      <label class="check"><input type="checkbox" id="optYears"><span>生卒年</span></label>
+      <fieldset class="field toolgroup__rows">
+        <legend class="help">標籤格式</legend>
+        <label class="check"><input type="radio" name="labelMode" value="value"><span>只顯示內容（例：工人）</span></label>
+        <label class="check"><input type="radio" name="labelMode" value="labelled"><span>欄位名＋內容（例：職業：工人）</span></label>
+      </fieldset>
+      <label class="check"><input type="checkbox" id="optColor"><span>情感關係線用彩色</span></label>
+      <label class="check"><input type="checkbox" id="optLineLabels"><span>線旁說明（特殊線條標名稱）</span></label>
+      <button id="btnFields" class="btn btn--block toolgroup__rows">管理欄位…</button>
     </section>
   </aside>
 
   <section class="stage" id="stage">
-    <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+    <svg id="canvas" xmlns="http://www.w3.org/2000/svg" tabindex="-1">
       <defs>
         <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-          <path d="M20 0H0V20" fill="none" stroke="#EEF4F8" stroke-width="1"/>
+          <path d="M20 0H0V20" fill="none" stroke="currentColor" stroke-width="1"/>
         </pattern>
       </defs>
       <g id="viewport"><rect id="gridRect" x="-100000" y="-100000" width="200000" height="200000" fill="url(#grid)"/><g id="world"></g><g id="overlay"></g></g>
     </svg>
-    <div class="empty" id="empty"><div class="box">
-      按左邊「<b>男</b>」「<b>女</b>」開始畫，<br>
-      或按上方「<b>開啟…</b>」打開之前存的家系圖檔。<br>
-      <span class="muted">點選人物後，右邊可以填年齡、職業、經濟等資料，會自動顯示在圖上。</span>
+
+    <div class="empty" id="empty"><div class="empty__box">
+      <p>按左邊「<b>男</b>」「<b>女</b>」開始畫，或按上方「<b>開啟…</b>」打開之前存的家系圖檔。</p>
+      <p class="help">點選人物後，右邊可以填年齡、職業、經濟等資料，會自動顯示在圖上。</p>
     </div></div>
-    <div class="zoombar editbar">
-      <button id="btnUndo" title="復原（Ctrl+Z）">↶ 復原</button><button id="btnRedo" title="重做（Ctrl+Y）">↷ 重做</button>
-      <button id="btnDelete" title="刪除選取的項目（Delete）">刪除</button>
+
+    <div class="stage__toolbar toolbar" role="toolbar" aria-label="編輯">
+      <button id="btnUndo" class="btn btn--icon tooltip" data-tip="復原（Ctrl+Z）" aria-label="復原"></button>
+      <button id="btnRedo" class="btn btn--icon tooltip" data-tip="重做（Ctrl+Y）" aria-label="重做"></button>
+      <button id="btnDelete" class="btn btn--icon btn--danger tooltip" data-tip="刪除選取的項目（Delete）" aria-label="刪除選取的項目"></button>
     </div>
-    <div class="banner" id="banner" hidden><span id="bannerText"></span><button id="bannerCancel">取消（Esc）</button></div>
-    <div class="zoombar">
-      <button id="zoomOut" title="縮小">－</button><span class="zv" id="zoomVal">100%</span>
-      <button id="zoomIn" title="放大">＋</button><button id="zoomFit" title="整張圖放進畫面">符合畫面</button>
+
+    <div class="alert alert--danger stage__alert" id="errorBar" role="alert" hidden>
+      <strong id="errorTitle">無法完成</strong>
+      <span id="errorText"></span>
+      <button class="alert__close" id="errorClose" aria-label="關閉這則訊息"></button>
+    </div>
+
+    <div class="banner" id="banner" hidden>
+      <span id="bannerText"></span>
+      <button id="bannerCancel" class="btn">取消（Esc）</button>
+    </div>
+
+    <div class="stage__zoom toolbar" role="toolbar" aria-label="檢視">
+      <button id="zoomOut" class="btn btn--icon tooltip" data-tip="縮小" aria-label="縮小"></button>
+      <span class="zoomval num" id="zoomVal">100%</span>
+      <button id="zoomIn" class="btn btn--icon tooltip" data-tip="放大" aria-label="放大"></button>
+      <button id="zoomFit" class="btn">符合畫面</button>
     </div>
   </section>
 
-  <aside class="props" id="props"></aside>
+  <aside class="props" id="props" aria-label="屬性"></aside>
 </main>
 
 <footer class="statusbar">
   <span id="stCount">0 人</span>
   <span id="stDate"></span>
-  <span class="lock" title="本工具不連網路：所有資料只存在你的電腦">● 離線運作，資料不離開這台電腦</span>
-  <span class="ver" id="stVer"></span>
+  <span class="statusbar__safe" id="stSafe">離線運作，資料不離開這台電腦</span>
+  <span class="statusbar__ver num" id="stVer"></span>
 </footer>
 
-<div id="toasts" aria-live="polite"></div>
-<dialog id="dlg"><div class="dh" id="dlgTitle"></div><div class="db" id="dlgBody"></div><div class="df" id="dlgFoot"></div></dialog>
+<div class="toast-stack" id="toasts" aria-live="polite"></div>
+<dialog class="dialog" id="dlg">
+  <div class="dialog__header"><h2 class="dialog__title" id="dlgTitle"></h2></div>
+  <div class="dialog__body" id="dlgBody"></div>
+  <div class="dialog__footer" id="dlgFoot"></div>
+</dialog>
 <input type="file" id="fileInput" accept=".json" hidden>
 
 <script src="core.js"></script>
+<script src="icons.js"></script>
 <script src="render.js"></script>
 <script src="manual.js"></script>
 <script src="app.js"></script>

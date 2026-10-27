@@ -28,16 +28,33 @@ def lf(text: str) -> str:
 def main() -> int:
     stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     html = lf((SRC / "index.html").read_text(encoding="utf-8"))
-    css = lf((SRC / "style.css").read_text(encoding="utf-8"))
-
-    link = '<link rel="stylesheet" href="style.css">'
-    if link not in html:
-        print("找不到 style.css 的 <link>，打包中止。")
-        return 1
-    html = html.replace(link, "<style>\n" + css + "</style>")
 
     hashes = []
     missing = []
+
+    def check_chars(name: str, text: str) -> None:
+        # 原始碼不得含控制字元（2026-09-21：寫檔工具曾把跳脫序列變成真的 NUL 字元混進檔案）
+        bad = sorted({ord(ch) for ch in text if ord(ch) < 32 and ord(ch) not in (9, 10, 13)})
+        if bad:
+            raise SystemExit(f"{name} 含有控制字元（字碼 {bad}），請改寫成跳脫序列。")
+
+    # 樣式依 <link> 出現的順序內嵌：tokens → base → components → 專案自己的 style
+    def inline_css(m: re.Match) -> str:
+        name = m.group(1)
+        path = SRC / name
+        if not path.exists():
+            missing.append(name)
+            return m.group(0)
+        css = lf(path.read_text(encoding="utf-8"))
+        if "</style" in css.lower():
+            raise SystemExit(f"{name} 內含 </style，無法內嵌。")
+        check_chars(name, css)
+        return "<style>\n" + css + "</style>"
+
+    html, n_css = re.subn(r'<link rel="stylesheet" href="([\w.-]+\.css)">', inline_css, html)
+    if not n_css:
+        print("index.html 裡找不到任何樣式表的 <link>，打包中止。")
+        return 1
 
     def inline(m: re.Match) -> str:
         name = m.group(1)
@@ -48,10 +65,7 @@ def main() -> int:
         js = lf(path.read_text(encoding="utf-8")).replace("__BUILD__", stamp)
         if "</script" in js.lower():
             raise SystemExit(f"{name} 內含 </script，無法內嵌。")
-        # 原始碼不得含控制字元（2026-09-21：寫檔工具曾把跳脫序列變成真的 NUL 字元混進檔案）
-        bad = sorted({ord(ch) for ch in js if ord(ch) < 32 and ord(ch) not in (9, 10, 13)})
-        if bad:
-            raise SystemExit(f"{name} 含有控制字元（字碼 {bad}），請改寫成跳脫序列。")
+        check_chars(name, js)
         body = "\n" + js + "\n"
         digest = base64.b64encode(hashlib.sha256(body.encode("utf-8")).digest()).decode("ascii")
         hashes.append(f"'sha256-{digest}'")
@@ -75,7 +89,8 @@ def main() -> int:
 
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(html, encoding="utf-8", newline="\n")
-    print(f"已打包 {OUT.relative_to(ROOT)}：{OUT.stat().st_size:,} bytes，內嵌腳本 {len(hashes)} 段（{stamp}）")
+    print(f"已打包 {OUT.relative_to(ROOT)}：{OUT.stat().st_size:,} bytes，"
+          f"內嵌樣式 {n_css} 段、腳本 {len(hashes)} 段（{stamp}）")
     return 0
 
 

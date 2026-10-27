@@ -1,0 +1,227 @@
+/* 【產生檔，不要手改】來源：設計規範 02-設計系統/truemy-lavender/tokens.css（薰衣草紫：社工與權益類）
+ * 複製日期：2026-10-28。要更新：重跑 fmis-work/genogram-ui/copy_css.py。
+ * 專案自己的樣式寫在 style.css，不要改這個檔。 */
+/* 02-設計系統/truemy-lavender/tokens.css
+ * 薰衣草紫（Design System · lavender）
+ * 共用設計系統的日常介面樣式：暖米橘強調色、米白紙底、深灰紫墨色。內部系統、後台、表單、教育訓練頁面都用這一套。
+ *
+ * 由 工具/build_tokens.py 自 工具/palettes.json 產生（2026-10-22）。要改顏色請改 palettes.json 再重建。
+ * token 名稱沿用 open-design 的共用契約（--bg、--fg、--accent、--space-*、--radius-* …），
+ * 所以 open-design 裡 154 套 tokens.css 可以直接換進來用，本套件也可以換到那邊去。
+ * 另加額外擴充：--link、--info、--accent-soft、--accent-tint、--*-soft、--*-on、--chart-1..8、--tap-min、--control-h、--elev-overlay。
+ */
+:root {
+  /* ---- 結構（兩種配色共用） ---- */
+  --font-display: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "微軟正黑體", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "微軟正黑體", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Cascadia Code", "JetBrains Mono", "SF Mono", Consolas, "Noto Sans Mono CJK TC", ui-monospace, monospace;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 36px;
+  --text-4xl: 48px;
+  --leading-body: 1.75;
+  --leading-ui: 1.5;
+  --leading-tight: 1.3;
+  --tracking-display: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --section-y-desktop: 80px;
+  --section-y-tablet: 56px;
+  --section-y-phone: 40px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+  --border-width: 1px;
+  --tap-min: 44px;
+  --control-h: 44px;
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --container-max: 1200px;
+  --container-narrow: 760px;
+  --container-gutter-desktop: 32px;
+  --container-gutter-tablet: 24px;
+  --container-gutter-phone: 16px;
+
+  /* ---- 色彩：light（預設） ---- */
+  --bg: #FBF9FD;
+  --surface: #FFFFFF;
+  --surface-warm: #F1ECF8;
+  --fg: #3D3A4E;
+  --fg-2: #68647A;
+  --muted: #757185;
+  --meta: var(--fg-2);
+  --border: #928EA0;
+  --border-soft: #D8CDEA;
+  --accent: #6B4FA0;
+  --accent-on: #FFFFFF;
+  --accent-hover: #604790;
+  --accent-active: #584183;
+  --accent-soft: #E3DAF3;
+  --accent-tint: rgba(107, 79, 160, 0.08);
+  --link: #1F64A3;
+  --success: #297147;
+  --success-soft: #CDEBD3;
+  --success-on: #FFFFFF;
+  --warn: #8A5E00;
+  --warn-soft: #FBEBB8;
+  --warn-on: #FFFFFF;
+  --danger: #B3261E;
+  --danger-soft: #FFE1DD;
+  --danger-on: #FFFFFF;
+  --info: #1F64A3;
+  --info-soft: #D3E3FB;
+  --info-on: #FFFFFF;
+  --overlay: rgba(61, 58, 78, 0.45);
+  --badge-border: transparent;
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border-soft);
+  --elev-raised: 0 2px 8px rgba(61, 58, 78, 0.10);
+  --elev-overlay: 0 12px 32px rgba(61, 58, 78, 0.18);
+  --focus-ring: 0 0 0 3px rgba(31, 100, 163, 0.55);
+  --chart-1: #B9472F;
+  --chart-1-soft: #FFD8CC;
+  --chart-2: #2F5DA8;
+  --chart-2-soft: #D3E3FB;
+  --chart-3: #3D7F4C;
+  --chart-3-soft: #CDEBD3;
+  --chart-4: #6B4FA0;
+  --chart-4-soft: #E3DAF3;
+  --chart-5: #9A6A00;
+  --chart-5-soft: #FBEBB8;
+  --chart-6: #A63D6B;
+  --chart-6-soft: #F5D3E2;
+  --chart-7: #1F7A78;
+  --chart-7-soft: #C9E9E7;
+  --chart-8: #5E5A66;
+  --chart-8-soft: #E4E2E8;
+  color-scheme: light;
+}
+
+/* ---- 色彩：dark ---- */
+:root[data-theme="dark"] {
+  --bg: #1F2433;
+  --surface: #2A3043;
+  --surface-warm: #343A4F;
+  --fg: #F4F1EC;
+  --fg-2: #C9CDD8;
+  --muted: #A9AEBC;
+  --meta: var(--fg-2);
+  --border: #7D818E;
+  --border-soft: #3C4258;
+  --accent: #AD9CCE;
+  --accent-on: #1F2433;
+  --accent-hover: #B5A6D3;
+  --accent-active: #BCAED7;
+  --accent-soft: #47465E;
+  --accent-tint: rgba(173, 156, 206, 0.12);
+  --link: #5CA1E0;
+  --success: #66C88E;
+  --success-soft: #2D4C47;
+  --success-on: #111111;
+  --warn: #FFAF05;
+  --warn-soft: #574728;
+  --warn-on: #111111;
+  --danger: #EB8E89;
+  --danger-soft: #503640;
+  --danger-on: #111111;
+  --info: #7EB5E7;
+  --info-soft: #2E435E;
+  --info-on: #111111;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --badge-border: transparent;
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border-soft);
+  --elev-raised: 0 2px 8px rgba(0, 0, 0, 0.10);
+  --elev-overlay: 0 12px 32px rgba(0, 0, 0, 0.18);
+  --focus-ring: 0 0 0 3px rgba(92, 161, 224, 0.55);
+  --chart-1: #D44E32;
+  --chart-1-soft: #523033;
+  --chart-2: #477ED8;
+  --chart-2-soft: #2A3D61;
+  --chart-3: #21993C;
+  --chart-3-soft: #204536;
+  --chart-4: #8C62DE;
+  --chart-4-soft: #3E3563;
+  --chart-5: #A97500;
+  --chart-5-soft: #463B25;
+  --chart-6: #D63B7F;
+  --chart-6-soft: #522A48;
+  --chart-7: #1F9290;
+  --chart-7-soft: #1F434D;
+  --chart-8: #8A8694;
+  --chart-8-soft: #3D3F4E;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+  --bg: #1F2433;
+  --surface: #2A3043;
+  --surface-warm: #343A4F;
+  --fg: #F4F1EC;
+  --fg-2: #C9CDD8;
+  --muted: #A9AEBC;
+  --meta: var(--fg-2);
+  --border: #7D818E;
+  --border-soft: #3C4258;
+  --accent: #AD9CCE;
+  --accent-on: #1F2433;
+  --accent-hover: #B5A6D3;
+  --accent-active: #BCAED7;
+  --accent-soft: #47465E;
+  --accent-tint: rgba(173, 156, 206, 0.12);
+  --link: #5CA1E0;
+  --success: #66C88E;
+  --success-soft: #2D4C47;
+  --success-on: #111111;
+  --warn: #FFAF05;
+  --warn-soft: #574728;
+  --warn-on: #111111;
+  --danger: #EB8E89;
+  --danger-soft: #503640;
+  --danger-on: #111111;
+  --info: #7EB5E7;
+  --info-soft: #2E435E;
+  --info-on: #111111;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --badge-border: transparent;
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border-soft);
+  --elev-raised: 0 2px 8px rgba(0, 0, 0, 0.10);
+  --elev-overlay: 0 12px 32px rgba(0, 0, 0, 0.18);
+  --focus-ring: 0 0 0 3px rgba(92, 161, 224, 0.55);
+  --chart-1: #D44E32;
+  --chart-1-soft: #523033;
+  --chart-2: #477ED8;
+  --chart-2-soft: #2A3D61;
+  --chart-3: #21993C;
+  --chart-3-soft: #204536;
+  --chart-4: #8C62DE;
+  --chart-4-soft: #3E3563;
+  --chart-5: #A97500;
+  --chart-5-soft: #463B25;
+  --chart-6: #D63B7F;
+  --chart-6-soft: #522A48;
+  --chart-7: #1F9290;
+  --chart-7-soft: #1F434D;
+  --chart-8: #8A8694;
+  --chart-8-soft: #3D3F4E;
+  color-scheme: dark;
+  }
+}

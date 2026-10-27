@@ -4,7 +4,7 @@
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.6.1';
+  const APP_VERSION = '0.7.0';
   const BUILD = '__BUILD__';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
@@ -20,17 +20,23 @@
   GT.app = { state, APP_VERSION };
 
   // ───── 提示與錯誤 ─────
+  // 成功與提醒用 toast（會自己消失）；錯誤用畫布上的 alert（留著不動，使用者看完自己關）
+  const ico = (name, size) => GT.icons.icon(name, size);
   function toast(msg, kind, ms) {
     const el = document.createElement('div');
-    el.className = 'toast ' + (kind || '');
-    el.textContent = msg;
+    el.className = 'toast' + (kind === 'ok' ? ' toast--success' : '');
+    el.innerHTML = `<span class="toast__icon">${ico(kind === 'ok' ? 'check-circle' : 'info')}</span>` +
+                   `<span class="toast__body"></span>`;
+    el.querySelector('.toast__body').textContent = msg;      // 使用者文字不進 innerHTML
     $('toasts').appendChild(el);
-    setTimeout(() => el.remove(), ms || (kind === 'error' ? 10000 : 3500));
+    setTimeout(() => el.remove(), ms || 3500);
   }
   function showError(r) {
     document.body.dataset.errors = String((+document.body.dataset.errors || 0) + 1);
-    toast(r.message, 'error');
+    $('errorText').textContent = r.message;
+    $('errorBar').hidden = false;
   }
+  const clearError = () => { $('errorBar').hidden = true; };
   async function act(code, fn) {
     try { return await fn(); }
     catch (e) { if (e && e.name === 'AbortError') return undefined; showError(GT.fail(code, e)); return undefined; }
@@ -336,7 +342,7 @@
   function renderTools() {
     const st = state.doc.settings;
     $('showFields').innerHTML = st.fields.map(f =>
-      `<label class="check"><input type="checkbox" data-show="${esc(f.key)}"${f.show ? ' checked' : ''}>${esc(f.label)}</label>`).join('');
+      `<label class="check"><input type="checkbox" data-show="${esc(f.key)}"${f.show ? ' checked' : ''}><span>${esc(f.label)}</span></label>`).join('');
     $('optYears').checked = st.showYears;
     $('optColor').checked = st.colorRelations;
     $('optLineLabels').checked = st.lineLabels !== false;
@@ -359,13 +365,14 @@
       : ends.length === 1 ? `從「${nodeName(ends[0])}」拉線，按下後再點另一端。`
       : '先點選一個人或資源（或按住 Shift 選兩個），再按「拉生態連結」。';
     const rt = GT.EMOTION_TYPES.find(t => t.key === state.relType) || GT.EMOTION_TYPES[0];
-    $('relTypeBtn').innerHTML = `${R.sampleSVG('relation', rt.key, st.colorRelations)}<span>${esc(rt.label)}</span><span class="chev">▾</span>`;
+    $('relTypeBtn').innerHTML = `${R.sampleSVG('relation', rt.key, st.colorRelations)}` +
+      `<span class="label">${esc(rt.label)}</span>${ico('chevron-down', 16)}`;
   }
 
   // 左邊「情感關係」的類型：跳出分類式選擇器（先選大類再選線條）
   function openRelTypePicker() {
     const body = dialog('新拉的情感關係線要用哪一種？',
-      `<p class="soft">先點上排的大類，再點線條。已經拉好的線，之後也可以點它在右邊改。</p>${pickerHTML('tool', GT.EMOTION_TYPES, GT.EMOTION_CATS, state.relType, 'relation')}`,
+      `<p class="help">先點上排的大類，再點線條。已經拉好的線，之後也可以點它在右邊改。</p>${pickerHTML('tool', GT.EMOTION_TYPES, GT.EMOTION_CATS, state.relType, 'relation')}`,
       [{ label: '取消' }]);
     bindPicker(body, 'tool', GT.EMOTION_TYPES, GT.EMOTION_CATS, () => state.relType, 'relation', (k) => {
       state.relType = k; $('dlg').close(); renderTools();
@@ -390,7 +397,8 @@
   const openSections = new Set(), pickerCat = {};
   function accHTML(key, title, summary, body, emptyText) {
     return `<details class="acc" data-acc="${key}"${openSections.has(key) ? ' open' : ''}>
-      <summary><span class="t">${esc(title)}</span><span class="v${summary ? '' : ' none'}">${esc(summary || emptyText || '無')}</span></summary>
+      <summary><span class="caret">${ico('chevron-down', 16)}</span><span class="t">${esc(title)}</span>` +
+      `<span class="v${summary ? '' : ' none'}">${esc(summary || emptyText || '無')}</span></summary>
       <div class="accb">${body}</div></details>`;
   }
   // 在 click 就記下開合（toggle 事件是非同步的：展開後馬上點裡面的按鈕、面板重畫時會來不及記到）
@@ -402,8 +410,8 @@
       openSections.add(el.dataset.acc);
     }));
   }
-  const segHTML = (field, list, cur) => `<div class="seg">${list.map(t =>
-    `<button type="button" data-set="${field}" data-val="${esc(t.key)}" class="${t.key === cur ? 'on' : ''}" title="${esc(t.label)}">${esc(t.short || t.label)}</button>`).join('')}</div>`;
+  const segHTML = (field, list, cur) => `<div class="segmented" role="group">${list.map(t =>
+    `<button type="button" data-set="${field}" data-val="${esc(t.key)}" aria-pressed="${t.key === cur}" title="${esc(t.label)}">${esc(t.short || t.label)}</button>`).join('')}</div>`;
 
   // 類型選擇器：上排大類、下面只列該類的線條（附縮圖）；參考圖以外的類型只在目前值剛好是它時才列出
   function pickerInner(name, types, cats, cur, kind) {
@@ -427,7 +435,7 @@
   }
   const curTypeHTML = (types, key, kind) => {
     const t = types.find(x => x.key === key) || { label: key };
-    return `<div class="curtype"><span class="soft">目前：</span>${R.sampleSVG(kind, key, state.doc.settings.colorRelations)}<b>${esc(t.label)}</b></div>`;
+    return `<div class="curtype"><span class="help">目前：</span>${R.sampleSVG(kind, key, state.doc.settings.colorRelations)}<b>${esc(t.label)}</b></div>`;
   };
 
   function renderPanel() {
@@ -479,8 +487,8 @@
     const partners = [].concat(...us.map(u => u.partners.filter(x => x !== id)));
     const kids = [].concat(...us.map(u => u.children.map(c => c.id)));
     const fields = d.settings.fields.map(f => `
-      <label class="field">${esc(f.label)}${f.show ? '<span class="tag">圖上顯示</span>' : ''}</label>
-      <input type="text" data-attr="${esc(f.key)}" list="dl-${esc(f.key)}" value="${esc((p.attrs || {})[f.key] || '')}" maxlength="500">
+      <div class="field"><label for="attr-${esc(f.key)}">${esc(f.label)}${f.show ? ' <span class="badge badge--accent">圖上顯示</span>' : ''}</label>
+      <input type="text" class="input" id="attr-${esc(f.key)}" data-attr="${esc(f.key)}" list="dl-${esc(f.key)}" value="${esc((p.attrs || {})[f.key] || '')}" maxlength="500"></div>
       <datalist id="dl-${esc(f.key)}">${GT.suggestionsFor(d, f.key).map(s => `<option value="${esc(s)}">`).join('')}</datalist>`).join('');
     const conds = p.conditions || [];
     const condChip = (c) => `<label class="cond"><input type="checkbox" data-cond="${c.key}"${conds.includes(c.key) ? ' checked' : ''}><i style="background:${c.color}"></i>${esc(c.label)}</label>`;
@@ -488,50 +496,49 @@
     // 先選「有沒有疾病」，有了才列出疾病別（先大類後細項）；原本就勾了疾病別的照樣列出，才能取消
     const showMed = !!p.illness || meds.some(c => conds.includes(c.key));
     const health = `
-      <label class="field">身體或精神疾病<span class="hint">符號左半塗黑</span></label>${segHTML('illness', GT.ILLNESS, p.illness)}
-      ${showMed ? `<label class="field">哪一種疾病（選填）<span class="hint">顏色填在左上角</span></label><div class="conds">${meds.map(condChip).join('')}</div>` : ''}
-      <label class="field">酒精或藥物濫用<span class="hint">下半塗黑，疑似＝灰色</span></label>${segHTML('substance', GT.SUBSTANCE, p.substance)}
-      <label class="field">成癮（選填）<span class="hint">改外框顏色</span></label><div class="conds">${adds.map(condChip).join('')}</div>`;
+      <fieldset class="field"><legend>身體或精神疾病<span class="hint">符號左半塗黑</span></legend>${segHTML('illness', GT.ILLNESS, p.illness)}</fieldset>
+      ${showMed ? `<fieldset class="field"><legend>哪一種疾病（選填）<span class="hint">顏色填在左上角</span></legend><div class="conds">${meds.map(condChip).join('')}</div></fieldset>` : ''}
+      <fieldset class="field"><legend>酒精或藥物濫用<span class="hint">下半塗黑，疑似＝灰色</span></legend>${segHTML('substance', GT.SUBSTANCE, p.substance)}</fieldset>
+      <fieldset class="field"><legend>成癮（選填）<span class="hint">改外框顏色</span></legend><div class="conds">${adds.map(condChip).join('')}</div></fieldset>`;
     const tw = GT.twinGroupOf(d, id);
     P.innerHTML = `
-    <section class="card"><h3><span class="badge">1</span>基本資料</h3>
-      <label class="field">姓名</label>
-      <input type="text" data-f="name" data-autofocus value="${esc(p.name)}" maxlength="60" placeholder="例：王小明（可留空）">
-      <label class="field">性別</label>
-      ${segHTML('gender', GT.GENDERS, p.gender)}
-      <label class="check" style="margin-top:8px"><input type="checkbox" data-flag="index"${p.index ? ' checked' : ''}>服務對象（粗框灰底）</label>
-      <label class="check"><input type="checkbox" data-flag="deceased"${p.deceased ? ' checked' : ''}>已歿（打叉）</label>
+    <section class="card"><div class="card__header"><h3 class="card__title">基本資料</h3></div>
+      <div class="field"><label for="f-name">姓名</label>
+      <input type="text" class="input" id="f-name" data-f="name" data-autofocus value="${esc(p.name)}" maxlength="60" placeholder="例：王小明（可留空）"></div>
+      <fieldset class="field"><legend>性別</legend>${segHTML('gender', GT.GENDERS, p.gender)}</fieldset>
+      <label class="check"><input type="checkbox" data-flag="index"${p.index ? ' checked' : ''}><span>服務使用者（粗框灰底）</span></label>
+      <label class="check"><input type="checkbox" data-flag="deceased"${p.deceased ? ' checked' : ''}><span>已歿（打叉）</span></label>
     </section>
-    <section class="card"><h3><span class="badge">2</span>狀態<span class="right symprev" title="圖上的樣子">${R.symbolSVG(d, p, 34)}</span></h3>
+    <section class="card"><div class="card__header"><h3 class="card__title">狀態</h3><span class="card__aside symprev">${R.symbolSVG(d, p, 34)}</span></div>
       ${accHTML('life', '生命狀態', p.life ? labelOf(GT.LIFE_STATES, p.life) : '',
-        segHTML('life', GT.LIFE_STATES, p.life) + '<p class="hint-text">懷孕、流產、墮胎會換成參考圖的符號（△、●、×）。</p>', '一般')}
+        segHTML('life', GT.LIFE_STATES, p.life) + '<p class="help">懷孕、流產、墮胎會換成參考圖的符號（△、●、×）。</p>', '一般')}
       ${accHTML('culture', '文化背景', p.culture ? labelOf(GT.CULTURES, p.culture) : '',
-        segHTML('culture', GT.CULTURES, p.culture) + '<p class="hint-text">符號上方加波浪線；住過兩個以上的文化地區畫兩條。</p>')}
+        segHTML('culture', GT.CULTURES, p.culture) + '<p class="help">符號上方加波浪線；住過兩個以上的文化地區畫兩條。</p>')}
       ${accHTML('health', '健康與成癮', healthSummary(p), health)}
     </section>
-    <section class="card"><h3><span class="badge">3</span>年齡<span class="right">顯示在符號中間</span></h3>
-      <label class="field">${p.deceased ? '過世時年齡' : '年齡'}</label>
-      <input type="number" min="0" max="149" id="ageInput" data-f="${ageKey}" value="${esc(ageVal == null ? '' : ageVal)}"${auto ? ' disabled' : ''}>
-      <label class="field">出生日期（選填）</label>
-      <input type="text" data-f="birth" value="${esc(p.birth)}" maxlength="20" placeholder="例：1965、1965-03-08、民國54年">
-      ${p.deceased ? `<label class="field">死亡日期（選填）</label>
-      <input type="text" data-f="death" value="${esc(p.death)}" maxlength="20" placeholder="例：2019、2019-05">` : ''}
+    <section class="card"><div class="card__header"><h3 class="card__title">年齡</h3><span class="card__aside">顯示在符號中間</span></div>
+      <div class="field"><label for="ageInput">${p.deceased ? '過世時年齡' : '年齡'}</label>
+      <input type="number" class="input" min="0" max="149" id="ageInput" data-f="${ageKey}" value="${esc(ageVal == null ? '' : ageVal)}"${auto ? ' disabled' : ''}></div>
+      <div class="field"><label for="f-birth">出生日期（選填）</label>
+      <input type="text" class="input" id="f-birth" data-f="birth" value="${esc(p.birth)}" maxlength="20" placeholder="例：1965、1965-03-08、民國54年"></div>
+      ${p.deceased ? `<div class="field"><label for="f-death">死亡日期（選填）</label>
+      <input type="text" class="input" id="f-death" data-f="death" value="${esc(p.death)}" maxlength="20" placeholder="例：2019、2019-05"></div>` : ''}
       <div class="agehint${p.deceased && a.value === null ? " warn" : ""}" id="ageHint">${esc(ageHintText(p))}</div>
     </section>
-    <section class="card"><h3><span class="badge">4</span>其他資料<span class="right"><button class="link" id="btnFieldsP">管理欄位</button></span></h3>
-      ${fields || '<div class="muted">沒有欄位，按「管理欄位」新增。</div>'}
+    <section class="card"><div class="card__header"><h3 class="card__title">其他資料</h3><span class="card__aside"><button class="btn btn--ghost" id="btnFieldsP">管理欄位</button></span></div>
+      ${fields || '<div class="text-muted">沒有欄位，按「管理欄位」新增。</div>'}
     </section>
-    <section class="card"><h3><span class="badge">5</span>家庭</h3>
+    <section class="card"><div class="card__header"><h3 class="card__title">家庭</h3></div>
       <div class="kin">父母：<b>${pu ? names(pu.partners) : '—'}</b><br>伴侶：<b>${names(partners)}</b><br>子女：<b>${names(kids)}</b></div>
       ${tw ? `<div class="kin">雙胞胎：<b>${names(tw.group.ids.filter(x => x !== id))}</b></div>
-      <div class="row" style="margin-top:4px"><select data-twinkind style="flex:1" aria-label="雙胞胎類型">${opts(GT.TWIN_KINDS, tw.group.kind)}</select><button data-untwin>取消雙胞胎</button></div>` : ''}
-      <div class="grid2" style="margin-top:6px">
-        <button data-kin2="partner">＋伴侶</button><button data-kin2="parents"${pu ? ' disabled' : ''}>＋父母</button>
-        <button data-kin2="son">＋兒子</button><button data-kin2="daughter">＋女兒</button>
+      <div class="cluster"><select class="input input--sm" data-twinkind style="flex:1" aria-label="雙胞胎類型">${opts(GT.TWIN_KINDS, tw.group.kind)}</select><button class="btn" data-untwin>取消雙胞胎</button></div>` : ''}
+      <div class="grid2 toolgroup__rows">
+        <button class="btn" data-kin2="partner">＋伴侶</button><button class="btn" data-kin2="parents"${pu ? ' disabled' : ''}>＋父母</button>
+        <button class="btn" data-kin2="son">＋兒子</button><button class="btn" data-kin2="daughter">＋女兒</button>
       </div>
     </section>
     ${usingEcomap() ? tieListHTML(id, 6) : ''}
-    <section class="card danger"><button class="danger" data-del style="width:100%">刪除這個人</button></section>`;
+    <section class="card"><button class="btn btn--danger btn--block" data-del>刪除這個人</button></section>`;
 
     const updateAge = () => {
       const q = state.doc.persons[id];
@@ -579,21 +586,21 @@
     const u = state.doc.unions[id];
     const two = u.partners.length === 2;
     P.innerHTML = `
-    <section class="card"><h3><span class="badge">1</span>${two ? '伴侶關係' : '單親家庭'}</h3>
+    <section class="card"><div class="card__header"><h3 class="card__title">${two ? '伴侶關係' : '單親家庭'}</h3></div>
       <div class="kin"><b>${u.partners.map(x => esc(personName(x))).join(' ＋ ')}</b></div>
-      ${two ? `<label class="field">關係類型（先選大類，再選線條）</label>${curTypeHTML(GT.FAMILY_TYPES, u.type, 'union')}
-      ${pickerHTML('union:' + id, GT.FAMILY_TYPES, GT.FAMILY_CATS, u.type, 'union')}
-      <label class="field">線旁說明（選填，會寫在線旁邊）</label>
-      <input type="text" data-unote value="${esc(u.note || '')}" maxlength="60" placeholder="例：1990 結婚、2015 離婚">
-      ${GT.isSpecialLine(u.type) ? '<p class="hint-text">這種線比較少見，圖上會自動寫出名稱（左邊「顯示設定」可以關掉）。</p>' : ''}` : ''}
+      ${two ? `<fieldset class="field"><legend>關係類型（先選大類，再選線條）</legend>${curTypeHTML(GT.FAMILY_TYPES, u.type, 'union')}
+      ${pickerHTML('union:' + id, GT.FAMILY_TYPES, GT.FAMILY_CATS, u.type, 'union')}</fieldset>
+      <div class="field"><label for="u-note">線旁說明（選填，會寫在線旁邊）</label>
+      <input type="text" class="input" id="u-note" data-unote value="${esc(u.note || '')}" maxlength="60" placeholder="例：1990 結婚、2015 離婚"></div>
+      ${GT.isSpecialLine(u.type) ? '<p class="help">這種線比較少見，圖上會自動寫出名稱（左邊「顯示設定」可以關掉）。</p>' : ''}` : ''}
     </section>
-    <section class="card"><h3><span class="badge">2</span>子女<span class="right">${u.children.length} 位</span></h3>
-      ${u.children.map(c => `<div class="childrow"><span>${esc(personName(c.id))}${(u.twins || []).some(t => t.ids.includes(c.id)) ? '<span class="muted">・雙胞胎</span>' : ''}</span>` +
-        `<select data-child="${esc(c.id)}">${opts(GT.CHILD_LINKS, c.link)}</select></div>`).join('') || '<div class="muted">還沒有子女</div>'}
-      <div class="grid2" style="margin-top:6px"><button data-uadd="M">＋兒子</button><button data-uadd="F">＋女兒</button></div>
-      ${u.children.length >= 2 ? '<p class="hint-text">雙胞胎：按住 Shift 點選兩個孩子，右邊會出現「設為雙胞胎」。</p>' : ''}
+    <section class="card"><div class="card__header"><h3 class="card__title">子女</h3><span class="card__aside">${u.children.length} 位</span></div>
+      ${u.children.map(c => `<div class="childrow"><span>${esc(personName(c.id))}${(u.twins || []).some(t => t.ids.includes(c.id)) ? '<span class="text-muted">・雙胞胎</span>' : ''}</span>` +
+        `<select class="input input--sm" data-child="${esc(c.id)}">${opts(GT.CHILD_LINKS, c.link)}</select></div>`).join('') || '<div class="text-muted">還沒有子女</div>'}
+      <div class="grid2 toolgroup__rows"><button class="btn" data-uadd="M">＋兒子</button><button class="btn" data-uadd="F">＋女兒</button></div>
+      ${u.children.length >= 2 ? '<p class="help">雙胞胎：按住 Shift 點選兩個孩子，右邊會出現「設為雙胞胎」。</p>' : ''}
     </section>
-    <section class="card danger"><button class="danger" data-del style="width:100%">刪除這段關係（人會保留）</button></section>`;
+    <section class="card"><button class="btn btn--danger btn--block" data-del>刪除這段關係（人會保留）</button></section>`;
     if (two) bindLive(P.querySelector('[data-unote]'), (d, v) => { d.unions[id].note = v.slice(0, 60); });
     if (two) bindPicker(P, 'union:' + id, GT.FAMILY_TYPES, GT.FAMILY_CATS, () => state.doc.unions[id].type, 'union',
                         (k) => { if (state.doc.unions[id].type !== k) mutate(d => { d.unions[id].type = k; }); });
@@ -610,16 +617,16 @@
   function panelRelation(P, id) {
     const r = state.doc.relations[id];
     P.innerHTML = `
-    <section class="card"><h3><span class="badge">1</span>情感關係</h3>
+    <section class="card"><div class="card__header"><h3 class="card__title">情感關係</h3></div>
       <div class="kin"><b>${esc(personName(r.a))}</b> ${isDir(r.type) ? '→' : '↔'} <b>${esc(personName(r.b))}</b></div>
-      <label class="field">類型（先選大類，再選線條）</label>${curTypeHTML(GT.EMOTION_TYPES, r.type, 'relation')}
-      ${pickerHTML('rel:' + id, GT.EMOTION_TYPES, GT.EMOTION_CATS, r.type, 'relation')}
-      <label class="field">線旁說明（選填，會寫在線旁邊）</label>
-      <input type="text" data-rnote data-autofocus value="${esc(r.note)}" maxlength="300" placeholder="例：自 2020 年起、情緒虐待">
-      ${GT.isSpecialLine(r.type) ? '<p class="hint-text">這種線比較少見，圖上會自動寫出名稱（左邊「顯示設定」可以關掉）。</p>' : ''}
-      ${isDir(r.type) ? '<button data-swap style="margin-top:8px;width:100%">對調方向（箭頭指向另一個人）</button>' : ''}
+      <fieldset class="field"><legend>類型（先選大類，再選線條）</legend>${curTypeHTML(GT.EMOTION_TYPES, r.type, 'relation')}
+      ${pickerHTML('rel:' + id, GT.EMOTION_TYPES, GT.EMOTION_CATS, r.type, 'relation')}</fieldset>
+      <div class="field"><label for="r-note">線旁說明（選填，會寫在線旁邊）</label>
+      <input type="text" class="input" id="r-note" data-rnote data-autofocus value="${esc(r.note)}" maxlength="300" placeholder="例：自 2020 年起、情緒虐待"></div>
+      ${GT.isSpecialLine(r.type) ? '<p class="help">這種線比較少見，圖上會自動寫出名稱（左邊「顯示設定」可以關掉）。</p>' : ''}
+      ${isDir(r.type) ? '<button class="btn btn--block" data-swap>對調方向（箭頭指向另一個人）</button>' : ''}
     </section>
-    <section class="card danger"><button class="danger" data-del style="width:100%">刪除這條情感關係</button></section>`;
+    <section class="card"><button class="btn btn--danger btn--block" data-del>刪除這條情感關係</button></section>`;
     bindPicker(P, 'rel:' + id, GT.EMOTION_TYPES, GT.EMOTION_CATS, () => state.doc.relations[id].type, 'relation',
                (k) => { if (state.doc.relations[id].type !== k) mutate(d => { d.relations[id].type = k; }); });
     bindLive(P.querySelector('[data-rnote]'), (d, v) => { d.relations[id].note = v.slice(0, 300); });
@@ -632,16 +639,16 @@
     const h = state.doc.households[id];
     const intruders = R.householdIntruders(state.doc, h);
     P.innerHTML = `
-    ${intruders.length ? `<section class="card warn"><h3><span class="badge" style="background:var(--warn)">!</span>圈內有非成員</h3>
-      <p class="hint-text" style="margin:0"><b>${intruders.map(x => esc(personName(x))).join('、')}</b> 不是這個生活圈的成員，但位置落在圈內。請把他們拖到圈外，或調整成員的位置，以免報告被誤讀。</p></section>` : ''}
-    <section class="card"><h3><span class="badge">1</span>生活圈（同住）</h3>
-      <label class="field">名稱（選填，顯示在圈的左上角）</label>
-      <input type="text" data-hl data-autofocus value="${esc(h.label)}" maxlength="30" placeholder="例：同住、祖父母家">
+    ${intruders.length ? `<div class="alert alert--warn" role="status"><strong>圈內有非成員</strong>
+      <span><b>${intruders.map(x => esc(personName(x))).join('、')}</b> 不是這個生活圈的成員，但位置落在圈內。請把他們拖到圈外，或調整成員的位置，以免報告被誤讀。</span></div>` : ''}
+    <section class="card"><div class="card__header"><h3 class="card__title">生活圈（同住）</h3></div>
+      <div class="field"><label for="h-label">名稱（選填，顯示在圈的左上角）</label>
+      <input type="text" class="input" id="h-label" data-hl data-autofocus value="${esc(h.label)}" maxlength="30" placeholder="例：同住、祖父母家"></div>
       <div class="kin" style="margin-top:8px">成員：<b>${h.members.map(x => esc(personName(x))).join('、')}</b></div>
-      <p class="hint-text">要增減成員：刪除這個生活圈，重新選取成員後再圈一次。</p>
+      <p class="help">要增減成員：刪除這個生活圈，重新選取成員後再圈一次。</p>
     </section>
     ${usingEcomap() ? tieListHTML(id, 2) : ''}
-    <section class="card danger"><button class="danger" data-del style="width:100%">刪除這個生活圈（人會保留）</button></section>`;
+    <section class="card"><button class="btn btn--danger btn--block" data-del>刪除這個生活圈（人會保留）</button></section>`;
     bindLive(P.querySelector('[data-hl]'), (d, v) => { d.households[id].label = v.slice(0, 30); });
     bindTieList(P, id);
     P.querySelector('[data-del]').addEventListener('click', deleteSelection);
@@ -650,11 +657,12 @@
   function panelLabel(P, id) {
     const t = state.doc.labels[id];
     P.innerHTML = `
-    <section class="card"><h3><span class="badge">1</span>文字說明</h3>
-      <textarea data-tl data-autofocus maxlength="1000" rows="5">${esc(t.text)}</textarea>
-      <p class="hint-text">可以拖曳移動位置；按 Enter 換行。</p>
+    <section class="card"><div class="card__header"><h3 class="card__title">文字說明</h3></div>
+      <div class="field"><label for="label-text">文字</label>
+      <textarea class="input" id="label-text" data-tl data-autofocus maxlength="1000" rows="5">${esc(t.text)}</textarea></div>
+      <p class="help">可以拖曳移動位置；按 Enter 換行。</p>
     </section>
-    <section class="card danger"><button class="danger" data-del style="width:100%">刪除這段文字</button></section>`;
+    <section class="card"><button class="btn btn--danger btn--block" data-del>刪除這段文字</button></section>`;
     bindLive(P.querySelector('[data-tl]'), (d, v) => { d.labels[id].text = v.slice(0, 1000); });
     P.querySelector('[data-del]').addEventListener('click', deleteSelection);
   }
@@ -664,19 +672,19 @@
     const twinU = ps.length >= 2 ? GT.commonParentUnion(state.doc, ps) : null;   // 同一對父母的子女才能設雙胞胎
     const relLabel = labelOf(GT.EMOTION_TYPES, state.relType);
     P.innerHTML = `
-    <section class="card"><h3><span class="badge">✓</span>已選取 ${ids.length} 個項目</h3>
-      <div class="soft">其中 ${ps.length} 個人。按住 Shift 點選或拖曳框選可以加選。</div>
-      <div class="stack" style="margin-top:8px">
-        ${ps.length === 2 ? `<button data-m="partner" class="secondary">連結為伴侶</button><button data-m="relation">建立情感關係（${esc(relLabel)}）</button>` : ''}
-        ${ps.length ? '<button data-m="household">圈成生活圈（同住）</button>' : ''}
-        ${ids.filter(id => GT.tieEndExists(state.doc, id)).length === 2 ? '<button data-m="tie">建立生態連結</button>' : ''}
-        ${ps.length > 1 ? '<button data-m="alignY">對齊成同一列（同一代）</button>' : ''}
-        <button data-m="delete" class="danger">刪除選取的項目</button>
+    <section class="card"><div class="card__header"><h3 class="card__title">已選取 ${ids.length} 個項目</h3></div>
+      <div class="help">其中 ${ps.length} 個人。按住 Shift 點選或拖曳框選可以加選。</div>
+      <div class="stack-2 toolgroup__rows">
+        ${ps.length === 2 ? `<button class="btn btn--primary btn--block" data-m="partner">連結為伴侶</button><button class="btn btn--block" data-m="relation">建立情感關係（${esc(relLabel)}）</button>` : ''}
+        ${ps.length ? '<button class="btn btn--block" data-m="household">圈成生活圈（同住）</button>' : ''}
+        ${ids.filter(id => GT.tieEndExists(state.doc, id)).length === 2 ? '<button class="btn btn--block" data-m="tie">建立生態連結</button>' : ''}
+        ${ps.length > 1 ? '<button class="btn btn--block" data-m="alignY">對齊成同一列（同一代）</button>' : ''}
+        <button class="btn btn--danger btn--block" data-m="delete">刪除選取的項目</button>
       </div>
     </section>
-    ${twinU ? `<section class="card"><h3><span class="badge">2</span>設為雙胞胎</h3>
-      <div class="soft">這 ${ps.length} 人是同一對父母的子女。</div>
-      <div class="stack" style="margin-top:6px">${GT.TWIN_KINDS.map(k => `<button data-twin="${k.key}">${esc(k.label)}</button>`).join('')}</div>
+    ${twinU ? `<section class="card"><div class="card__header"><h3 class="card__title">設為雙胞胎</h3></div>
+      <div class="help">這 ${ps.length} 人是同一對父母的子女。</div>
+      <div class="stack-2 toolgroup__rows">${GT.TWIN_KINDS.map(k => `<button class="btn btn--block" data-twin="${k.key}">${esc(k.label)}</button>`).join('')}</div>
     </section>` : ''}`;
     P.querySelectorAll('[data-twin]').forEach(b => b.addEventListener('click', () => {
       const cur = GT.twinGroupOf(state.doc, ps[0]);                          // 已經是同一組、同一種＝不要留下空的復原步驟
@@ -702,18 +710,18 @@
     const m = state.doc.meta, pd = GT.parseDate(m.assessDate);
     const dateVal = pd && pd.m && pd.d ? GT.formatDate(pd) : '';
     P.innerHTML = `
-    <section class="card"><h3><span class="badge">i</span>這張家系圖</h3>
-      <label class="field">個案編號（選填；存檔的預設檔名會用到）</label>
-      <input type="text" data-meta="caseNo" value="${esc(m.caseNo || '')}" maxlength="40" placeholder="例：A113-0921">
-      <p class="hint-text" id="fileHint">預設檔名：${esc(GT.defaultFileName(state.doc, '.json'))}（不會放姓名）</p>
-      <label class="field">標題（選填，給自己辨認用）</label>
-      <input type="text" data-meta="title" value="${esc(m.title)}" maxlength="100" placeholder="例：第一次家訪">
-      <label class="field">評估日期</label>
-      <input type="date" id="assessDate" value="${esc(dateVal)}">
-      <p class="hint-text">圖上的年齡以這個日期計算。兩年後重開這個檔，年齡仍會跟當時的紀錄一致。</p>
+    <section class="card"><div class="card__header"><h3 class="card__title">這張家系圖</h3></div>
+      <div class="field"><label for="meta-caseNo">個案編號（選填；存檔的預設檔名會用到）</label>
+      <input type="text" class="input" id="meta-caseNo" data-meta="caseNo" value="${esc(m.caseNo || '')}" maxlength="40" placeholder="例：A113-0921">
+      <p class="help" id="fileHint">預設檔名：${esc(GT.defaultFileName(state.doc, '.json'))}（不會放姓名）</p></div>
+      <div class="field"><label for="meta-title">標題（選填，給自己辨認用）</label>
+      <input type="text" class="input" id="meta-title" data-meta="title" value="${esc(m.title)}" maxlength="100" placeholder="例：第一次家訪"></div>
+      <div class="field"><label for="assessDate">評估日期</label>
+      <input type="date" class="input" id="assessDate" value="${esc(dateVal)}"></div>
+      <p class="help">圖上的年齡以這個日期計算。兩年後重開這個檔，年齡仍會跟當時的紀錄一致。</p>
     </section>
-    <section class="card"><h3><span class="badge">?</span>小技巧</h3>
-      <ul class="hint-text" style="padding-left:18px;margin:0">
+    <section class="card"><div class="card__header"><h3 class="card__title">小技巧</h3></div>
+      <ul class="help" style="padding-left:18px;margin:0">
         <li>點人物 → 右邊填年齡、職業、經濟，圖會即時更新。</li>
         <li>在空白處按住左鍵拖曳可以框選多個人；按住 <b>Shift</b> 點選或框選可以加選。</li>
         <li>移動畫面：按住<b>空白鍵</b>拖曳，或按住滑鼠中鍵拖曳；滾輪上下捲動，<b>Shift</b>＋滾輪左右捲動。</li>
@@ -737,10 +745,10 @@
   // 連結清單：兩端疊在一起時線畫不出來，清單是唯一找得回來的地方（審查 2026-09-20）
   function tieListHTML(id, badge) {
     const ts = tiesOf(id);
-    return `<section class="card"><h3><span class="badge">${badge}</span>生態連結<span class="right">${ts.length} 條</span></h3>
-      ${ts.map(t => `<div class="childrow"><span>${esc(nodeName(otherEnd(t, id)))}${t.note ? `<span class="muted">・${esc(t.note)}</span>` : ''}</span>` +
-        `<button data-goto="${esc(t.id)}">選這條線</button></div>`).join('') || '<div class="muted">還沒有連結。</div>'}
-      <button data-tiefrom style="margin-top:6px;width:100%">從這裡拉一條生態連結…</button>
+    return `<section class="card"><div class="card__header"><h3 class="card__title">生態連結</h3><span class="card__aside">${ts.length} 條</span></div>
+      ${ts.map(t => `<div class="childrow"><span>${esc(nodeName(otherEnd(t, id)))}${t.note ? `<span class="text-muted">・${esc(t.note)}</span>` : ''}</span>` +
+        `<button class="btn" data-goto="${esc(t.id)}">選這條線</button></div>`).join('') || '<div class="text-muted">還沒有連結。</div>'}
+      <button class="btn btn--block toolgroup__rows" data-tiefrom>從這裡拉一條生態連結…</button>
     </section>`;
   }
   function bindTieList(P, id) {
@@ -752,13 +760,13 @@
   function panelSystem(P, id) {
     const d = state.doc, s = d.systems[id];
     P.innerHTML = `
-    <section class="card"><h3><span class="badge">1</span>資源（外部系統）</h3>
-      <label class="field">名稱<span class="hint">寫在圓裡面</span></label>
-      <input type="text" data-sname data-autofocus value="${esc(s.name)}" maxlength="30" placeholder="例：○○國小、家防中心">
-      <p class="hint-text">字多會自動換行，圓也會跟著變大；建議寫簡稱。</p>
+    <section class="card"><div class="card__header"><h3 class="card__title">資源（外部系統）</h3></div>
+      <div class="field"><label for="s-name">名稱<span class="hint">寫在圓裡面</span></label>
+      <input type="text" class="input" id="s-name" data-sname data-autofocus value="${esc(s.name)}" maxlength="30" placeholder="例：○○國小、家防中心"></div>
+      <p class="help">字多會自動換行，圓也會跟著變大；建議寫簡稱。</p>
     </section>
     ${tieListHTML(id, 2)}
-    <section class="card danger"><button class="danger" data-del style="width:100%">刪除這個資源（線會一起刪）</button></section>`;
+    <section class="card"><button class="btn btn--danger btn--block" data-del>刪除這個資源（線會一起刪）</button></section>`;
     bindLive(P.querySelector('[data-sname]'), (dd, v) => { dd.systems[id].name = v.slice(0, 30); });
     bindTieList(P, id);
     P.querySelector('[data-del]').addEventListener('click', deleteSelection);
@@ -768,18 +776,18 @@
     const t = state.doc.ties[id];
     const arrow = { a2b: '→', b2a: '←', both: '↔' }[t.dir] || '—';
     P.innerHTML = `
-    <section class="card"><h3><span class="badge">1</span>生態連結</h3>
+    <section class="card"><div class="card__header"><h3 class="card__title">生態連結</h3></div>
       <div class="kin"><b>${esc(nodeName(t.a))}</b> ${arrow} <b>${esc(nodeName(t.b))}</b></div>
-      <label class="field">關係強度<span class="hint">強＝雙線、弱＝虛線</span></label>
-      ${segHTML('strength', GT.TIE_STRENGTHS, t.strength)}
-      <label class="check" style="margin-top:8px"><input type="checkbox" data-tstress${t.stress ? ' checked' : ''}>有壓力／衝突（畫成鋸齒線）</label>
-      <label class="field">流向<span class="hint">資源或能量往哪邊</span></label>
-      ${segHTML('dir', GT.TIE_DIRS, t.dir)}
-      <label class="field">線上寫一件事（選填）</label>
-      <input type="text" data-tnote data-autofocus value="${esc(t.note)}" maxlength="60" placeholder="例：通報 2025-03、保護令、每週送餐">
-      <button data-tswap style="margin-top:8px;width:100%">對調兩端</button>
+      <fieldset class="field"><legend>關係強度<span class="hint">強＝雙線、弱＝虛線</span></legend>
+      ${segHTML('strength', GT.TIE_STRENGTHS, t.strength)}</fieldset>
+      <label class="check"><input type="checkbox" data-tstress${t.stress ? ' checked' : ''}><span>有壓力／衝突（畫成鋸齒線）</span></label>
+      <fieldset class="field"><legend>流向<span class="hint">資源或能量往哪邊</span></legend>
+      ${segHTML('dir', GT.TIE_DIRS, t.dir)}</fieldset>
+      <div class="field"><label for="t-note">線上寫一件事（選填）</label>
+      <input type="text" class="input" id="t-note" data-tnote data-autofocus value="${esc(t.note)}" maxlength="60" placeholder="例：通報 2025-03、保護令、每週送餐"></div>
+      <button class="btn btn--block toolgroup__rows" data-tswap>對調兩端</button>
     </section>
-    <section class="card danger"><button class="danger" data-del style="width:100%">刪除這條線</button></section>`;
+    <section class="card"><button class="btn btn--danger btn--block" data-del>刪除這條線</button></section>`;
     P.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', () => {
       const field = b.dataset.set, val = b.dataset.val;
       if (state.doc.ties[id][field] === val) return;              // 值沒變就不留復原步驟
@@ -798,7 +806,7 @@
   // 新增資源：先選大類、再選項目（跟關係選擇器同一種操作）
   function openSystemPicker() {
     const body = dialog('新增資源（外部系統）',
-      `<p class="soft">先點上排的大類，再點要加的資源。加進去之後可以改名稱，例如把「學校」改成「○○國小」。</p>` +
+      `<p class="help">先點上排的大類，再點要加的資源。加進去之後可以改名稱，例如把「學校」改成「○○國小」。</p>` +
       pickerHTML('sys', GT.SYSTEM_PRESETS, GT.SYSTEM_CATS, '', 'text'), [{ label: '取消' }]);
     bindPicker(body, 'sys', GT.SYSTEM_PRESETS, GT.SYSTEM_CATS, () => '', 'text', (key) => {
       const preset = GT.SYSTEM_PRESETS.find(x => x.key === key);
@@ -834,7 +842,7 @@
   // ───── 對話框 ─────
   function dialog(title, bodyHTML, buttons, opts) {
     const dlg = $('dlg');
-    dlg.classList.toggle('wide', !!(opts && opts.wide));                // 使用說明、圖例用寬版
+    dlg.classList.toggle('dialog--wide', !!(opts && opts.wide));        // 使用說明、圖例用寬版
     $('dlgTitle').textContent = title;
     // 每次換一個新的 body 元素：掛在舊 body 上的監聽器跟著丟掉
     // （驗收發現：「管理欄位」開第二次後，一次點擊會被處理兩次，↑↓ 一次移兩格）
@@ -846,7 +854,7 @@
     for (const b of (buttons || [{ label: '關閉', primary: true }])) {
       const el = document.createElement('button');
       el.textContent = b.label;
-      if (b.primary) el.className = 'primary';
+      el.className = 'btn' + (b.primary ? ' btn--primary' : '');
       el.addEventListener('click', () => { dlg.close(); if (b.onClick) b.onClick(); });
       foot.appendChild(el);
     }
@@ -856,21 +864,24 @@
 
   function openFieldManager() {
     const body = dialog('管理欄位', `
-      <p class="soft">這些欄位會出現在每個人的「其他資料」裡；打勾的會顯示在圖上。<br>改名只改顯示名稱，已經填的資料不會受影響。</p>
+      <p class="help">這些欄位會出現在每個人的「其他資料」裡；打勾的會顯示在圖上。<br>改名只改顯示名稱，已經填的資料不會受影響。</p>
       <div id="fmList"></div>
-      <div class="row" style="margin-top:12px">
-        <input type="text" id="fmNew" placeholder="新欄位名稱，例：宗教、居住地、身分別" maxlength="20" style="flex:1">
-        <button class="secondary" id="fmAdd">新增欄位</button>
+      <div class="input-group toolgroup__rows">
+        <label class="sr-only" for="fmNew">新欄位名稱</label>
+        <input type="text" class="input" id="fmNew" placeholder="例：宗教、居住地、身分別" maxlength="20">
+        <button class="btn btn--primary" id="fmAdd">新增欄位</button>
       </div>`, [{ label: '完成', primary: true }]);
     const draw = () => {
       const fs = state.doc.settings.fields;
       $('fmList').innerHTML = fs.map((f, i) => `
         <div class="fieldrow">
-          <input type="checkbox" data-fs="${esc(f.key)}"${f.show ? ' checked' : ''} title="顯示在圖上">
-          <input type="text" data-fr="${esc(f.key)}" value="${esc(f.label)}" maxlength="20">
+          <input type="checkbox" data-fs="${esc(f.key)}"${f.show ? ' checked' : ''} aria-label="在圖上顯示這個欄位">
+          <input type="text" class="input" data-fr="${esc(f.key)}" value="${esc(f.label)}" maxlength="20">
           <span class="n">${GT.fieldUsage(state.doc, f.key)} 人填</span>
-          <span class="ops"><button data-fu="${esc(f.key)}"${i === 0 ? ' disabled' : ''} title="上移">↑</button><button data-fd="${esc(f.key)}"${i === fs.length - 1 ? ' disabled' : ''} title="下移">↓</button><button class="danger" data-fx="${esc(f.key)}">刪除</button></span>
-        </div>`).join('') || '<div class="muted">目前沒有欄位。</div>';
+          <span class="ops"><button class="btn" data-fu="${esc(f.key)}"${i === 0 ? ' disabled' : ''} aria-label="往上移">${ico('chevron-up', 16)}</button>` +
+          `<button class="btn" data-fd="${esc(f.key)}"${i === fs.length - 1 ? ' disabled' : ''} aria-label="往下移">${ico('chevron-down', 16)}</button>` +
+          `<button class="btn btn--danger" data-fx="${esc(f.key)}">刪除</button></span>
+        </div>`).join('') || '<div class="text-muted">目前沒有欄位。</div>';
     };
     draw();
     body.addEventListener('change', (e) => {
@@ -908,7 +919,8 @@
     if (tab) legendTab = tab;
     const colored = state.doc.settings.colorRelations;
     const D = GT.manual.LEGEND_DESC;
-    const row = ([svg, label, key, special]) => `<div>${svg}</div><div><b>${special ? '● ' : ''}${esc(label)}</b>` +
+    const row = ([svg, label, key, special]) => `<div>${svg}</div><div><b>${esc(label)}</b>` +
+      (special ? ' <span class="badge badge--accent">圖上標名稱</span>' : '') +
       (key && D[key] ? `<div class="desc">${esc(D[key])}</div>` : '') + '</div>';
     const sym = (over, g) => {
       const d = GT.newDoc(); d.settings.colorRelations = colored;
@@ -920,15 +932,15 @@
     const byCat = (types, cats, kind) => cats.map(c => `<h4 class="lh">${esc(c.label)}</h4>` +
       grid(types.filter(t => t.cat === c.key && t.sheet !== false)
         .map(t => [R.sampleSVG(kind, t.key, colored), t.label, t.key, GT.isSpecialLine(t.key)]))).join('');
-    const special = '<p class="hint-text">標 ● 的線比較少見，畫在圖上時會自動在線旁寫出名稱（左邊「顯示設定」可以關掉）。</p>';
+    const special = '<p class="help">標「圖上標名稱」的線比較少見，畫在圖上時會自動在線旁寫出名稱（左邊「顯示設定」可以關掉）。</p>';
     const tabs = [
       { key: 'person', label: '人物', html: grid([
         [sym({}, 'M'), '男性', 'sym:M'], [sym({}, 'F'), '女性', 'sym:F'], [sym({}, 'U'), '未知性別', 'sym:U'], [sym({}, 'P'), '寵物', 'sym:P'],
-        [sym({ index: true }), '服務對象（指標人物）：粗框灰底', 'sym:index'], [sym({ deceased: true }), '已歿：打叉', 'sym:deceased'],
+        [sym({ index: true }), '服務使用者（指標人物）：粗框灰底', 'sym:index'], [sym({ deceased: true }), '已歿：打叉', 'sym:deceased'],
         [sym({ life: 'pregnancy' }, 'U'), '懷孕', 'life:pregnancy'], [sym({ life: 'miscarriage' }, 'U'), '流產', 'life:miscarriage'],
         [sym({ life: 'abortion' }, 'U'), '墮胎', 'life:abortion'],
         [sym({ culture: 'immigration' }), '移民', 'culture:immigration'], [sym({ culture: 'multiple' }), '住過兩個以上的文化地區', 'culture:multiple'],
-      ]) + '<p class="hint-text">符號中間的數字＝年齡；已歿的人是過世時的年齡。</p>' },
+      ]) + '<p class="help">符號中間的數字＝年齡；已歿的人是過世時的年齡。</p>' },
       { key: 'health', label: '成癮與疾病', html: grid([
         [sym({ illness: 'active' }), '身體或精神疾病（左半）', 'health:illness'],
         [sym({ substance: 'active' }), '酒精或藥物濫用（下半）', 'health:substance'],
@@ -950,7 +962,7 @@
         [R.sampleSVG('tie', 'stress', colored), '有壓力／衝突（鋸齒線）', 'eco:stress'],
         [R.sampleSVG('tie', 'dir', colored), '單向流向（箭頭）', 'eco:dir'],
         [R.sampleSVG('tie', 'both', colored), '雙向', 'eco:both'],
-      ]) + '<p class="hint-text">線停在生活圈的虛線框＝連到整個家庭；線穿進去連到某個人＝只跟那個人有關。</p>' },
+      ]) + '<p class="help">線停在生活圈的虛線框＝連到整個家庭；線穿進去連到某個人＝只跟那個人有關。</p>' },
       { key: 'child', label: '親子與雙胞胎', html: grid(GT.CHILD_LINKS.map(t => [R.sampleSVG('child', t.key, colored), t.label + '子女', 'child:' + t.key])
         .concat([[R.sampleSVG('child', 'pet', colored), '寵物', 'child:pet']],
                 GT.TWIN_KINDS.map(t => [R.sampleSVG('twins', t.key, colored), t.label, t.key]))) },
@@ -978,8 +990,8 @@
     if (!M.some(c => c.key === helpTab)) helpTab = M[0].key;
     const body = dialog('使用說明', `<div class="picker htabs"><div class="cats">${M.map(c =>
       `<button type="button" data-htab="${esc(c.key)}" class="${c.key === helpTab ? 'on' : ''}">${esc(c.title)}</button>`).join('')}</div></div>
-      <div class="help" id="helpBody"></div>
-      <p class="muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）</p>`,
+      <div class="help-doc" id="helpBody"></div>
+      <p class="text-muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）</p>`,
       [{ label: '看圖例說明', onClick: () => openLegend() }, { label: '關閉', primary: true }], { wide: true });
     const draw = () => { body.querySelector('#helpBody').innerHTML = GT.manual.render(M.find(c => c.key === helpTab).body); };
     draw();
@@ -1125,8 +1137,9 @@
 
   function renderChrome() {
     const n = Object.keys(state.doc.persons).length;
-    $('fileLabel').innerHTML = `${esc(state.fileName || '未命名')}${state.dirty ? ' <span class="dirty">● 未儲存</span>' : ''}`;
-    document.title = (state.dirty ? '● ' : '') + (state.fileName || '未命名') + ' — 家系圖工具';
+    $('fileLabel').innerHTML = `<span class="name"></span>${state.dirty ? '<span class="badge badge--warn">未儲存</span>' : ''}`;
+    $('fileLabel').firstElementChild.textContent = state.fileName || '未命名';
+    document.title = (state.dirty ? '未儲存｜' : '') + (state.fileName || '未命名') + ' — 家系圖工具';
     const ns = Object.keys(state.doc.systems).length;
     $('stCount').textContent = `${n} 人` + (ns ? `、${ns} 個資源` : '');
     $('stDate').textContent = `評估日期 ${state.doc.meta.assessDate}（年齡以此計算）`;
@@ -1141,7 +1154,7 @@
     document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => addPersonAtCenter(b.dataset.add)));
     document.querySelectorAll('[data-kin]').forEach(b => b.addEventListener('click', () => onKin(b.dataset.kin)));
     $('viewModes').innerHTML = GT.VIEW_MODES.map(v =>
-      `<label class="check"><input type="radio" name="viewMode" value="${esc(v.key)}">${esc(v.label)}</label>`).join('');
+      `<label class="check"><input type="radio" name="viewMode" value="${esc(v.key)}"><span>${esc(v.label)}</span></label>`).join('');
     document.querySelectorAll('input[name=viewMode]').forEach(r => r.addEventListener('change', () => {
       if (r.checked) mutate(d => { d.settings.view = r.value; }, { keepPanel: true });
     }));
@@ -1174,6 +1187,44 @@
     $('optLineLabels').addEventListener('change', (e) => mutate(d => { d.settings.lineLabels = e.target.checked; }));
     document.querySelectorAll('input[name=labelMode]').forEach(r => r.addEventListener('change', () => mutate(d => { d.settings.labelMode = r.value; })));
     $('btnFields').addEventListener('click', openFieldManager);
+
+    // 圖示（Lucide 風格的內嵌 SVG；設計規範：不要用 emoji 或符號當圖示）
+    const setIcon = (id, name) => { const el = $(id); if (el) el.insertAdjacentHTML('afterbegin', ico(name)); };
+    setIcon('btnUndo', 'undo-2'); setIcon('btnRedo', 'redo-2'); setIcon('btnDelete', 'trash-2');
+    setIcon('zoomIn', 'zoom-in'); setIcon('zoomOut', 'zoom-out');
+    setIcon('errorClose', 'x');
+    $('stSafe').insertAdjacentHTML('afterbegin', ico('lock-keyhole', 16));
+    $('errorClose').addEventListener('click', clearError);
+
+    // 配色：跟隨系統 → 淺色 → 深色（只放在這次開啟的視窗裡，不寫進瀏覽器儲存）
+    const THEMES = [
+      { key: '', label: '跟隨系統', icon: 'monitor' },
+      { key: 'light', label: '淺色', icon: 'sun' },
+      { key: 'dark', label: '深色', icon: 'moon' },
+    ];
+    let themeIx = 0;
+    const applyTheme = () => {
+      const t = THEMES[themeIx];
+      if (t.key) document.documentElement.setAttribute('data-theme', t.key);
+      else document.documentElement.removeAttribute('data-theme');
+      $('btnTheme').innerHTML = ico(t.icon);
+      $('btnTheme').dataset.tip = `配色：${t.label}`;
+      $('btnTheme').setAttribute('aria-label', `配色：${t.label}（按一下換下一種）`);
+    };
+    applyTheme();
+    $('btnTheme').addEventListener('click', () => { themeIx = (themeIx + 1) % THEMES.length; applyTheme(); });
+
+    // 匯出選單
+    const exportMenu = $('exportMenu');
+    const closeExport = () => { exportMenu.hidden = true; $('btnExport').setAttribute('aria-expanded', 'false'); };
+    $('btnExport').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = exportMenu.hidden;
+      exportMenu.hidden = !open;
+      $('btnExport').setAttribute('aria-expanded', String(open));
+    });
+    exportMenu.addEventListener('click', closeExport);
+    document.addEventListener('click', (e) => { if (!exportMenu.hidden && !e.target.closest('.menu')) closeExport(); });
 
     $('btnNew').addEventListener('click', () => { if (confirmDiscard()) setDoc(GT.newDoc(), { dirty: false }); });
     $('btnOpen').addEventListener('click', () => act('OPEN', openFile));
@@ -1357,20 +1408,21 @@
       // 回歸（審查 2026-09-21）：使用說明的清單下方要有間距（新規則曾被後面的舊規則蓋掉）
       openHelp('draw');
       const helpUl = document.querySelector('#helpBody ul');
-      checks.helpcss = !!helpUl && getComputedStyle(helpUl).marginBottom === '8px';
+      checks.helpcss = !!helpUl && parseFloat(getComputedStyle(helpUl).marginBottom) >= 8;
       $('dlg').close();
       // 不再支援 .gno（使用者 2026-09-21 拿掉匯入）：開 .gno 要說清楚原因，目前的圖不能被動到
       const beforeGno = JSON.stringify(state.doc);
       await loadFile(new File(['<GenoPro></GenoPro>'], '舊個案.gno'), null);
       checks.gnorefused = JSON.stringify(state.doc) === beforeGno &&
                           [...document.querySelectorAll('.toast')].some(t => t.textContent.includes('不支援 GenoPro'));
-      // 用詞統一為「服務對象」（使用者 2026-09-21）：人物面板、整個畫面、圖例都不可以再出現舊用詞
+      // 用詞統一為「服務使用者」（使用者 2026-10-28；原為服務對象）：人物面板、整個畫面、圖例都不可以再出現舊用詞
       // （舊用詞拆開寫，程式碼裡才不會殘留；看的是畫面上的字 innerText，不含腳本本身）
-      const oldTerm = '案' + '主';
+      const oldTerms = ['案' + '主', '服務' + '對象'];
       select([a]);
-      const panelTerm = $('props').innerText.includes('服務對象');
+      const panelTerm = $('props').innerText.includes('服務使用者');
       openLegend('person');
-      checks.term = panelTerm && $('dlgBody').innerText.includes('服務對象') && !document.body.innerText.includes(oldTerm);
+      checks.term = panelTerm && $('dlgBody').innerText.includes('服務使用者') &&
+                    oldTerms.every(t => !document.body.innerText.includes(t));
       $('dlg').close();
       // 預設檔名：個案編號_家系生態圖_建立日期（使用者 2026-09-21）；面板即時顯示，檔名不放姓名
       select([]);
@@ -1378,6 +1430,31 @@
       caseInput.value = 'A001'; caseInput.dispatchEvent(new Event('input'));
       checks.filename = state.doc.meta.caseNo === 'A001' && $('fileHint').textContent.includes('A001_家系生態圖_') &&
                         suggestName('.png').startsWith('A001_家系生態圖_') && !suggestName('.json').includes('測試甲');
+      // ── 2026-10-28 改版：配色切換、匯出選單、錯誤改用 alert、觸控目標 ──
+      const root = document.documentElement;
+      $('btnTheme').click();
+      const t1 = root.getAttribute('data-theme');
+      $('btnTheme').click();
+      const t2 = root.getAttribute('data-theme');
+      $('btnTheme').click();
+      checks.theme = t1 === 'light' && t2 === 'dark' && !root.hasAttribute('data-theme') &&
+                     !!getComputedStyle(root).getPropertyValue('--focus-ring').trim();
+      $('btnExport').click();
+      const menuOpen = !$('exportMenu').hidden && $('btnExport').getAttribute('aria-expanded') === 'true';
+      document.body.click();
+      checks.exportmenu = menuOpen && $('exportMenu').hidden;
+      // 錯誤用畫布上的 alert，不用 toast（設計規範：不可以用 toast 報錯誤）
+      const errs0 = document.body.dataset.errors;        // 可能是 undefined：還原時要整個拿掉，不能留 "0"
+      showError({ message: '測試用訊息（代碼 TEST）' });
+      const shown = !$('errorBar').hidden && $('errorText').textContent.includes('TEST') &&
+                    ![...document.querySelectorAll('.toast')].some(t => t.textContent.includes('TEST'));
+      $('errorClose').click();
+      if (errs0 === undefined) delete document.body.dataset.errors; else document.body.dataset.errors = errs0;
+      checks.erroralert = shown && $('errorBar').hidden;
+      // 觸控目標：看得見的按鈕都要 ≥ 44px（設計規範的底線）
+      const small = [...document.querySelectorAll('header button, .sidebar button, .stage__toolbar button, .stage__zoom button')]
+        .filter(b => b.offsetParent !== null && b.getBoundingClientRect().height < 44);
+      checks.tapsize = small.length === 0;
       const blob = await pngBlob();
       const bad = Object.keys(checks).filter(k => !checks[k]);
       document.body.dataset.selftest = `${bad.length ? 'fail-' + bad.join('-') : 'ok'}:${Object.keys(state.doc.persons).length}:${blob.size}`;

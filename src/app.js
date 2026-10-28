@@ -4,7 +4,7 @@
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.8.3';
+  const APP_VERSION = '0.8.4';
   const BUILD = '__BUILD__';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
@@ -1679,14 +1679,17 @@
         Object.keys(state.doc.persons).every(p => hs2.filter(h => h.members.includes(p)).length <= 1);
       // 自動排版：要確認才排；排完不重疊；一次復原回到原樣
       const beforeLayout = JSON.stringify(state.doc);
+      // 手足出生序（使用者 2026-10-28 附圖：排版把長女、次女對調）：每段關係的子女，排版前後左右順序一樣
+      const kidOrder = () => Object.values(state.doc.unions).map(u => u.children.map(c => c.id).sort((p, q) => state.doc.persons[p].x - state.doc.persons[q].x).join());
+      const order0 = JSON.stringify(kidOrder());
       $('btnLayout').click();
       const asked = $('dlg').open && $('dlgTitle').textContent === '自動排版' && JSON.stringify(state.doc) === beforeLayout;
       [...$('dlgFoot').querySelectorAll('button')].find(b => b.textContent === '開始排版').click();
       const laid = Object.values(state.doc.persons);
       const apart = laid.every(p => laid.every(o => o === p || o.y !== p.y || Math.abs(o.x - p.x) >= 60));
-      const changed = JSON.stringify(state.doc) !== beforeLayout;
+      const changed = JSON.stringify(state.doc) !== beforeLayout, birthOrder = JSON.stringify(kidOrder()) === order0;
       undo();
-      checks.autolayout = asked && changed && apart && !$('dlg').open && JSON.stringify(state.doc) === beforeLayout;
+      checks.autolayout = asked && changed && apart && birthOrder && !$('dlg').open && JSON.stringify(state.doc) === beforeLayout;
       // 線旁說明：特殊線條自動標名稱；顯示設定可以關掉
       mutate(d => { d.unions[u0].type = 'SeparationLegal'; });
       checks.linelabel = $('world').innerHTML.includes('合法分居');

@@ -102,6 +102,16 @@
       for (const p of u.partners) if (partnerIn.has(p)) partnerIn.get(p).push(u);
     }
     const units = unitsOf(doc, ids, gen);
+    // 手足順序＝出生序（使用者 2026-10-28：排版把長女、次女對調，看起來像小孩跑到隔壁家）。
+    // 每一組（本人＋伴侶）歸到「本人父母的那段關係」；同一段關係的子女，左右順序永遠照排版前使用者畫的樣子，
+    // 排版只能讓整組手足一起移動。父母不在圖上的組自成一組
+    const childIdx = (m) => { const pu = parentOf.get(m); return pu ? pu.children.findIndex(c => c.id === m) : 0; };
+    for (const u of units) {
+      const blood = [...u.members].sort((a, b) => P[a].x - P[b].x || childIdx(a) - childIdx(b)).find(m => parentOf.get(m));
+      u.home = blood ? parentOf.get(blood).id : null;
+      u.birth = blood ? [P[blood].x, childIdx(blood)] : [0, 0];
+    }
+    const byBirth = (a, b) => a.birth[0] - b.birth[0] || a.birth[1] - b.birth[1];
     const gens = [...new Set(units.map(u => u.gen))].sort((a, b) => a - b);
     const rows = new Map(gens.map(g => [g, units.filter(u => u.gen === g)]));
     const kidsIn = (u, g) => u.children.map(c => c.id).filter(id => partnerIn.has(id) && gen.get(id) === g);
@@ -126,7 +136,12 @@
         }
         u.key = pts.length ? avg(pts.map(q => q.v)) : avg(u.members.map(m => pos.get(m)));
       }
-      rows.get(g).sort((p, q) => p.key - q.key);
+      // 同一對父母的子女整組排：整組的位置看組內的平均，組內固定照出生序
+      const fam = new Map();
+      for (const u of rows.get(g)) { const k = u.home || u; if (!fam.has(k)) fam.set(k, []); fam.get(k).push(u); }
+      const groups = [...fam.values()].map(us => ({ us: us.sort(byBirth), key: avg(us.map(u => u.key)) }));
+      groups.sort((p, q) => p.key - q.key);
+      rows.set(g, groups.flatMap(x => x.us));
       refresh(g);
     };
     for (let r = 0; r < ROUNDS / 2; r++) {

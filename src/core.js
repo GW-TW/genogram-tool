@@ -515,9 +515,33 @@
     const slot = (d) => snap(p.x + d * GAP_X);
     const otherSideFree = dir === 1 ? !leftTaken : !rightTaken;
     if (occupied(doc, slot(dir), p.y) && !occupied(doc, slot(-dir), p.y) && otherSideFree) dir = -dir;
+    // 兩邊都被佔住：把這一側的人往外推，新伴侶貼在本人旁邊（使用者 2026-10-28：原本會被擠到整排最後面，
+    // 伴侶線從手足底下穿過）。本人兩邊都已經有伴侶時照舊往外找空位，不推
+    const moved = rightTaken && leftTaken ? 0 : makeRoom(doc, p, dir, slot(dir));
     const nid = newId(doc, 'p');
     doc.persons[nid] = blankPerson(nid, g, freeSpot(doc, p.x + dir * GAP_X, p.y, dir), p.y);
-    return { personId: nid, unionId: linkPartners(doc, pid, nid) };
+    return { personId: nid, unionId: linkPartners(doc, pid, nid), moved };
+  }
+  // 讓位：x 這個位置被佔住時，把本人 dir 那一側同一列的人往外推，讓新伴侶跟下一個人至少隔 0.8 個 GAP_X。
+  // 被推的人的伴侶與子孫（含子孫的伴侶）一起移，家庭才不會被拆開。回傳移動了幾個人
+  function makeRoom(doc, p, dir, x) {
+    if (!occupied(doc, x, p.y)) return 0;
+    const row = Object.values(doc.persons).filter(q => q !== p && Math.abs(q.y - p.y) < S * 1.5 && (q.x - p.x) * dir > 0);
+    if (!row.length) return 0;
+    const nearest = row.reduce((a, q) => (Math.abs(q.x - p.x) < Math.abs(a.x - p.x) ? q : a));
+    const shift = snap(Math.max(0, (x + dir * GAP_X * 0.8 - nearest.x) * dir));
+    if (!shift) return 0;
+    const move = new Set(row.map(q => q.id));
+    for (let grew = true; grew;) {
+      grew = false;
+      for (const u of Object.values(doc.unions)) {
+        if (!u.partners.some(id => move.has(id))) continue;
+        const add = u.children.map(c => c.id).concat(u.partners.filter(id => doc.persons[id] && doc.persons[id].y > p.y + S));
+        for (const id of add) if (id !== p.id && doc.persons[id] && !move.has(id)) { move.add(id); grew = true; }
+      }
+    }
+    for (const id of move) doc.persons[id].x += dir * shift;
+    return move.size;
   }
 
   function addChild(doc, unionId, gender) {

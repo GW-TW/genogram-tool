@@ -4,7 +4,7 @@
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.8.4';
+  const APP_VERSION = '0.8.5';
   const BUILD = '__BUILD__';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
@@ -391,7 +391,11 @@
     if (persons.length !== 1) { toast('請先在畫布上點選一個人。', 'warn'); return; }
     const pid = persons[0];
     switch (kind) {
-      case 'partner': { const r = mutate(d => GT.addPartner(d, pid)); select([r.personId]); focusFirstInput(); break; }
+      case 'partner': {
+        const r = mutate(d => GT.addPartner(d, pid)); select([r.personId]); focusFirstInput();
+        if (r.moved) toast(`旁邊的 ${r.moved} 人往外移了一些，讓新伴侶貼在旁邊（按 Ctrl+Z 可以復原）。`, 'info', 6000);
+        break;
+      }
       case 'parents': {
         if (GT.parentUnionOf(state.doc, pid)) { toast('這個人已經有父母了。', 'warn'); return; }
         const r = mutate(d => GT.addParents(d, pid)); select([r.fatherId]); focusFirstInput(); break;

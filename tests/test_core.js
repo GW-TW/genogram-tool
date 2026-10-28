@@ -691,3 +691,43 @@ T.test('生活圈：舊檔裡有同一個人的生活圈，開檔時合併成一
   T.eq(warnings.filter(w => w === 'household-merged').length, 2, '告訴使用者合併了幾個圈');
   T.ok(householdsOk(doc), '開檔後每個人最多在一個圈');
 });
+
+T.test('新增伴侶：兩邊都被手足佔住，就把一側的人往外推，伴侶貼在本人旁邊（使用者 2026-10-28）', () => {
+  const d = GT.newDoc();
+  const fa = GT.addPerson(d, { gender: 'M', x: 0, y: 0 });
+  const { unionId: u } = GT.addPartner(d, fa);
+  const [d1, d2, s1, s2] = ['F', 'F', 'M', 'M'].map(g => GT.addChild(d, u, g));
+  // 長女已婚有小孩，長子也已婚有小孩
+  const h1 = GT.addPartner(d, d1);
+  const k1 = GT.addChild(d, h1.unionId, 'M');
+  const w3 = GT.addPartner(d, s2);
+  const k3 = GT.addChild(d, w3.unionId, 'F');
+  const x = (id) => d.persons[id].x;
+  const before = { fa: x(fa), d1: x(d1), k1: x(k1), s1: x(s1), s2: x(s2), w3: x(w3.personId), k3: x(k3) };
+  const r = GT.addPartner(d, d2);
+  const np = r.personId;
+  T.eq(x(np), x(d2) + GT.GAP_X, '新伴侶緊貼在次女右邊（不是擠到整排最後面）');
+  T.ok(x(s1) - x(np) >= GT.GAP_X * 0.8, '右邊的手足被推開，跟新伴侶至少隔 0.8 格');
+  T.ok(r.moved > 0, '回傳移動了幾個人（介面會提示）');
+  const shift = x(s1) - before.s1;
+  T.ok(shift > 0, '右邊的人往右移');
+  T.eq([x(s2) - before.s2, x(w3.personId) - before.w3, x(k3) - before.k3], [shift, shift, shift], '被推的人的伴侶與子孫一起移，家庭不會被拆開');
+  T.eq([x(fa), x(d1), x(k1)], [before.fa, before.d1, before.k1], '父母、左邊的長女一家都不動');
+  const row = Object.values(d.persons).filter(p => p.y === d.persons[d2].y).sort((a, b) => a.x - b.x);
+  T.ok(row.every((p, i) => i === 0 || p.x - row[i - 1].x >= GT.S * 1.5), '同一列沒有人疊在一起');
+});
+
+T.test('新增伴侶：一側有空位就放那一側、誰都不推；兩邊都已經有伴侶就照舊往外找空位', () => {
+  const d = GT.newDoc();
+  const fa = GT.addPerson(d, { gender: 'M', x: 0, y: 0 });
+  const { unionId: u } = GT.addPartner(d, fa);
+  const [d1, d2] = ['F', 'F'].map(g => GT.addChild(d, u, g));
+  const x2 = d.persons[d2].x;
+  const r = GT.addPartner(d, d1);
+  T.ok(d.persons[r.personId].x < d.persons[d1].x && r.moved === 0, '長女左邊是空的：伴侶放左邊，沒有人被推');
+  T.eq(d.persons[d2].x, x2, '次女沒動');
+  const a = GT.addPerson(d, { gender: 'M', x: 2000, y: 600 });
+  GT.addPartner(d, a); GT.addPartner(d, a);
+  const r3 = GT.addPartner(d, a);
+  T.ok(r3.moved === 0 && d.persons[r3.personId], '兩邊都已經有伴侶：不推人，照舊往外放');
+});

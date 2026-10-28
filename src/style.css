@@ -291,6 +291,10 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 .fieldrow .n { font-size: var(--text-sm); color: var(--muted); white-space: nowrap; }
 .fieldrow .ops { display: flex; gap: var(--space-1); }
 
+/* 「作者：王錫凡」接在「使用說明」旁邊（使用者 2026-10-28）：字小一點、顏色淡一點，不搶主要動作 */
+.topbar__author { font-size: var(--text-sm); color: var(--fg-2); font-weight: 600; }
+@media (max-width: 1024px) { .topbar__author { padding-inline: var(--space-2); } }
+
 /* 上列與畫布工具列在畫面頂端：說明往下出現，才不會被視窗或上列裁掉（審查 2026-10-28 L4） */
 .topbar .tooltip::after, .stage__toolbar .tooltip::after { bottom: auto; top: calc(100% + 6px); }
 

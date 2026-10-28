@@ -1,27 +1,45 @@
-家系圖工具
-Copyright (c) 2026 GW-TW
+家系圖工具 公益使用授權
+Copyright (c) 2026 王錫凡（GitHub：GW-TW）
 
-本著作以「創用 CC 姓名標示─非商業性 4.0 國際」授權條款釋出（CC BY-NC 4.0）。
-This work is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License.
+作者：王錫凡
+聯絡：amber31345@gmail.com
+專案網址：https://github.com/GW-TW/genogram-tool
 
-完整法律條文以下列官方網頁為準：
-- 繁體中文：https://creativecommons.org/licenses/by-nc/4.0/legalcode.zh-hant
-- English:  https://creativecommons.org/licenses/by-nc/4.0/legalcode
+一、可以做什麼（僅限公益用途）
+在公益用途下，可以免費使用、複製、修改與散布本工具。公益用途指：
+- 社會福利、身心障礙服務、醫療、教育、司法保護等領域的非營利機構、政府機關與學校，用於服務或教學；
+- 在上述單位服務、實習或學習的工作人員、學生與志工，為了服務、實習或學習而使用；
+- 不收費的研究、訓練與倡議活動。
+
+二、條件
+1. 標示作者「王錫凡」、專案網址與本授權名稱。標示範例：
+   家系圖工具，作者王錫凡（https://github.com/GW-TW/genogram-tool），依「家系圖工具公益使用授權」使用。
+2. 修改過的版本要註明「已修改」與修改內容摘要，並以本授權散布。
+3. 使用與散布時，遵循《身心障礙者權利公約》（CRPD）的精神（見第四點）。
+
+三、不開放商業使用
+- 不得販售本工具，或以它為主要內容的產品。
+- 不得把本工具放進收費服務、付費課程或營利產品。
+- 營利事業不得以本工具取得商業利益。
+有上述需要，請先聯絡作者，取得書面同意。
+
+四、CRPD 精神
+本工具依《身心障礙者權利公約》的一般原則設計，也請使用的人一起遵守：
+- 尊重每個人的尊嚴與自主，包括自己做選擇的自由。
+- 不歧視；身心障礙是人類多樣性的一部分。
+- 讓服務使用者參與：家系圖與生態圖是和服務使用者一起看清楚家庭與支持系統的工具，繪製時盡量邀請他參與，並用他能理解的方式說明。
+- 圖上的符號描述的是處境與關係，不用來給人貼標籤，也不用來排除或限制任何人的權利。
+
+五、不附擔保
+本工具依現狀提供，不附任何擔保；用本工具繪製的內容與其用途，由使用者自行負責。
+
+六、授權的變更
+自 2026-10-28（v0.8.2）起改用本授權。在此之前已經依 CC BY-NC 4.0 取得的版本，仍適用 CC BY-NC 4.0。
 
 ────────────────────────────────────────
-以下是重點摘要，方便閱讀，不能取代上面的法律條文。
-
-可以：
-- 非營利機構、社會福利單位、學校、政府單位及個人，在非商業目的下免費使用。
-- 複製、散布本工具，也可以修改後再散布。
-
-條件：
-- 必須標示著作者「GW-TW」，附上本專案網址 https://github.com/GW-TW/genogram-tool
-  與授權條款名稱（CC BY-NC 4.0）；修改過的版本要註明「已修改」。
-  標示範例：家系圖工具，作者 GW-TW（https://github.com/GW-TW/genogram-tool），依 CC BY-NC 4.0 授權。
-
-不可以：
-- 商業使用：不得販售本工具或以它為主要內容的產品或服務，不得把它作為收費服務的一部分以營利。
-  如需商業使用，請另行洽詢著作者取得授權。
-
-本工具依現狀提供，不附任何擔保；使用本工具繪製的內容由使用者自行負責。
+Genogram Tool — Public-Benefit Use License
+Copyright (c) 2026 王錫凡 (GitHub: GW-TW). Contact: amber31345@gmail.com
+Free to use, copy, modify and distribute for public-benefit, non-profit purposes only, with attribution
+to the author. Commercial use is not permitted without the author's written permission. Please use this
+tool in the spirit of the UN Convention on the Rights of Persons with Disabilities (CRPD).
+The Chinese text above is the authoritative version.

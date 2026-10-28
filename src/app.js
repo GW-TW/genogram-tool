@@ -4,7 +4,7 @@
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.8.1';
+  const APP_VERSION = '0.8.2';
   const BUILD = '__BUILD__';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
@@ -1185,7 +1185,7 @@
     const body = dialog('使用說明', `<div class="picker htabs"><div class="cats">${M.map(c =>
       `<button type="button" data-htab="${esc(c.key)}" class="${c.key === helpTab ? 'on' : ''}">${esc(c.title)}</button>`).join('')}</div></div>
       <div class="help-doc" id="helpBody"></div>
-      <p class="text-muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）｜著作者 GW-TW｜依 CC BY-NC 4.0 授權：非商業用途可自由使用與修改，須標示著作者；不得商業使用。</p>`,
+      <p class="text-muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）｜作者 王錫凡（GW-TW）｜僅限公益用途，不開放商業使用｜聯絡 amber31345@gmail.com</p>`,
       [{ label: '看圖例說明', onClick: () => openLegend() }, { label: '關閉', primary: true }], { wide: true });
     const draw = () => { body.querySelector('#helpBody').innerHTML = GT.manual.render(M.find(c => c.key === helpTab).body); };
     draw();
@@ -1197,6 +1197,14 @@
       draw();
       body.scrollTop = 0;
     });
+  }
+
+  // 關於這個工具：CRPD 精神、作者、聯絡方式、授權（使用者 2026-10-28：作者資訊放在「使用說明」旁邊）
+  function openAbout() {
+    const c = GT.manual.MANUAL.find(x => x.key === 'about');
+    dialog('關於這個工具', `<div class="help-doc">${GT.manual.render(c.body)}</div>
+      <p class="text-muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）</p>`,
+      [{ label: '看使用說明', onClick: () => openHelp() }, { label: '關閉', primary: true }]);
   }
 
   // ───── 檔案 ─────
@@ -1475,7 +1483,8 @@
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       toast('已複製圖片，到 Word 按 Ctrl+V 貼上。', 'ok');
     }));
-    $('btnHelp').addEventListener('click', openHelp);
+    $('btnHelp').addEventListener('click', () => openHelp());
+    $('btnAbout').addEventListener('click', openAbout);
     $('btnUndo').addEventListener('click', undo);
     $('btnRedo').addEventListener('click', redo);
     $('btnDelete').addEventListener('click', deleteSelection);
@@ -1685,7 +1694,15 @@
       checks.manual = $('dlg').open && $('dlgBody').textContent.length > 500 && $('dlgBody').textContent.includes('拉生態連結');
       document.querySelector('[data-htab=save]').click();
       checks.manualtab = $('dlgBody').textContent.includes('轉換為圖形');
-      checks.license = $('dlgBody').textContent.includes('GW-TW') && $('dlgBody').textContent.includes('CC BY-NC 4.0');   // 授權標示（使用者 2026-10-28）
+      // 授權標示（使用者 2026-10-28：作者王錫凡、僅限公益用途、不開放商業使用、聯絡信箱）
+      checks.license = ['王錫凡', '僅限公益用途', '不開放商業使用', 'amber31345@gmail.com'].every(w => $('dlgBody').textContent.includes(w));
+      $('dlg').close();
+      // 作者資訊在「使用說明」旁邊，打開是「關於這個工具」：CRPD 精神、作者、聯絡、授權
+      const ab = $('btnAbout'), hb = $('btnHelp');
+      const nextToHelp = hb.nextElementSibling === ab && ab.textContent.includes('王錫凡');
+      ab.click();
+      checks.about = nextToHelp && $('dlg').open && $('dlgTitle').textContent === '關於這個工具' &&
+                     ['CRPD', '王錫凡', 'amber31345@gmail.com', '僅限公益用途', '不開放商業使用'].every(w => $('dlgBody').textContent.includes(w));
       $('dlg').close();
       openLegend('family');
       checks.legenddesc = $('dlgBody').textContent.includes(GT.manual.LEGEND_DESC.SeparationLegal);

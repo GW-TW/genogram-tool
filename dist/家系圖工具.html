@@ -1,9 +1,9 @@
 <!doctype html>
-<!-- 家系圖工具｜著作者 GW-TW｜CC BY-NC 4.0（姓名標示─非商業性）｜https://github.com/GW-TW/genogram-tool -->
+<!-- 家系圖工具｜作者 王錫凡（GW-TW）｜家系圖工具公益使用授權：僅限公益用途，不開放商業使用｜聯絡 amber31345@gmail.com｜https://github.com/GW-TW/genogram-tool -->
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-IzJE2aQxEWIxKpIGBG8Rxwocio0fzCxvXxMS8uD2+V8=' 'sha256-BxaLDMXQD3feP3T3K/ienP7fcCLfpYiGfqWYlkx5mj4=' 'sha256-WKDJGR4emHt4NLprCp/rL4AOpcAGTx9sfKQNpJH+Xsc=' 'sha256-AZ2HkiSbZgHq8WqBlFdgHKFUwW1BlHQD//F6iivj0MQ=' 'sha256-UD4IvW3vHvpJ07uQb+QjJaCVavkznnVb3l/RC5g79E8=' 'sha256-RuANwTZHwCpeHWufqFhENJT71a5h/O9vR8AQCyhqOnM='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-IzJE2aQxEWIxKpIGBG8Rxwocio0fzCxvXxMS8uD2+V8=' 'sha256-BxaLDMXQD3feP3T3K/ienP7fcCLfpYiGfqWYlkx5mj4=' 'sha256-WKDJGR4emHt4NLprCp/rL4AOpcAGTx9sfKQNpJH+Xsc=' 'sha256-AZ2HkiSbZgHq8WqBlFdgHKFUwW1BlHQD//F6iivj0MQ=' 'sha256-nFSPizkHCvWjvekaCoQ0AGg4Nqi901msXuSrc+/IZS0=' 'sha256-dqc/EiZ2bVMSymChvk286oFRfxKiIL8vBJ/fLWh9D7Q='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>家系圖工具</title>
 <style>
@@ -1123,6 +1123,10 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 .fieldrow .n { font-size: var(--text-sm); color: var(--muted); white-space: nowrap; }
 .fieldrow .ops { display: flex; gap: var(--space-1); }
 
+/* 「作者：王錫凡」接在「使用說明」旁邊（使用者 2026-10-28）：字小一點、顏色淡一點，不搶主要動作 */
+.topbar__author { font-size: var(--text-sm); color: var(--fg-2); font-weight: 600; }
+@media (max-width: 1024px) { .topbar__author { padding-inline: var(--space-2); } }
+
 /* 上列與畫布工具列在畫面頂端：說明往下出現，才不會被視窗或上列裁掉（審查 2026-10-28 L4） */
 .topbar .tooltip::after, .stage__toolbar .tooltip::after { bottom: auto; top: calc(100% + 6px); }
 
@@ -1165,6 +1169,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     <span class="topbar__sep" aria-hidden="true"></span>
     <button id="btnTheme" class="btn btn--icon tooltip" data-tip="配色：跟隨系統" aria-label="配色：跟隨系統"></button>
     <button id="btnHelp" class="btn btn--ghost">使用說明</button>
+    <button id="btnAbout" class="btn btn--ghost topbar__author" aria-label="關於這個工具：作者王錫凡、CRPD 精神、授權與聯絡方式">作者：王錫凡</button>
   </nav>
 </header>
 
@@ -3616,13 +3621,13 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 - 畫好的圖要自己按「儲存」，存成一個 .json 檔，這就是這張圖的存檔。下次按「開啟」選這個檔，就能接著修改。
 - 工具不會自動幫你存到別的地方。瀏覽器關掉之前沒有儲存的內容，就不見了。
 
-> 個案檔請存在機構規定的位置。存檔的預設檔名是「個案編號_家系生態圖_建立日期」，不會帶入人名。
+> 存檔含有服務使用者的資料，請存在機構規定的位置。存檔的預設檔名是「個案編號_家系生態圖_建立日期」，不會帶入人名。
 
 ## 畫面上有什麼
 - **左邊**：新增人物、家庭關係、情感關係、標註、生態圖、顯示設定。
 - **中間**：畫布，家系圖畫在這裡。
 - **右邊**：點選畫布上的東西（人、線、生活圈、資源），右邊就會出現它的資料，可以直接修改。
-- **上方**：新增、開啟、儲存、另存新檔、匯出（複製圖片、PNG、SVG）、配色切換，以及這份使用說明。
+- **上方**：新增、開啟、儲存、另存新檔、匯出（複製圖片、PNG、SVG）、配色切換、這份使用說明，以及「作者：王錫凡」（作者、授權與聯絡方式）。
 
 ## 配色
 「使用說明」左邊的小按鈕可以切換介面配色：跟隨系統、淺色、深色，每按一次換一種。畫布永遠是白紙、深色線條，匯出的圖也一樣，不受配色影響。
@@ -3853,6 +3858,24 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 - 機構共用電腦用完，確認檔案存在規定的位置，再關掉瀏覽器視窗。
 - 匯出的圖片會包含圖上看得到的所有資料（姓名、年齡、職業⋯⋯），傳送之前請先確認。
 ` },
+    { key: 'about', title: '關於這個工具', body: `
+## 依 CRPD 的精神使用
+家系圖工具依《身心障礙者權利公約》（CRPD）的精神設計，使用時也請一起遵守：
+- 尊重每個人的尊嚴與自主，包括自己做選擇的自由。
+- 不歧視；身心障礙是人類多樣性的一部分。
+- 讓服務使用者參與：家系圖與生態圖是和服務使用者一起看清楚家庭與支持系統的工具。畫的時候盡量邀請他一起看，用他聽得懂的方式說明，也聽聽他怎麼描述自己的家。
+- 圖上的符號描述的是處境與關係，不用來給人貼標籤，也不用來排除或限制任何人的權利。
+
+## 作者與聯絡
+- 作者：**王錫凡**（GitHub：GW-TW）
+- 聯絡：amber31345@gmail.com
+- 專案網址：github.com/GW-TW/genogram-tool
+
+## 授權：僅限公益用途
+- 社會福利、身心障礙服務、醫療、教育等領域的非營利機構、政府機關與學校，以及在這些單位服務、實習、學習的人，可以免費使用、複製、修改與散布。
+- **不開放商業使用**：不得販售，也不得放進收費服務、付費課程或營利產品。有這類需要，請先聯絡作者。
+- 使用或散布時請標示作者「王錫凡」與專案網址；修改過的版本要註明「已修改」，並沿用同樣的授權。
+` },
   ];
 
   /* ── 圖例說明：每個符號、每種線條代表什麼（圖例視窗逐項顯示；key＝資料裡的類型代碼）── */
@@ -3939,7 +3962,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     FocusedOn: '一方的注意力集中在另一方身上；箭頭指向被關注的人。',
     FocusedOnNegatively: '一方用負面的方式關注另一方（挑剔、放大缺點）；箭頭指向被關注的人。',
     Limerence: '一方單方面強烈迷戀另一方；箭頭指向被迷戀的人。',
-    Caretaker: '一方照顧另一方的生活起居；箭頭指向被照顧的人。',
+    Caretaker: '一方照顧另一方的生活起居；箭頭指向接受照顧的人。',
     Plain: '一般的關係，沒有特別的情感特徵。',
     'emotion:Other': '不屬於上面任何一種的情感關係。',
     // 生態圖
@@ -3990,8 +4013,8 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.8.1';
-  const BUILD = '2026-10-28 14:10';
+  const APP_VERSION = '0.8.2';
+  const BUILD = '2026-10-28 14:36';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -5171,7 +5194,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     const body = dialog('使用說明', `<div class="picker htabs"><div class="cats">${M.map(c =>
       `<button type="button" data-htab="${esc(c.key)}" class="${c.key === helpTab ? 'on' : ''}">${esc(c.title)}</button>`).join('')}</div></div>
       <div class="help-doc" id="helpBody"></div>
-      <p class="text-muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）｜著作者 GW-TW｜依 CC BY-NC 4.0 授權：非商業用途可自由使用與修改，須標示著作者；不得商業使用。</p>`,
+      <p class="text-muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）｜作者 王錫凡（GW-TW）｜僅限公益用途，不開放商業使用｜聯絡 amber31345@gmail.com</p>`,
       [{ label: '看圖例說明', onClick: () => openLegend() }, { label: '關閉', primary: true }], { wide: true });
     const draw = () => { body.querySelector('#helpBody').innerHTML = GT.manual.render(M.find(c => c.key === helpTab).body); };
     draw();
@@ -5183,6 +5206,14 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       draw();
       body.scrollTop = 0;
     });
+  }
+
+  // 關於這個工具：CRPD 精神、作者、聯絡方式、授權（使用者 2026-10-28：作者資訊放在「使用說明」旁邊）
+  function openAbout() {
+    const c = GT.manual.MANUAL.find(x => x.key === 'about');
+    dialog('關於這個工具', `<div class="help-doc">${GT.manual.render(c.body)}</div>
+      <p class="text-muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）</p>`,
+      [{ label: '看使用說明', onClick: () => openHelp() }, { label: '關閉', primary: true }]);
   }
 
   // ───── 檔案 ─────
@@ -5461,7 +5492,8 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       toast('已複製圖片，到 Word 按 Ctrl+V 貼上。', 'ok');
     }));
-    $('btnHelp').addEventListener('click', openHelp);
+    $('btnHelp').addEventListener('click', () => openHelp());
+    $('btnAbout').addEventListener('click', openAbout);
     $('btnUndo').addEventListener('click', undo);
     $('btnRedo').addEventListener('click', redo);
     $('btnDelete').addEventListener('click', deleteSelection);
@@ -5671,7 +5703,15 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       checks.manual = $('dlg').open && $('dlgBody').textContent.length > 500 && $('dlgBody').textContent.includes('拉生態連結');
       document.querySelector('[data-htab=save]').click();
       checks.manualtab = $('dlgBody').textContent.includes('轉換為圖形');
-      checks.license = $('dlgBody').textContent.includes('GW-TW') && $('dlgBody').textContent.includes('CC BY-NC 4.0');   // 授權標示（使用者 2026-10-28）
+      // 授權標示（使用者 2026-10-28：作者王錫凡、僅限公益用途、不開放商業使用、聯絡信箱）
+      checks.license = ['王錫凡', '僅限公益用途', '不開放商業使用', 'amber31345@gmail.com'].every(w => $('dlgBody').textContent.includes(w));
+      $('dlg').close();
+      // 作者資訊在「使用說明」旁邊，打開是「關於這個工具」：CRPD 精神、作者、聯絡、授權
+      const ab = $('btnAbout'), hb = $('btnHelp');
+      const nextToHelp = hb.nextElementSibling === ab && ab.textContent.includes('王錫凡');
+      ab.click();
+      checks.about = nextToHelp && $('dlg').open && $('dlgTitle').textContent === '關於這個工具' &&
+                     ['CRPD', '王錫凡', 'amber31345@gmail.com', '僅限公益用途', '不開放商業使用'].every(w => $('dlgBody').textContent.includes(w));
       $('dlg').close();
       openLegend('family');
       checks.legenddesc = $('dlgBody').textContent.includes(GT.manual.LEGEND_DESC.SeparationLegal);

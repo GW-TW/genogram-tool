@@ -1,8 +1,9 @@
 <!doctype html>
+<!-- 家系圖工具｜著作者 GW-TW｜CC BY-NC 4.0（姓名標示─非商業性）｜https://github.com/GW-TW/genogram-tool -->
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-pzwpRWfvMZa3YKvqsFNdMAMO95xDV36G/fhdCQro+MI=' 'sha256-Oj7a6l8KPKJe7j7oW9Yh/+bElQAaS1EfJgsymruBCy8=' 'sha256-kvambbeux6tQJctKSExKU1XPuZt8UiTFn7OgZq45d3U=' 'sha256-Fa4pqmnllvEoDA5ilTPO4yU0o0DSygmEwzkyh4/1EDI=' 'sha256-AR7H4ek+gZfUc4FRTIlIuJUWf20tUakvbkFceV4sTPY='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-pzwpRWfvMZa3YKvqsFNdMAMO95xDV36G/fhdCQro+MI=' 'sha256-Oj7a6l8KPKJe7j7oW9Yh/+bElQAaS1EfJgsymruBCy8=' 'sha256-kvambbeux6tQJctKSExKU1XPuZt8UiTFn7OgZq45d3U=' 'sha256-Fa4pqmnllvEoDA5ilTPO4yU0o0DSygmEwzkyh4/1EDI=' 'sha256-BM6Qzk9F0Q6Lu57LHV97i5dh/MgBJeDl9U7l1VSp9qU='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>家系圖工具</title>
 <style>
@@ -3573,7 +3574,7 @@ h4.lh { margin: var(--space-4) 0 var(--space-2); color: var(--accent); font-size
 (function (GT) {
   'use strict';
   const APP_VERSION = '0.7.0';
-  const BUILD = '2026-10-28 02:28';
+  const BUILD = '2026-10-28 12:53';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -4559,7 +4560,7 @@ h4.lh { margin: var(--space-4) 0 var(--space-2); color: var(--accent); font-size
     const body = dialog('使用說明', `<div class="picker htabs"><div class="cats">${M.map(c =>
       `<button type="button" data-htab="${esc(c.key)}" class="${c.key === helpTab ? 'on' : ''}">${esc(c.title)}</button>`).join('')}</div></div>
       <div class="help-doc" id="helpBody"></div>
-      <p class="text-muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）</p>`,
+      <p class="text-muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）｜著作者 GW-TW｜依 CC BY-NC 4.0 授權：非商業用途可自由使用與修改，須標示著作者；不得商業使用。</p>`,
       [{ label: '看圖例說明', onClick: () => openLegend() }, { label: '關閉', primary: true }], { wide: true });
     const draw = () => { body.querySelector('#helpBody').innerHTML = GT.manual.render(M.find(c => c.key === helpTab).body); };
     draw();
@@ -4963,6 +4964,7 @@ h4.lh { margin: var(--space-4) 0 var(--space-2); color: var(--accent); font-size
       checks.manual = $('dlg').open && $('dlgBody').textContent.length > 500 && $('dlgBody').textContent.includes('拉生態連結');
       document.querySelector('[data-htab=save]').click();
       checks.manualtab = $('dlgBody').textContent.includes('轉換為圖形');
+      checks.license = $('dlgBody').textContent.includes('GW-TW') && $('dlgBody').textContent.includes('CC BY-NC 4.0');   // 授權標示（使用者 2026-10-28）
       $('dlg').close();
       openLegend('family');
       checks.legenddesc = $('dlgBody').textContent.includes(GT.manual.LEGEND_DESC.SeparationLegal);

@@ -991,7 +991,7 @@
     const body = dialog('使用說明', `<div class="picker htabs"><div class="cats">${M.map(c =>
       `<button type="button" data-htab="${esc(c.key)}" class="${c.key === helpTab ? 'on' : ''}">${esc(c.title)}</button>`).join('')}</div></div>
       <div class="help-doc" id="helpBody"></div>
-      <p class="text-muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）</p>`,
+      <p class="text-muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）｜著作者 GW-TW｜依 CC BY-NC 4.0 授權：非商業用途可自由使用與修改，須標示著作者；不得商業使用。</p>`,
       [{ label: '看圖例說明', onClick: () => openLegend() }, { label: '關閉', primary: true }], { wide: true });
     const draw = () => { body.querySelector('#helpBody').innerHTML = GT.manual.render(M.find(c => c.key === helpTab).body); };
     draw();
@@ -1395,6 +1395,7 @@
       checks.manual = $('dlg').open && $('dlgBody').textContent.length > 500 && $('dlgBody').textContent.includes('拉生態連結');
       document.querySelector('[data-htab=save]').click();
       checks.manualtab = $('dlgBody').textContent.includes('轉換為圖形');
+      checks.license = $('dlgBody').textContent.includes('GW-TW') && $('dlgBody').textContent.includes('CC BY-NC 4.0');   // 授權標示（使用者 2026-10-28）
       $('dlg').close();
       openLegend('family');
       checks.legenddesc = $('dlgBody').textContent.includes(GT.manual.LEGEND_DESC.SeparationLegal);

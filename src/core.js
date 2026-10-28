@@ -212,9 +212,9 @@
   ];
   const TIE_DIRS = [
     { key: '',     label: '沒有箭頭', short: '無' },
-    { key: 'a2b',  label: '單向：往後者', short: '→' },
-    { key: 'b2a',  label: '單向：往前者', short: '←' },
-    { key: 'both', label: '雙向',     short: '↔' },
+    { key: 'a2b',  label: '單向：往後者', icon: 'arrow-right' },     // 介面用圖示（設計規範：不用箭頭符號當圖示）
+    { key: 'b2a',  label: '單向：往前者', icon: 'arrow-left' },
+    { key: 'both', label: '雙向',     icon: 'move-horizontal' },
   ];
   // 顯示模式：家系圖／家系圖＋生態圖／生態圖（把整個家系圖收成一個「家庭」圓）
   const VIEW_MODES = [
@@ -273,6 +273,7 @@
       },
       persons: {}, unions: {}, relations: {}, households: {}, labels: {},
       systems: {}, ties: {},    // 生態圖：外部系統（資源）與生態連結
+      familyPos: null,          // 生態圖模式的「家庭」圓被拖過的位置；null＝自動放在所有人的中間
       seq: 0,
     };
   }
@@ -371,14 +372,28 @@
   }
   const textEm = (s) => Array.from(String(s)).reduce((a, ch) => a + charEm(ch), 0);
 
+  // 換行：中文一個字一個字斷；英文、數字以「整個單字」為單位，放不下就整個移到下一行，
+  // 單字本身比一整行還長才從字中間斷（使用者 2026-10-28：原本會從單字中間斷開）
   function wrapText(s, maxEm) {
     const out = [];
     for (const para of String(s).split(/\r?\n/)) {
-      let line = '', w = 0;
+      const toks = [];                                   // 連續的半形字（英文、數字、標點）＝一個單字
       for (const ch of Array.from(para)) {
-        const cw = charEm(ch);
-        if (w + cw > maxEm && line) { out.push(line); line = ''; w = 0; }
-        line += ch; w += cw;
+        const word = ch !== ' ' && charEm(ch) < 1, last = toks[toks.length - 1];
+        if (word && last && last.word) last.text += ch; else toks.push({ text: ch, word });
+      }
+      let line = '', w = 0, wrapped = false;
+      const brk = () => { out.push(line.replace(/ +$/, '')); line = ''; w = 0; wrapped = true; };
+      for (const t of toks) {
+        const tw = textEm(t.text);
+        if (w + tw > maxEm && line) brk();
+        if (t.text === ' ' && wrapped && !line) continue; // 斷行處的空白不帶到下一行開頭
+        if (tw <= maxEm) { line += t.text; w += tw; continue; }
+        for (const ch of Array.from(t.text)) {             // 單字比一整行還長：只好從字中間斷
+          const cw = charEm(ch);
+          if (w + cw > maxEm && line) brk();
+          line += ch; w += cw;
+        }
       }
       out.push(line);
     }
@@ -614,6 +629,22 @@
     doc.households[id] = { id, members: ms, label: String(label || '').slice(0, 30) };
     return id;
   }
+  // 加入／移出生活圈（使用者 2026-10-28：在圖上把人拖進圈裡就能加入）；回傳實際加入的人數
+  function joinHousehold(doc, hid, ids) {
+    const h = doc.households[hid];
+    if (!h) return 0;
+    const add = Array.from(new Set(ids)).filter(id => doc.persons[id] && !h.members.includes(id));
+    h.members.push(...add);
+    return add.length;
+  }
+  // 移出最後一位成員＝整個生活圈一起刪（連到它的生態連結也一起刪）
+  function leaveHousehold(doc, hid, pid) {
+    const h = doc.households[hid];
+    if (!h || !h.members.includes(pid)) return false;
+    h.members = h.members.filter(m => m !== pid);
+    if (!h.members.length) deleteItems(doc, [hid]);
+    return true;
+  }
 
   function addLabel(doc, x, y, text) {
     const id = newId(doc, 't');
@@ -642,15 +673,30 @@
   }
   const tieBetween = (doc, a, b) => Object.values(doc.ties).find(t => (t.a === a && t.b === b) || (t.a === b && t.b === a)) || null;
 
+  // 生態圖模式的「家庭」圓（使用者 2026-10-28：要能拖位置）：拖過就用存下來的位置，沒拖過＝所有人的中間。
+  // 它的 id 含冒號，不是合法的資料 id（okId 不收），不會跟人或資源撞號
+  const FAMILY_ID = ':family';
+  function familyAt(doc) {
+    if (doc.familyPos) return { x: doc.familyPos.x, y: doc.familyPos.y };
+    const ps = Object.values(doc.persons);
+    if (!ps.length) return { x: 0, y: 0 };
+    const xs = ps.map(p => p.x), ys = ps.map(p => p.y);
+    return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
+  }
+
   function moveItems(doc, ids, dx, dy) {
     for (const id of ids) {
+      if (id === FAMILY_ID) {
+        if (Object.keys(doc.persons).length) { const c = familyAt(doc); doc.familyPos = { x: c.x + dx, y: c.y + dy }; }
+        continue;
+      }
       const o = doc.persons[id] || doc.labels[id] || doc.systems[id];
       if (o) { o.x += dx; o.y += dy; }
     }
   }
   function snapItems(doc, ids) {
     for (const id of ids) {
-      const o = doc.persons[id] || doc.labels[id] || doc.systems[id];
+      const o = id === FAMILY_ID ? doc.familyPos : doc.persons[id] || doc.labels[id] || doc.systems[id];
       if (o) { o.x = snap(o.x); o.y = snap(o.y); }
     }
   }
@@ -675,6 +721,7 @@
     }
     // 生態連結：任一端不見了就一起刪（人、資源、生活圈都算）
     for (const t of Object.values(doc.ties)) if (!tieEndExists(doc, t.a) || !tieEndExists(doc, t.b)) delete doc.ties[t.id];
+    if (!Object.keys(doc.persons).length) doc.familyPos = null;   // 人都刪光了，家庭圓的位置也不留
   }
 
   // ── 復原／重做（快照式：每次變更前存整份 JSON；家系圖檔很小，這樣最不容易出錯）──
@@ -822,6 +869,10 @@
         dir: has(TIE_DIRS, e.dir) ? e.dir : '',
         note: str(e.note, 60) };
     }
+    // 家庭圓的位置（0.8.0 起才有；舊檔沒有＝自動置中）：座標不是有限數字就當沒拖過
+    const fp = raw.familyPos;
+    if (fp && typeof fp === 'object' && Number.isFinite(Number(fp.x)) && Number.isFinite(Number(fp.y)) && Object.keys(P).length)
+      doc.familyPos = { x: num(fp.x), y: num(fp.y) };
     // 流水號至少要大於現存最大編號，之後新增才不會撞 id
     let maxSeq = Math.max(0, Math.floor(Number(raw.seq)) || 0);
     for (const coll of [doc.persons, doc.unions, doc.relations, doc.households, doc.labels, doc.systems, doc.ties])
@@ -874,7 +925,8 @@
     unionsOf, parentUnionOf, unionBetween,
     addPerson, linkPartners, addPartner, addChild, addChildToPerson, addParents, addSibling, attachChild,
     commonParentUnion, setTwins, twinGroupOf, clearTwin,
-    addRelation, addHousehold, addLabel, moveItems, snapItems, deleteItems,
+    addRelation, addHousehold, joinHousehold, leaveHousehold, addLabel, moveItems, snapItems, deleteItems,
+    FAMILY_ID, familyAt,
     addSystem, addTie, tieBetween, tieEndExists, BASIC_LINE_TYPES, isSpecialLine,
     History, normalizeDoc, serialize, FormatError,
     MESSAGES, log, fail,

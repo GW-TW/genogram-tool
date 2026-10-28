@@ -12,8 +12,10 @@ T.test('使用說明：章節完整、內容不是空殼', () => {
 
 T.test('使用說明：關鍵功能都有寫到（功能改名時這裡會紅）', () => {
   const all = GT.manual.MANUAL.map(c => c.title + c.body).join('\n');
-  for (const w of ['＋伴侶', '評估日期', '管理欄位', '狀態', '雙胞胎', '情感關係', '線旁說明', '生活圈',
-                   '生態圖', '拉生態連結', '拖曳', '復原', '儲存', '複製圖片', '匯出 SVG', '不連網路']) {
+  // 加號按鈕改成圖示＋文字（審查 2026-10-28：不用全形「＋」當圖示），按鈕名稱是「伴侶」
+  for (const w of ['「伴侶」', '評估日期', '管理欄位', '狀態', '雙胞胎', '情感關係', '線旁說明', '生活圈',
+                   '生態圖', '拉生態連結', '拖曳', '復原', '儲存', '複製圖片', '匯出 SVG', '不連網路',
+                   '自動排版', '移出', '加入', '回到自動位置', '配色', '再試一次', '處理中']) {
     T.ok(all.includes(w), `有寫到「${w}」`);
   }
   T.ok(!/\.gno/i.test(all), '不再提 GenoPro 檔（使用者 2026-09-21：之後不匯入也不產生 .gno）');
@@ -21,11 +23,13 @@ T.test('使用說明：關鍵功能都有寫到（功能改名時這裡會紅）
   const legend = Object.values(GT.manual.LEGEND_DESC).join(''), oldTerms = ['案' + '主', '服務' + '對象'];
   T.ok(oldTerms.every(x => !all.includes(x) && !legend.includes(x)), '用詞統一為「服務使用者」，不用舊用詞（使用者 2026-10-28）');
   T.ok(all.includes('服務使用者'), '使用說明有寫到「服務使用者」');
+  T.ok(!/「＋|● 未儲存|按上方「複製圖片」/.test(all), '沒有改版前的按鈕寫法（加號按鈕、圓點未儲存、上方的複製圖片）');
+  T.ok(!/[←-⇿]/.test(all), '散文不用箭頭符號');
 });
 
 T.test('使用說明：Markdown 轉換正確，內容一律跳脫', () => {
   const h = GT.manual.render('## 標題\n- 甲\n- 乙\n\n1. 一\n2. 二\n> 注意\n**粗體** 按 [[Ctrl]]\n<img src=x onerror=alert(1)>');
-  T.ok(h.includes('<h4>標題</h4>'), '## → 小標題');
+  T.ok(h.includes('<h3>標題</h3>'), '## → 小標題（h3：對話框標題是 h2，審查 2026-10-28 不跳級）');
   T.ok(h.includes('<ul><li>甲</li><li>乙</li></ul>'), '- → 項目清單');
   T.ok(h.includes('<ol><li>一</li><li>二</li></ol>'), '1. → 編號清單');
   T.ok(h.includes('<div class="tip">注意</div>'), '> → 提示框');

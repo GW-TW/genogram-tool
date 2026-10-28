@@ -1,7 +1,7 @@
-/* 【產生檔，不要手改】來源：設計規範 03-元件規範/components.css
- * 複製日期：2026-10-28。要更新：重跑 fmis-work/genogram-ui/copy_css.py。
+/* 【產生檔，不要手改】來源：共用設計系統的元件樣式
+ * 複製日期：2026-10-28。要更新：由作者從設計系統重新複製。
  * 專案自己的樣式寫在 style.css，不要改這個檔。 */
-/* 03-元件規範/components.css
+/*
  * 共用設計系統共用元件。只用 token，不寫色碼；接上任何一套 02-設計系統/<套件>/tokens.css 都成立。
  * 命名：區塊 .btn、修飾 .btn--primary、子元素 .card__title、狀態 .is-active／.is-invalid／[disabled]／[aria-*]。
  * 每個互動元件都有 hover、focus-visible、active、disabled 四種狀態；按鈕另有 loading。

@@ -87,6 +87,18 @@ def main() -> int:
         return 1
     html = html.replace("<!--CSP-->", f'<meta http-equiv="Content-Security-Policy" content="{csp}">')
 
+    # 打包檔會公開：不得含本機路徑與機構名、品牌代號（審查 2026-10-28：設計系統的英文代號曾混進註解）。
+    # 機構名稱本身也不能寫進這個公開的檔案，所以放在本機的 .private-words.txt（一行一個、不分大小寫、不進版控）
+    words = [r"[A-Z]:\\Users", r"/Users/"]
+    private = ROOT / ".private-words.txt"
+    if private.exists():
+        words += [re.escape(w.strip()) for w in private.read_text(encoding="utf-8").splitlines()
+                  if w.strip() and not w.startswith("#")]
+    leak = sorted(set(re.findall("(?i)" + "|".join(words), html)))
+    if leak:
+        print("打包檔含有不能公開的字（" + "、".join(leak) + "），打包中止。請從原始碼拿掉。")
+        return 1
+
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(html, encoding="utf-8", newline="\n")
     print(f"已打包 {OUT.relative_to(ROOT)}：{OUT.stat().st_size:,} bytes，"

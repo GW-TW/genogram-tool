@@ -586,3 +586,38 @@ T.test('回歸：子女拉得很近時，伴侶線的說明不可以壓到線上
     }
   }
 });
+
+T.test('生態圖的家庭圓：點得到、選取有外圈、位置照存下來的走、連線跟著走（使用者 2026-10-28）', () => {
+  const d = GT.newDoc();
+  const a = GT.addPerson(d, { gender: 'M', x: 0, y: 0 }), b = GT.addPerson(d, { gender: 'F', x: 200, y: 0 });
+  const s = GT.addSystem(d, { name: '學校', x: 600, y: 0 });
+  const t = GT.addTie(d, s, a, {});
+  d.settings.view = 'ecomap';
+  const fam = (o) => groupOf(GT.render.renderWorld(d, o || {}), GT.FAMILY_ID);
+  T.ok(fam().includes('data-kind="family"'), '家庭圓可以點選（有 data-kind）');
+  T.ok(fam().includes('translate(100,0)'), '沒拖過：在所有人的中間');
+  T.ok(!fam().includes('fill-opacity="0.14"'), '沒選取：沒有外圈');
+  T.ok(fam({ selection: new Set([GT.FAMILY_ID]) }).includes('fill-opacity="0.14"'), '選取：有外圈');
+  T.ok(!GT.render.exportSVG(d).includes('fill-opacity="0.14"'), '匯出不畫選取外圈');
+  const before = GT.render.tieGeometry(d, d.ties[t], 'ecomap').p2;
+  GT.moveItems(d, [GT.FAMILY_ID], 0, 300);
+  T.ok(fam().includes('translate(100,300)'), '拖過：畫在新位置');
+  const after = GT.render.tieGeometry(d, d.ties[t], 'ecomap').p2;
+  T.ok(after.y > before.y + 100, '連到家庭的線跟著家庭圓走');
+  const b2 = GT.render.bbox(d);
+  T.ok(b2.y + b2.h >= 300 + 52, '匯出範圍包含拖過去的家庭圓');
+  T.ok(GT.render.itemsInRect(d, { x1: 0, y1: 200, x2: 700, y2: 400 }).includes(GT.FAMILY_ID), '框選框到家庭圓（可以跟資源一起拖）');
+  T.ok(!GT.render.itemsInRect(d, { x1: 0, y1: -50, x2: 700, y2: 50 }).includes(GT.FAMILY_ID), '沒框到就不選');
+  d.settings.view = 'both';
+  T.ok(!GT.render.renderWorld(d, {}).includes('data-kind="family"'), '其他模式沒有家庭圓');
+  T.ok(!GT.render.itemsInRect(d, { x1: -900, y1: -900, x2: 900, y2: 900 }).includes(GT.FAMILY_ID), '其他模式框選不會選到家庭圓');
+});
+
+T.test('拖人進生活圈：經過的圈會亮起來，匯出不受影響（使用者 2026-10-28）', () => {
+  const { d, h } = sampleDoc();
+  const g = (o) => groupOf(GT.render.renderWorld(d, o), h);
+  T.ok(!g({}).includes('droptarget'), '平常不亮');
+  T.ok(g({ dropTarget: h }).includes('class="droptarget"'), '拖著人經過：亮起來');
+  T.ok(!g({ dropTarget: 'h999' }).includes('droptarget'), '別的圈不亮');
+  T.ok(!GT.render.renderWorld(d, { dropTarget: h, forExport: true }).includes('droptarget'), '匯出時不亮');
+});

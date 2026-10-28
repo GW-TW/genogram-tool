@@ -550,3 +550,63 @@ T.test('預設檔名：個案編號_家系生態圖_建立日期，絕不放姓�
   T.eq(old.meta.created, '', '舊檔沒有建立日期就留空，不自己編');
   T.eq(GT.defaultFileName(old, '.json'), '家系生態圖_2025-01-02.json', '舊檔改用評估日期');
 });
+
+T.test('換行：英文以整個單字為單位，放不下就整個移到下一行（使用者 2026-10-28）', () => {
+  T.eq(GT.wrapText('Hello World', 4), ['Hello', 'World'], '不從 World 中間斷');
+  T.eq(GT.wrapText('王大明 Michael', 6), ['王大明', 'Michael'], '中英混排：英文整個換行');
+  T.eq(GT.wrapText('王大明 Michael', 8), ['王大明 Michael'], '放得下就不換行');
+  const words = 'John Smith Jr works at Taipei City Hospital'.split(' ');
+  const lines = GT.wrapText(words.join(' '), 6);
+  T.ok(lines.every(l => GT.textEm(l) <= 6), '每行不超過寬度');
+  T.eq(lines.join(' ').split(' '), words, '每個單字都完整、順序不變');
+  T.ok(lines.every(l => !/^ | $/.test(l)), '斷行處的空白不留在行首、行尾');
+  T.eq(GT.wrapText('ADHD注意力不足過動症', 8), ['ADHD注意力不足', '過動症'], '英文縮寫後面接中文照樣逐字斷');
+  T.eq(GT.wrapText('2026-10-28 複診', 6), ['2026-10-28', '複診'], '日期不從中間斷');
+  const long = GT.wrapText('Pneumonoultramicroscopic', 5);
+  T.ok(long.length > 1 && long.every(l => GT.textEm(l) <= 5), '比一整行還長的單字才從中間斷');
+  T.eq(long.join(''), 'Pneumonoultramicroscopic', '斷開的長單字接回來是原字');
+  T.eq(GT.wrapText('  縮排', 8), ['  縮排'], '段落開頭的空白照留');
+});
+
+T.test('生活圈：加入、移出；移出最後一位＝整個生活圈連同生態連結一起刪（使用者 2026-10-28）', () => {
+  const d = GT.newDoc();
+  const a = person(d), b = person(d), c = person(d);
+  const h = GT.addHousehold(d, [a], '同住');
+  T.eq(GT.joinHousehold(d, h, [b, b, a, 'nobody']), 1, '重複、已是成員、不存在的人都不算');
+  T.eq(d.households[h].members, [a, b]);
+  T.eq(GT.joinHousehold(d, 'h999', [c]), 0, '生活圈不存在');
+  T.ok(!GT.leaveHousehold(d, h, c), '不是成員：移出失敗');
+  T.ok(GT.leaveHousehold(d, h, a), '移出成員');
+  T.eq(d.households[h].members, [b]);
+  const s = GT.addSystem(d, { name: '學校' });
+  const t = GT.addTie(d, h, s);
+  T.ok(GT.leaveHousehold(d, h, b), '移出最後一位');
+  T.ok(!d.households[h] && !d.ties[t], '生活圈與連到它的線一起刪');
+  T.ok(d.persons[a] && d.persons[b], '人都還在');
+});
+
+T.test('生態圖的家庭圓：可以拖、會吸附、存檔讀回；沒拖過＝所有人的中間（使用者 2026-10-28）', () => {
+  const d = GT.newDoc();
+  const a = GT.addPerson(d, { x: 0, y: 0 }), b = GT.addPerson(d, { x: 200, y: 160 });
+  T.eq(d.familyPos, null, '新文件沒有存位置');
+  T.eq(GT.familyAt(d), { x: 100, y: 80 }, '沒拖過＝所有人的中間');
+  GT.moveItems(d, [GT.FAMILY_ID], 33, -17);
+  T.eq(d.familyPos, { x: 133, y: 63 }, '拖過就存下位置');
+  GT.snapItems(d, [GT.FAMILY_ID]);
+  T.eq(d.familyPos, { x: 130, y: 60 }, '放開時吸附格線');
+  d.persons[a].x = -500;
+  T.eq(GT.familyAt(d), { x: 130, y: 60 }, '拖過之後，人移動不影響家庭圓');
+  const back = GT.normalizeDoc(JSON.parse(GT.serialize(d))).doc;
+  T.eq(back.familyPos, { x: 130, y: 60 }, '存檔讀回');
+  const bad = (fp) => GT.normalizeDoc({ format: 'genogram-tool', version: 3, persons: { p1: { id: 'p1', x: 0, y: 0 } }, familyPos: fp }).doc.familyPos;
+  T.eq(bad({ x: 'abc', y: 1 }), null, '座標不是數字：當沒拖過');
+  T.eq(bad({ x: 1 }), null, '缺座標：當沒拖過');
+  T.eq(bad([1, 2]), null, '格式不對：當沒拖過');
+  T.eq(bad({ x: 1e9, y: -5 }), { x: 1e6, y: -5 }, '超大座標夾到範圍內');
+  T.eq(GT.normalizeDoc({ format: 'genogram-tool', version: 3, familyPos: { x: 1, y: 2 } }).doc.familyPos, null, '沒有人就不留位置');
+  GT.deleteItems(d, [a, b]);
+  T.eq(d.familyPos, null, '人都刪光了，位置也不留');
+  const e = GT.newDoc();
+  GT.moveItems(e, [GT.FAMILY_ID], 10, 10);
+  T.eq(e.familyPos, null, '沒有人時拖不動（沒有家庭圓）');
+});

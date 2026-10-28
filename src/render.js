@@ -600,6 +600,7 @@
     const parts = householdParts(doc, h);
     if (!parts.length) return '';
     const sel = o.selection && o.selection.has(h.id);
+    const drop = o.dropTarget === h.id && !o.forExport;   // 拖著人經過：提示「放開就可以加入這個生活圈」
     const mid = `hm-${esc(h.id)}`;
     const X1 = Math.min(...parts.map(r => r.x1)) - 20, Y1 = Math.min(...parts.map(r => r.y1)) - 20;
     const X2 = Math.max(...parts.map(r => r.x2)) + 20, Y2 = Math.max(...parts.map(r => r.y2)) + 20;
@@ -609,8 +610,8 @@
     out.push(`<mask id="${mid}" maskUnits="userSpaceOnUse" x="${f(X1)}" y="${f(Y1)}" width="${f(X2 - X1)}" height="${f(Y2 - Y1)}">` +
              `<rect x="${f(X1)}" y="${f(Y1)}" width="${f(X2 - X1)}" height="${f(Y2 - Y1)}" fill="#FFFFFF"/>${rects('fill="#000000"')}</mask>`);
     // 底色與外框都不接收點擊（圈內空白處要能拖曳畫布）；只有外框那圈可以點選
-    out.push(`<g opacity="0.06" pointer-events="none">${rects(`fill="${C.BRAND}"`)}</g>`);
-    out.push(`<g mask="url(#${mid})" pointer-events="none">${rects(`fill="none" stroke="${sel ? C.CYAN : C.BRAND}" stroke-width="${sel ? 6 : 3.2}" stroke-dasharray="8 5"`)}</g>`);
+    out.push(`<g class="${drop ? 'droptarget' : 'hhfill'}" opacity="${drop ? 0.16 : 0.06}" pointer-events="none">${rects(`fill="${drop ? C.CYAN : C.BRAND}"`)}</g>`);
+    out.push(`<g mask="url(#${mid})" pointer-events="none">${rects(`fill="none" stroke="${sel || drop ? C.CYAN : C.BRAND}" stroke-width="${sel || drop ? 6 : 3.2}" stroke-dasharray="8 5"`)}</g>`);
     if (h.label) {
       const top = parts.reduce((a, r) => (r.y1 < a.y1 || (r.y1 === a.y1 && r.x1 < a.x1) ? r : a));
       out.push(`<text x="${f(top.x1 + 10)}" y="${f(top.y1 + 15)}" font-size="12" fill="${C.BRAND}" pointer-events="none">${esc(h.label)}</text>`);
@@ -710,12 +711,9 @@
   }
   const systemBox = (s) => { const r = systemRadius(s); return { x1: s.x - r, y1: s.y - r, x2: s.x + r, y2: s.y + r }; };
 
-  // 生態圖模式：整張家系圖收成一個「家庭」圓，位置＝所有人的中心
+  // 生態圖模式：整張家系圖收成一個「家庭」圓；位置＝使用者拖過的位置，沒拖過＝所有人的中心
   function familyNode(doc) {
-    const ps = Object.values(doc.persons);
-    if (!ps.length) return { x: 0, y: 0, r: FAMILY_R };
-    const xs = ps.map(p => p.x), ys = ps.map(p => p.y);
-    return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2, r: FAMILY_R };
+    return Object.assign(GT.familyAt(doc), { r: FAMILY_R });
   }
 
   // 連結端點：人、資源、生活圈（整個家庭）；生態圖模式下人與生活圈都收進家庭圓
@@ -779,7 +777,9 @@
     const n = familyNode(doc);
     const label = Object.keys(doc.persons).length ? '家庭' : '';
     if (!label) return '';
-    return `<g class="famnode" transform="translate(${f(n.x)},${f(n.y)})">` +
+    const sel = o.selection && o.selection.has(GT.FAMILY_ID) && !o.forExport;
+    return `<g class="famnode" data-id="${esc(GT.FAMILY_ID)}" data-kind="family" transform="translate(${f(n.x)},${f(n.y)})">` +
+           (sel ? `<circle r="${f(n.r + 7)}" fill="${C.CYAN}" fill-opacity="0.14" stroke="${C.CYAN}" stroke-width="2"/>` : '') +
            `<circle r="${n.r}" fill="${C.WHITE}" stroke="${tint(doc, G.BLACK)}" stroke-width="2.4"/>` +
            `<text y="6" text-anchor="middle" font-size="17" font-weight="700" fill="${C.INK}">${label}</text></g>`;
   }
@@ -988,6 +988,7 @@
       // 端點是生活圈＝成員全都框到才算；生態圖模式下人與生活圈都收成家庭圓，看家庭圓在不在框裡
       const fam = mode === 'ecomap' && Object.keys(doc.persons).length ? familyNode(doc) : null;
       const famIn = !!fam && inside(fam.x, fam.y);
+      if (famIn) out.push(GT.FAMILY_ID);           // 家庭圓跟資源一起框到＝可以一起拖
       const endIn = (id) => doc.systems[id] ? ps.has(id)
         : mode === 'ecomap' ? famIn
         : doc.persons[id] ? ps.has(id)

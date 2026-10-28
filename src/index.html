@@ -30,11 +30,11 @@
     <button id="btnSave" class="btn btn--primary">儲存</button>
     <button id="btnSaveAs" class="btn">另存新檔…</button>
     <span class="menu">
-      <button id="btnExport" class="btn" aria-haspopup="true" aria-expanded="false" aria-controls="exportMenu">匯出</button>
-      <ul class="menu__list" id="exportMenu" role="menu" hidden>
-        <li><button class="menu__item" id="btnCopy" role="menuitem">複製圖片（貼進 Word）</button></li>
-        <li><button class="menu__item" id="btnPng" role="menuitem">匯出 PNG 圖檔</button></li>
-        <li><button class="menu__item" id="btnSvg" role="menuitem">匯出 SVG 向量圖</button></li>
+      <button id="btnExport" class="btn" aria-expanded="false" aria-controls="exportMenu">匯出</button>
+      <ul class="menu__list" id="exportMenu" hidden>
+        <li><button class="menu__item" id="btnCopy">複製圖片（貼進 Word）</button></li>
+        <li><button class="menu__item" id="btnPng">匯出 PNG 圖檔</button></li>
+        <li><button class="menu__item" id="btnSvg">匯出 SVG 向量圖</button></li>
       </ul>
     </span>
     <span class="topbar__sep" aria-hidden="true"></span>
@@ -57,16 +57,17 @@
     <section class="toolgroup">
       <h2 class="sidebar__group">家庭關係</h2>
       <div class="grid2">
-        <button class="btn" data-kin="partner">＋伴侶</button>
-        <button class="btn" data-kin="parents">＋父母</button>
-        <button class="btn" data-kin="son">＋兒子</button>
-        <button class="btn" data-kin="daughter">＋女兒</button>
-        <button class="btn" data-kin="brother">＋兄弟</button>
-        <button class="btn" data-kin="sister">＋姊妹</button>
+        <button class="btn" data-kin="partner" data-plus><span class="sr-only">新增</span>伴侶</button>
+        <button class="btn" data-kin="parents" data-plus><span class="sr-only">新增</span>父母</button>
+        <button class="btn" data-kin="son" data-plus><span class="sr-only">新增</span>兒子</button>
+        <button class="btn" data-kin="daughter" data-plus><span class="sr-only">新增</span>女兒</button>
+        <button class="btn" data-kin="brother" data-plus><span class="sr-only">新增</span>兄弟</button>
+        <button class="btn" data-kin="sister" data-plus><span class="sr-only">新增</span>姊妹</button>
       </div>
       <div class="stack-2 toolgroup__rows">
         <button class="btn btn--block" data-kin="linkPartner">連結為伴侶…</button>
         <button class="btn btn--block" data-kin="attachChild">設為某段關係的子女…</button>
+        <button id="btnLayout" class="btn btn--block">自動排版…</button>
       </div>
       <p class="help" id="kinHint">先在畫布上點選一個人。</p>
     </section>
@@ -74,7 +75,7 @@
     <section class="toolgroup">
       <h2 class="sidebar__group">情感關係</h2>
       <p class="help">新拉的線用這個類型：</p>
-      <button id="relTypeBtn" class="typebtn" title="選擇類型：先選大類，再選線條"></button>
+      <button id="relTypeBtn" class="typebtn"></button>
       <div class="stack-2 toolgroup__rows">
         <button id="btnRelation" class="btn btn--block">從選取的人拉線…</button>
         <button id="btnLegend" class="btn btn--ghost btn--block">看圖例說明</button>
@@ -96,7 +97,7 @@
         <div id="viewModes"></div>
       </fieldset>
       <div class="stack-2 toolgroup__rows">
-        <button id="btnSystem" class="btn btn--block">＋新增資源…</button>
+        <button id="btnSystem" class="btn btn--block" data-plus>新增資源…</button>
         <button id="btnTie" class="btn btn--block">拉生態連結…</button>
       </div>
       <p class="help" id="tieHint">先點選一個人或資源，再按「拉生態連結」。</p>
@@ -141,15 +142,18 @@
       <button id="btnDelete" class="btn btn--icon btn--danger tooltip" data-tip="刪除選取的項目（Delete）" aria-label="刪除選取的項目"></button>
     </div>
 
-    <div class="alert alert--danger stage__alert" id="errorBar" role="alert" hidden>
-      <strong id="errorTitle">無法完成</strong>
-      <span id="errorText"></span>
-      <button class="alert__close" id="errorClose" aria-label="關閉這則訊息"></button>
-    </div>
-
-    <div class="banner" id="banner" hidden>
-      <span id="bannerText"></span>
-      <button id="bannerCancel" class="btn">取消（Esc）</button>
+    <!-- 提示條與錯誤訊息放在工具列下方、上下疊放：不互相蓋住，也不蓋住復原／重做／刪除（審查 2026-10-28） -->
+    <div class="stage__notices">
+      <div class="banner" id="banner" hidden>
+        <span id="bannerText"></span>
+        <button id="bannerCancel" class="btn">取消（Esc）</button>
+      </div>
+      <div class="alert alert--danger stage__alert" id="errorBar" role="alert" hidden>
+        <strong id="errorTitle">無法完成</strong>
+        <span id="errorText"></span>
+        <button class="alert__close" id="errorClose" aria-label="關閉這則訊息"></button>
+        <div class="alert__actions" id="errorActions" hidden><button class="btn" id="errorRetry">再試一次</button></div>
+      </div>
     </div>
 
     <div class="stage__zoom toolbar" role="toolbar" aria-label="檢視">
@@ -171,7 +175,7 @@
 </footer>
 
 <div class="toast-stack" id="toasts" aria-live="polite"></div>
-<dialog class="dialog" id="dlg">
+<dialog class="dialog" id="dlg" aria-labelledby="dlgTitle">
   <div class="dialog__header"><h2 class="dialog__title" id="dlgTitle"></h2></div>
   <div class="dialog__body" id="dlgBody"></div>
   <div class="dialog__footer" id="dlgFoot"></div>
@@ -181,6 +185,7 @@
 <script src="core.js"></script>
 <script src="icons.js"></script>
 <script src="render.js"></script>
+<script src="layout.js"></script>
 <script src="manual.js"></script>
 <script src="app.js"></script>
 </body>

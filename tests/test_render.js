@@ -621,3 +621,41 @@ T.test('拖人進生活圈：經過的圈會亮起來，匯出不受影響（使
   T.ok(!g({ dropTarget: 'h999' }).includes('droptarget'), '別的圈不亮');
   T.ok(!GT.render.renderWorld(d, { dropTarget: h, forExport: true }).includes('droptarget'), '匯出時不亮');
 });
+
+// ── 生活圈互相不重疊（使用者 2026-10-28 附圖：服務使用者＋右邊那對夫妻的圈，從中間那一家的圈底下穿過）──
+const rectsHit = (A, B, m) => A.some(a => B.some(b => a.x1 < b.x2 + m && b.x1 < a.x2 + m && a.y1 < b.y2 + m && b.y1 < a.y2 + m));
+function partsConnected(rs) {                 // 一個生活圈的各塊矩形要連成一片
+  const seen = new Set([0]), q = [0];
+  while (q.length) { const i = q.shift(); rs.forEach((r, j) => { if (!seen.has(j) && rectsHit([rs[i]], [r], 0.5)) { seen.add(j); q.push(j); } }); }
+  return seen.size === rs.length;
+}
+function userHouseholds() {
+  const d = GT.newDoc();
+  const P = (g, x, y) => GT.addPerson(d, { gender: g, x, y });
+  const gf = P('M', 100, -160), gm = P('F', 200, -160);
+  const idx = P('F', 0, 0), s = P('M', 100, 0), w = P('F', 200, 0), c = P('M', 320, 0), cw = P('F', 420, 0);
+  const u0 = GT.linkPartners(d, gf, gm); d.unions[u0].children = [idx, w, c].map(id => ({ id, link: 'bio' }));
+  const u1 = GT.linkPartners(d, s, w); const k = P('M', 150, 160); d.unions[u1].children = [{ id: k, link: 'bio' }];
+  GT.linkPartners(d, c, cw);
+  const hA = GT.addHousehold(d, [idx, c, cw], ''), hB = GT.addHousehold(d, [s, w, k], '');
+  return { d, hA, hB };
+}
+
+T.test('回歸：兩個生活圈不重疊——要繞過別人的圈改走另一邊（使用者 2026-10-28 附圖）', () => {
+  const { d, hA, hB } = userHouseholds();
+  const A = GT.render.householdParts(d, d.households[hA]), B = GT.render.householdParts(d, d.households[hB]);
+  T.ok(!rectsHit(A, B, 0), '服務使用者那個圈不碰到中間那一家的圈');
+  T.ok(partsConnected(A) && partsConnected(B), '兩個圈各自仍然連成一片');
+  T.eq([GT.render.householdIntruders(d, d.households[hA]), GT.render.householdIntruders(d, d.households[hB])], [[], []], '都沒有把不同住的人圈進去');
+  d.households[hB].label = '同住';
+  T.ok(!rectsHit(GT.render.householdParts(d, d.households[hA]), GT.render.householdParts(d, d.households[hB]), 0), '中間那個圈有名稱（往上多留一行）也不碰到');
+});
+
+T.test('生活圈：旁邊沒有別的圈時，照舊從夾在中間的人下方繞過', () => {
+  const { d, hA, hB } = userHouseholds();
+  GT.deleteItems(d, [hB]);
+  const A = GT.render.householdParts(d, d.households[hA]);
+  const mid = d.persons[Object.keys(d.persons).find(id => d.persons[id].x === 100 && d.persons[id].y === 0)];
+  T.ok(A.some(r => r.x1 < mid.x && r.x2 > mid.x && r.y1 > mid.y), '繞路那一塊在中間那個人的下方');
+  T.ok(partsConnected(A), '連成一片');
+});

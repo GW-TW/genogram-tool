@@ -536,8 +536,18 @@
      2. 同一列中，兩位成員之間夾著非成員 → 斷成兩段，再從非成員的標籤下方用橫帶繞過去（凸形／U 形）；
      3. 相鄰兩列之間，用最近的兩段之間的連接帶接起來（L 形、階梯形）。
      回傳這些矩形；畫的時候只描它們聯集的外圈。 */
-  const HH_PAD = 12;
-  function householdParts(doc, h) {
+  const HH_PAD = 12, HH_GAP = 8;   // 兩個生活圈之間至少留的間隙
+  // 兩組矩形的重疊面積（m＝至少要留的間隙）
+  function overlapArea(A, B, m) {
+    let s = 0;
+    for (const a of A) for (const b of B) {
+      const w = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1) + m, hh = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1) + m;
+      if (w > 0 && hh > 0) s += w * hh;
+    }
+    return s;
+  }
+  // core＝只算自己的形狀（給別的生活圈檢查會不會撞到用；不回頭看別人，兩個圈才不會互相遞迴）
+  function householdParts(doc, h, core) {
     const mem = new Set(h.members);
     const items = h.members.map(id => doc.persons[id]).filter(Boolean).map(p => ({ p, b: personBox(doc, p) }));
     if (!items.length) return [];
@@ -551,6 +561,9 @@
     const pad = HH_PAD, parts = [], rowRuns = [];
     const boxOf = (run) => ({ x1: Math.min(...run.map(i => i.b.x1)) - pad, y1: Math.min(...run.map(i => i.b.y1)) - pad,
                               x2: Math.max(...run.map(i => i.b.x2)) + pad, y2: Math.max(...run.map(i => i.b.y2)) + pad });
+    // 別的生活圈佔的地方（使用者 2026-10-28：同住的圈不能互相重疊，繞路要繞開別人的圈）
+    const taken = core ? [] : Object.values(doc.households).filter(o => o !== h && o.members.length).flatMap(o => householdParts(doc, o, true));
+    const clash = (rs) => (taken.length ? overlapArea(rs, taken, HH_GAP) : 0);
     for (const row of rows) {
       row.items.sort((a, b) => a.p.x - b.p.x);
       const sameRow = others.filter(o => Math.abs(o.p.y - row.y) < GT.S);
@@ -560,26 +573,43 @@
         if (sameRow.some(o => o.p.x > prev && o.p.x < cur)) runs.push([row.items[i]]);
         else runs[runs.length - 1].push(row.items[i]);
       }
-      const rr = runs.map(boxOf);
-      if (rr.length > 1) {                       // 從夾在中間的非成員下方繞過
-        const bottom = Math.max(...rr.map(r => r.y2), ...sameRow.map(o => o.b.y2 + pad));
-        for (const r of rr) r.y2 = Math.max(r.y2, bottom + 2 * pad);
-        for (let i = 1; i < rr.length; i++) parts.push({ x1: rr[i - 1].x2 - 2 * pad, y1: bottom, x2: rr[i].x1 + 2 * pad, y2: bottom + 2 * pad });
+      let rr = runs.map(boxOf);
+      if (rr.length > 1) {
+        // 從夾在中間的非成員下方繞過；會撞到別的生活圈就改從上方繞（成員頭頂與手足線之間），兩邊都撞就挑撞得少的
+        const route = (below) => {
+          const rs = rr.map(r => Object.assign({}, r)), bands = [];
+          if (below) {
+            const bottom = Math.max(...rs.map(r => r.y2), ...sameRow.map(o => o.b.y2 + pad));
+            for (const r of rs) r.y2 = Math.max(r.y2, bottom + 2 * pad);
+            for (let i = 1; i < rs.length; i++) bands.push({ x1: rs[i - 1].x2 - 2 * pad, y1: bottom, x2: rs[i].x1 + 2 * pad, y2: bottom + 2 * pad });
+          } else {
+            const x1 = rs[0].x1, x2 = rs[rs.length - 1].x2, y1 = Math.min(...rs.map(r => r.y1)), y2 = Math.max(...rs.map(r => r.y2));
+            const top = Math.min(y1, ...sameRow.filter(o => o.p.x > x1 && o.p.x < x2).map(o => o.b.y1 - pad),
+                                 ...taken.filter(t => t.x2 > x1 && t.x1 < x2 && t.y2 > y1 && t.y1 < y2).map(t => t.y1)) - HH_GAP;
+            for (const r of rs) r.y1 = Math.min(r.y1, top - 2 * pad);
+            for (let i = 1; i < rs.length; i++) bands.push({ x1: rs[i - 1].x2 - 2 * pad, y1: top - 2 * pad, x2: rs[i].x1 + 2 * pad, y2: top });
+          }
+          return { rs, bands, cost: clash(rs.concat(bands)) };
+        };
+        let pick = route(true);
+        if (pick.cost > 0) { const up = route(false); if (up.cost < pick.cost) pick = up; }
+        parts.push(...pick.bands);
+        rr = pick.rs;
       }
       parts.push(...rr);
       rowRuns.push(rr);
     }
-    for (let i = 1; i < rowRuns.length; i++) {  // 相鄰兩列：挑最近的兩段接起來
-      let best = null;
+    for (let i = 1; i < rowRuns.length; i++) {  // 相鄰兩列：挑最近的兩段接起來；會撞到別的生活圈就換一組
+      const cands = [];
       for (const a of rowRuns[i - 1]) for (const b of rowRuns[i]) {
         const ov = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1);   // 正＝水平重疊寬度；負＝水平間隔
-        if (!best || ov > best.ov) best = { a, b, ov };             // 重疊越多越好；不重疊就挑間隔最小的
+        let x1, x2;
+        if (ov >= 2 * pad) { const c = (Math.max(a.x1, b.x1) + Math.min(a.x2, b.x2)) / 2, w = Math.min(ov / 2, 3 * pad); x1 = c - w; x2 = c + w; }
+        else { x1 = Math.min(a.x2, b.x2) - 2 * pad; x2 = Math.max(a.x1, b.x1) + 2 * pad; }
+        cands.push({ ov, r: { x1, y1: a.y2 - 2 * pad, x2, y2: b.y1 + 2 * pad } });
       }
-      const { a, b, ov } = best;
-      let x1, x2;
-      if (ov >= 2 * pad) { const c = (Math.max(a.x1, b.x1) + Math.min(a.x2, b.x2)) / 2, w = Math.min(ov / 2, 3 * pad); x1 = c - w; x2 = c + w; }
-      else { x1 = Math.min(a.x2, b.x2) - 2 * pad; x2 = Math.max(a.x1, b.x1) + 2 * pad; }
-      parts.push({ x1, y1: a.y2 - 2 * pad, x2, y2: b.y1 + 2 * pad });
+      cands.sort((p, q) => q.ov - p.ov);                            // 重疊越多越好；不重疊就挑間隔最小的
+      parts.push((cands.find(c => !clash([c.r])) || cands[0]).r);
     }
     if (h.label && parts.length) {                // 最上面那塊往上多留一行給名稱，不壓到人
       const top = parts.reduce((m, r) => (r.y1 < m.y1 ? r : m));

@@ -170,3 +170,80 @@ T.test('回歸：前任的父母在左邊時，前任要排在本人左邊（原
   T.ok(row.indexOf(sis) - row.indexOf(me) <= 2, '妹妹緊跟在本人這一組旁邊，不被推到遠處');
   T.ok(noOverlap(d), '不重疊');
 });
+
+// ── 回歸（使用者 2026-10-28 附圖）：自動排版不可以改變手足的左右順序（出生序）──
+// 每段關係的子女，排版前後由左到右的順序一樣
+const kidOrder = (d) => Object.values(d.unions).map(u => u.children.map(c => c.id).filter(id => d.persons[id])
+  .sort((a, b) => d.persons[a].x - d.persons[b].x || 0).join(','));
+// 使用者第三張圖（手排、正確）：祖父母→服務使用者、B 女兒＋夫、C 兒子＋妻、D 兒子＋妻、E 已歿→孫輩→曾孫
+function userFamily(dKids) {
+  const d = GT.newDoc(), k = 1.25, N = {};
+  const P = (key, g, x, y) => { const id = GT.addPerson(d, { gender: g, x: x * k, y: y * k }); N[key] = id; return id; };
+  const U = (a, b, kids) => { const u = GT.linkPartners(d, a, b); d.unions[u].children = kids.map(id => ({ id, link: 'bio' })); return u; };
+  const gf = P('祖父', 'M', 313, 43), gm = P('祖母', 'F', 407, 43);
+  const A = P('A', 'F', 33, 178), B = P('B', 'F', 115, 178), Bh = P('B夫', 'M', 182, 178), C = P('C', 'M', 287, 178), Cw = P('C妻', 'F', 355, 178);
+  const D = P('D', 'M', 572, 178), Dw = P('D妻', 'F', 645, 178), E = P('E', 'M', 707, 178);
+  U(gf, gm, [A, B, C, D, E]); U(B, Bh, []);
+  const C1 = P('C1', 'M', 220, 262), C1w = P('C1妻', 'F', 293, 262), C2 = P('C2', 'M', 361, 262);
+  U(C, Cw, [C1, C2]); U(C1, C1w, [P('C1子', 'M', 258, 350)]);
+  dKids(d, P, U, D, Dw);
+  return { d, N };
+}
+
+T.test('回歸：自動排版不改變手足的出生序（使用者 2026-10-28 第三、四張圖：B 與 C、D1 與 D2 被對調）', () => {
+  const { d, N } = userFamily((d, P, U, D, Dw) => {
+    const D1 = P('D1', 'M', 430, 262), D1w = P('D1妻', 'F', 503, 262), D2 = P('D2', 'F', 570, 262), D2h = P('D2夫', 'M', 645, 262);
+    U(D, Dw, [D1, D2, P('D3', 'M', 712, 262), P('D4', 'M', 773, 262)]); U(D2, D2h, []); U(D1, D1w, [P('D1子', 'M', 466, 350)]);
+  });
+  const before = kidOrder(d);
+  GT.layout.autoLayout(d);
+  T.eq(kidOrder(d), before, '每一段關係的子女，左右順序都跟排版前一樣');
+  const x = (k) => d.persons[N[k]].x;
+  T.ok(x('A') < x('B') && x('B') < x('C') && x('C') < x('D') && x('D') < x('E'), '服務使用者、B、C、D、E 照出生序');
+  T.ok(x('D1') < x('D2') && x('D2') < x('D3'), 'D 家的孩子照出生序');
+  T.ok(x('B') < x('B夫') && x('B夫') < x('C'), '配偶緊貼本人（B 夫在 B 與 C 之間）');
+  T.ok(noOverlap(d), '不重疊');
+});
+
+T.test('回歸：對次女按「＋伴侶」再自動排版，長女一家不會跟次女對調（使用者 2026-10-28 第五、六張圖：看起來像小孩跑去隔壁）', () => {
+  let ids;
+  const { d, N } = userFamily((d, P, U, D, Dw) => {
+    const d1 = P('長女', 'F', 470, 262), d2 = P('次女', 'F', 530, 262), s1 = P('長子', 'M', 590, 262), s2 = P('次子', 'M', 650, 262), h1 = P('長女夫', 'M', 700, 262);
+    U(D, Dw, [d1, d2, s1, s2]);
+    const kid = P('長女的孩子', 'M', 585, 350); U(d1, h1, [kid]);
+    ids = { d1, d2, s1, s2, h1, kid };
+  });
+  const np = GT.addPartner(d, ids.d2).personId;
+  GT.layout.autoLayout(d);
+  const x = (id) => d.persons[id].x;
+  T.ok(x(ids.d1) < x(ids.d2) && x(ids.d2) < x(ids.s1) && x(ids.s1) < x(ids.s2), '長女、次女、長子、次子照出生序');
+  T.ok(Math.abs(x(ids.d1) - x(ids.h1)) <= GT.GAP_X * 1.2 && Math.abs(x(ids.d2) - x(np)) <= GT.GAP_X * 1.2, '兩個女兒都跟自己的伴侶相鄰');
+  T.ok(Math.min(x(ids.d1), x(ids.h1)) <= x(ids.kid) && x(ids.kid) <= Math.max(x(ids.d1), x(ids.h1)), '長女的孩子畫在長女與長女夫中間的正下方');
+  T.ok(x(ids.kid) < x(ids.d2), '孩子不會跑到次女那一家底下');
+  T.eq(GT.parentUnionOf(d, ids.kid).partners.slice().sort(), [ids.d1, ids.h1].sort(), '資料沒變：孩子仍是長女與長女夫的');
+});
+
+T.test('自動排版：隨機 30 個家族，每段關係的子女出生序排版前後都一樣', () => {
+  let seed = 1028, bad = 0, total = 0;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  for (let n = 0; n < 30; n++) {
+    const d = GT.newDoc();
+    const add = (g, y) => GT.addPerson(d, { gender: g, x: 0, y });
+    let unions = [GT.linkPartners(d, add('M', 0), add('F', 0))];
+    for (let gen = 1; gen <= 3; gen++) {
+      const next = [];
+      for (const uid of unions) {
+        const kids = Array.from({ length: 1 + Math.floor(rnd() * 4) }, () => add(rnd() < 0.5 ? 'M' : 'F', gen * 160));
+        d.unions[uid].children = kids.map(id => ({ id, link: 'bio' }));
+        for (const k of kids) if (rnd() < 0.5) next.push(GT.addPartner(d, k).unionId);
+      }
+      unions = next;
+    }
+    for (const p of Object.values(d.persons)) p.x = Math.round(rnd() * 2000);   // 亂擺：出生序＝亂擺後的左右
+    const before = kidOrder(d);
+    GT.layout.autoLayout(d);
+    total++;
+    if (JSON.stringify(kidOrder(d)) !== JSON.stringify(before) || !noOverlap(d)) bad++;
+  }
+  T.eq(bad, 0, `${total} 個家族都保持出生序、不重疊`);
+});

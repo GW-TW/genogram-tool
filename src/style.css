@@ -294,6 +294,10 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 /* 「作者：王錫凡」接在「使用說明」旁邊（使用者 2026-10-28）：字小一點、顏色淡一點，不搶主要動作 */
 .topbar__author { font-size: var(--text-sm); color: var(--fg-2); font-weight: 600; }
 @media (max-width: 1024px) { .topbar__author { padding-inline: var(--space-2); } }
+/* 作者資訊視窗：欄位清單＋最後一段 CRPD 宣言 */
+.dl.about { margin-bottom: var(--space-4); }
+.crpd { margin: 0 0 var(--space-3); padding: var(--space-3) var(--space-4); background: var(--accent-soft); color: var(--fg); border-radius: var(--radius-md); }
+.crpd p { margin: var(--space-1) 0 0; font-weight: 600; line-height: var(--leading-body); }
 
 /* 上列與畫布工具列在畫面頂端：說明往下出現，才不會被視窗或上列裁掉（審查 2026-10-28 L4） */
 .topbar .tooltip::after, .stage__toolbar .tooltip::after { bottom: auto; top: calc(100% + 6px); }

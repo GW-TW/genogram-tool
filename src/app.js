@@ -4,7 +4,7 @@
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.8.2';
+  const APP_VERSION = '0.8.3';
   const BUILD = '__BUILD__';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
@@ -1199,12 +1199,16 @@
     });
   }
 
-  // 關於這個工具：CRPD 精神、作者、聯絡方式、授權（使用者 2026-10-28：作者資訊放在「使用說明」旁邊）
+  // 作者資訊（使用者 2026-10-28：放在「使用說明」旁邊；照交接系統「開發者資訊」的格式，最後一行是 CRPD 宣言）
   function openAbout() {
-    const c = GT.manual.MANUAL.find(x => x.key === 'about');
-    dialog('關於這個工具', `<div class="help-doc">${GT.manual.render(c.body)}</div>
-      <p class="text-muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）</p>`,
-      [{ label: '看使用說明', onClick: () => openHelp() }, { label: '關閉', primary: true }]);
+    const A = GT.manual.ABOUT, row = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
+    dialog('作者資訊', `<dl class="dl about">` +
+      row('系統名稱', esc(A.name)) + row('作者', `<b>${esc(A.author)}</b>（GitHub：${esc(A.github)}）`) +
+      row('版本號', `v${esc(APP_VERSION)}（${esc(BUILD)}）`) + row('授權', esc(A.license)) +
+      row('聯絡', esc(A.contact)) + row('專案網址', esc(A.url)) + `</dl>
+      <div class="crpd"><b>CRPD</b><p>「${esc(A.crpd)}」</p></div>
+      <p class="help">授權全文在專案的 LICENSE；使用說明的「關於這個工具」有授權重點。</p>`,
+      [{ label: '看使用說明', onClick: () => openHelp('about') }, { label: '關閉', primary: true }]);
   }
 
   // ───── 檔案 ─────
@@ -1697,12 +1701,13 @@
       // 授權標示（使用者 2026-10-28：作者王錫凡、僅限公益用途、不開放商業使用、聯絡信箱）
       checks.license = ['王錫凡', '僅限公益用途', '不開放商業使用', 'amber31345@gmail.com'].every(w => $('dlgBody').textContent.includes(w));
       $('dlg').close();
-      // 作者資訊在「使用說明」旁邊，打開是「關於這個工具」：CRPD 精神、作者、聯絡、授權
+      // 作者資訊在「使用說明」旁邊：系統名稱、作者、版本號、授權、聯絡，最後是 CRPD 宣言（照交接系統「開發者資訊」的格式）
       const ab = $('btnAbout'), hb = $('btnHelp');
       const nextToHelp = hb.nextElementSibling === ab && ab.textContent.includes('王錫凡');
       ab.click();
-      checks.about = nextToHelp && $('dlg').open && $('dlgTitle').textContent === '關於這個工具' &&
-                     ['CRPD', '王錫凡', 'amber31345@gmail.com', '僅限公益用途', '不開放商業使用'].every(w => $('dlgBody').textContent.includes(w));
+      checks.about = nextToHelp && $('dlg').open && $('dlgTitle').textContent === '作者資訊' &&
+                     ['系統名稱', '王錫凡', 'v' + APP_VERSION, 'amber31345@gmail.com', '僅限公益用途', '不開放商業使用', 'CRPD', GT.manual.ABOUT.crpd]
+                       .every(w => $('dlgBody').textContent.includes(w));
       $('dlg').close();
       openLegend('family');
       checks.legenddesc = $('dlgBody').textContent.includes(GT.manual.LEGEND_DESC.SeparationLegal);

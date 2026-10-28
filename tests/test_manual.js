@@ -28,6 +28,8 @@ T.test('使用說明：關鍵功能都有寫到（功能改名時這裡會紅）
   T.ok(!/[←-⇿]/.test(all), '散文不用箭頭符號');
   const about = GT.manual.MANUAL.find(c => c.key === 'about');
   T.ok(!!about && about.body.includes('身心障礙者權利公約') && about.body.includes('amber31345@gmail.com'), '「關於這個工具」寫了 CRPD 精神與聯絡方式（使用者 2026-10-28）');
+  T.eq(GT.manual.ABOUT.crpd, '身心障礙者平等享有人權、自由與尊嚴，尊重自主、不歧視、全面參與、機會均等', 'CRPD 宣言跟使用者其他系統的「開發者資訊」同一句（使用者 2026-10-28）');
+  T.ok(GT.manual.render(about.body).includes(GT.manual.ABOUT.crpd) && GT.manual.render(about.body).includes('系統名稱'), '使用說明的「關於這個工具」有作者資訊與宣言');
   T.ok(!/被照顧的人|個案檔/.test(all + Object.values(GT.manual.LEGEND_DESC).join('')), 'CRPD 精神的用語：「接受照顧的人」、「服務使用者的資料」');
 });
 

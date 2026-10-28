@@ -3,7 +3,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-chSxD4r/8Fusv/4yfO5yps1BOxDl89/fS88WDJjLzks=' 'sha256-BxaLDMXQD3feP3T3K/ienP7fcCLfpYiGfqWYlkx5mj4=' 'sha256-WKDJGR4emHt4NLprCp/rL4AOpcAGTx9sfKQNpJH+Xsc=' 'sha256-AZ2HkiSbZgHq8WqBlFdgHKFUwW1BlHQD//F6iivj0MQ=' 'sha256-aE2qeXBkuQwwmEzh23rS9QsWPQzNv42P1J4Uq0U1jyc=' 'sha256-ARmJoq4oKRsklX2xgDv0HDnkVhaPWIpMyf9vSsgWo+M='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-IzJE2aQxEWIxKpIGBG8Rxwocio0fzCxvXxMS8uD2+V8=' 'sha256-BxaLDMXQD3feP3T3K/ienP7fcCLfpYiGfqWYlkx5mj4=' 'sha256-WKDJGR4emHt4NLprCp/rL4AOpcAGTx9sfKQNpJH+Xsc=' 'sha256-AZ2HkiSbZgHq8WqBlFdgHKFUwW1BlHQD//F6iivj0MQ=' 'sha256-UD4IvW3vHvpJ07uQb+QjJaCVavkznnVb3l/RC5g79E8=' 'sha256-RuANwTZHwCpeHWufqFhENJT71a5h/O9vR8AQCyhqOnM='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>家系圖工具</title>
 <style>
@@ -1932,18 +1932,51 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     return id;
   }
 
-  function addHousehold(doc, members, label) {
+  // ── 生活圈：一個人只住在一個生活圈（使用者 2026-10-28）──
+  // 同住是遞移的：A 跟 B 同住、A、B、C 又同住＝就是 A、B、C 同住，圖上只畫一個圈。所有改生活圈的指令都守這條。
+  const householdOf = (doc, pid) => Object.values(doc.households).find(h => h.members.includes(pid)) || null;
+  // 把 from 併進 into：成員合在一起；連到 from 的生態連結改連 into（兩端變成同一個圈的線拿掉）；into 沒名稱就沿用 from 的
+  function absorbHousehold(doc, into, from) {
+    const a = doc.households[into], b = doc.households[from];
+    if (!a || !b || a === b) return;
+    for (const m of b.members) if (!a.members.includes(m)) a.members.push(m);
+    if (!a.label && b.label) a.label = b.label;
+    for (const t of Object.values(doc.ties)) {
+      if (t.a === from) t.a = into;
+      if (t.b === from) t.b = into;
+      if (t.a === t.b) delete doc.ties[t.id];
+    }
+    delete doc.households[from];
+  }
+  // 圈成生活圈。選到的人已經在別的生活圈時：
+  //   mode 'merge'＝合併：選到的人＋他們原本生活圈的所有人變成一個圈，保留最早那個圈（名稱與生態連結都留著）
+  //   其他（預設）＝只圈選到的人：他們從原本的生活圈移出（原本的圈沒人了就一起刪）
+  function addHousehold(doc, members, label, mode) {
     const ms = Array.from(new Set(members)).filter(id => doc.persons[id]);
     if (!ms.length) return null;
+    const order = Object.keys(doc.households);
+    const old = Array.from(new Set(ms.map(m => householdOf(doc, m)).filter(Boolean)))
+      .sort((x, y) => order.indexOf(x.id) - order.indexOf(y.id));
+    if (mode === 'merge' && old.length) {
+      const keep = old[0].id;
+      old.slice(1).forEach(h => absorbHousehold(doc, keep, h.id));
+      const h = doc.households[keep];
+      for (const m of ms) if (!h.members.includes(m)) h.members.push(m);
+      if (!h.label && label) h.label = String(label).slice(0, 30);
+      return keep;
+    }
+    for (const m of ms) { const h = householdOf(doc, m); if (h) leaveHousehold(doc, h.id, m); }
     const id = newId(doc, 'h');
     doc.households[id] = { id, members: ms, label: String(label || '').slice(0, 30) };
     return id;
   }
-  // 加入／移出生活圈（使用者 2026-10-28：在圖上把人拖進圈裡就能加入）；回傳實際加入的人數
+  // 加入生活圈（使用者 2026-10-28：在圖上把人拖進圈裡就能加入）；本來在別的生活圈的人＝搬過來（從原本的圈移出）。
+  // 回傳實際加入的人數
   function joinHousehold(doc, hid, ids) {
     const h = doc.households[hid];
     if (!h) return 0;
     const add = Array.from(new Set(ids)).filter(id => doc.persons[id] && !h.members.includes(id));
+    for (const m of add) { const o = householdOf(doc, m); if (o) leaveHousehold(doc, o.id, m); }
     h.members.push(...add);
     return add.length;
   }
@@ -2179,6 +2212,12 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
         dir: has(TIE_DIRS, e.dir) ? e.dir : '',
         note: str(e.note, 60) };
     }
+    // 一個人只能在一個生活圈（使用者 2026-10-28）：舊檔裡有同一個人的生活圈合併成一個（同住是遞移的）。
+    // 放在讀完生態連結之後：連到被併掉的圈的線要改連過去，不能因為圈不見了就被丟掉
+    for (const pid of Object.keys(P)) {
+      const hs = Object.values(doc.households).filter(h => h.members.includes(pid));
+      for (const h of hs.slice(1)) { absorbHousehold(doc, hs[0].id, h.id); warn.push('household-merged'); }
+    }
     // 家庭圓的位置（0.8.0 起才有；舊檔沒有＝自動置中）：座標不是有限數字就當沒拖過
     const fp = raw.familyPos;
     if (fp && typeof fp === 'object' && Number.isFinite(Number(fp.x)) && Number.isFinite(Number(fp.y)) && Object.keys(P).length)
@@ -2235,7 +2274,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     unionsOf, parentUnionOf, unionBetween,
     addPerson, linkPartners, addPartner, addChild, addChildToPerson, addParents, addSibling, attachChild,
     commonParentUnion, setTwins, twinGroupOf, clearTwin,
-    addRelation, addHousehold, joinHousehold, leaveHousehold, addLabel, moveItems, snapItems, deleteItems,
+    addRelation, addHousehold, joinHousehold, leaveHousehold, householdOf, addLabel, moveItems, snapItems, deleteItems,
     FAMILY_ID, familyAt,
     addSystem, addTie, tieBetween, tieEndExists, BASIC_LINE_TYPES, isSpecialLine,
     History, normalizeDoc, serialize, FormatError,
@@ -3699,6 +3738,13 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 - **移出**：點虛線，右邊「成員」清單每個人旁邊都有「移出」。最後一個人移出時，整個生活圈會一起刪除。
 - 加入、移出都可以按 [[Ctrl]]+[[Z]] 復原。
 
+## 一個人只能住在一個生活圈
+- 同住是會連起來的：A 跟 B 同住，A、B、C 又同住，就是 A、B、C 同住，圖上只畫一個圈。
+- 選取的人涵蓋原本的整個生活圈（例：原本圈了 A、B，現在選 A、B、C 再按「圈成生活圈」），會直接併進原本的圈，名稱和生態連結都留著。
+- 只選到原本生活圈的一部分人時，會先問：「合併成一個」（沒選到的同住者也一起），或「只圈選取的人」（選取的人從原本的圈移出，另外圈一個）。
+- 把別的生活圈的人拖進來，按「加入」之後，他會從原本的圈移出。
+- 開舊檔時，如果有兩個生活圈有同一個人，會自動合併成一個，並在畫布上方告訴你。
+
 > 工具會盡量不把沒住在一起的人圈進去。如果右邊提醒「圈內有非成員」，請把那個人拖到圈外。
 
 ## 文字說明
@@ -3944,8 +3990,8 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.8.0';
-  const BUILD = '2026-10-28 13:44';
+  const APP_VERSION = '0.8.1';
+  const BUILD = '2026-10-28 14:10';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -4160,8 +4206,10 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
   function offerJoin(j) {
     const doc0 = state.doc, h = doc0.households[j.hid];
     const who = j.ids.length === 1 ? personName(j.ids[0]) : `${personName(j.ids[0])}等 ${j.ids.length} 人`;
-    const also = j.ids.some(x => Object.values(doc0.households).some(o => o.id !== j.hid && o.members.includes(x)));
-    toast(`要把${who}加入「${h.label || '生活圈'}」嗎？${also ? '（原本的生活圈不會變動）' : ''}`, 'info', 10000, { label: '加入', run: () => {
+    // 一個人只能在一個生活圈（使用者 2026-10-28）：本來住別的圈的人，加入＝搬過來，先講清楚
+    const from = [...new Set(j.ids.map(x => GT.householdOf(doc0, x)).filter(o => o && o.id !== j.hid))];
+    const moveNote = from.length === 1 ? `（會從「${from[0].label || '原本的生活圈'}」移出）` : from.length ? '（會從原本的生活圈移出）' : '';
+    toast(`要把${who}加入「${h.label || '生活圈'}」嗎？${moveNote}`, 'info', 10000, { label: '加入', run: () => {
       // 這段時間裡按了復原、開了別的檔：圖已經不是同一張，不要套上去
       if (state.doc !== doc0 || !state.doc.households[j.hid]) { notice('圖已經有變動，所以沒有加入。請再拖曳一次。'); return; }
       const n = mutate(d => GT.joinHousehold(d, j.hid, j.ids));
@@ -4692,7 +4740,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       <h3 class="lh">成員（${h.members.length} 人）</h3>
       <ul class="members">${h.members.map(x => `<li><span>${esc(personName(x))}</span>` +
         `<button class="btn" data-hout="${esc(x)}" aria-label="把${esc(personName(x))}移出這個生活圈">移出</button></li>`).join('')}</ul>
-      <p class="help">要加人：在圖上把那個人拖進圈裡，放開後按「加入」。</p>
+      <p class="help">要加人：在圖上把那個人拖進圈裡，放開後按「加入」。一個人只能住在一個生活圈，從別的圈拖過來的人會從原本的圈移出。</p>
     </section>
     ${usingEcomap() ? tieListHTML(id, 2) : ''}
     <section class="card"><button class="btn btn--danger btn--block" data-del>刪除這個生活圈（人會保留）</button></section>`;
@@ -4704,6 +4752,31 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       if (last) { select([]); toast('生活圈沒有成員了，已一併刪除（按 Ctrl+Z 可以復原）。', 'ok', 6000); }
     }));
     P.querySelector('[data-del]').addEventListener('click', deleteSelection);
+  }
+
+  // 圈成生活圈（使用者 2026-10-28：一個人只能在一個生活圈；A 跟 B 同住、又圈 A、B、C＝就是 A、B、C 同住，只畫一個圈）
+  function circleHousehold(ps) {
+    const d = state.doc;
+    const old = [...new Set(ps.map(x => GT.householdOf(d, x)).filter(Boolean))];
+    const make = (mode) => { const hid = mutate(dd => GT.addHousehold(dd, ps, '', mode)); select([hid]); return hid; };
+    if (!old.length) { make(); return; }
+    if (old.length === 1 && ps.every(x => old[0].members.includes(x))) {
+      select([old[0].id]);
+      toast(`他們已經在同一個生活圈${old[0].label ? `「${old[0].label}」` : ''}裡了。要把人移出，請在右邊按「移出」。`, 'info', 6000);
+      return;
+    }
+    const all = new Set(ps.concat(...old.map(h => h.members)));
+    const merged = () => { make('merge'); toast(old.length > 1 ? '已合併成一個生活圈（一個人只能在一個生活圈）。' : '已把選取的人併進原本的生活圈。', 'ok', 6000); };
+    if (all.size === ps.length) { merged(); return; }                  // 選到的人涵蓋原本的整個生活圈（例：原本 A、B，現在圈 A、B、C）
+    // 只選到原本生活圈的一部分人：合併（連沒選到的同住者一起）或只圈選到的人（他們搬出原本的圈），讓使用者選
+    const names = (ids) => ids.map(x => esc(personName(x))).join('、');
+    dialog('這些人已經有生活圈', `<div class="help-doc"><p>一個人只能住在一個生活圈。選取的人裡面：</p><ul>${old.map(h =>
+      `<li><b>${names(h.members.filter(x => ps.includes(x)))}</b> 原本跟 <b>${names(h.members.filter(x => !ps.includes(x)))}</b> 同住` +
+      `${h.label ? `（「${esc(h.label)}」）` : ''}</li>`).join('')}</ul>
+      <p><b>合併成一個</b>：他們全部算同住，畫成一個圈。<br><b>只圈選取的人</b>：選取的人從原本的生活圈移出，另外圈一個。</p></div>`,
+      [{ label: '取消' },
+       { label: `只圈選取的 ${ps.length} 人`, onClick: () => { make(); toast('已另外圈成一個生活圈；選取的人已經從原本的生活圈移出。', 'ok', 6000); } },
+       { label: `合併成一個（${all.size} 人）`, primary: true, onClick: merged }]);
   }
 
   // 生態圖模式的「家庭」圓（使用者 2026-10-28：要能拖位置）
@@ -4768,8 +4841,12 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       const m = b.dataset.m;
       if (m === 'partner') { const uid = mutate(d => GT.linkPartners(d, ps[0], ps[1])); select([uid]); }
       else if (m === 'relation') { const rid = mutate(d => GT.addRelation(d, ps[0], ps[1], state.relType)); select([rid]); }
-      else if (m === 'household') { const hid = mutate(d => GT.addHousehold(d, ps, '')); select([hid]); }
-      else if (m === 'join') { mutate(d => GT.joinHousehold(d, hs[0], joinable)); select([hs[0]]); toast('已加入（按 Ctrl+Z 可以復原）。', 'ok'); }
+      else if (m === 'household') circleHousehold(ps);
+      else if (m === 'join') {
+        const moved = joinable.some(x => GT.householdOf(state.doc, x));
+        mutate(d => GT.joinHousehold(d, hs[0], joinable)); select([hs[0]]);
+        toast(moved ? '已加入；本來住在別的生活圈的人已經從那裡移出（按 Ctrl+Z 可以復原）。' : '已加入（按 Ctrl+Z 可以復原）。', 'ok', 6000);
+      }
       else if (m === 'tie') startTie();
       else if (m === 'alignY') {
         mutate(d => { const y = GT.snap(ps.reduce((a, x) => a + d.persons[x].y, 0) / ps.length); ps.forEach(x => { d.persons[x].y = y; }); }, { keepPanel: true });
@@ -5132,7 +5209,12 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     try { parsed = GT.normalizeDoc(JSON.parse(new TextDecoder('utf-8').decode(bytes))); }
     catch (e) { showError(GT.fail('OPEN', e)); return; }
     setDoc(parsed.doc, { handle, fileName: file.name, dirty: false });
-    if (parsed.warnings.length) notice(`有 ${parsed.warnings.length} 筆資料不完整，已略過；其他內容已正常開啟。建議先另存新檔，保留原來的檔案。`, '部分資料略過');
+    const merged = parsed.warnings.filter(w => w === 'household-merged').length, skipped = parsed.warnings.length - merged;
+    if (parsed.warnings.length) {
+      notice([skipped ? `有 ${skipped} 筆資料不完整，已略過` : '',
+              merged ? `有 ${merged} 個生活圈跟別的生活圈有同一個人，已合併成一個（一個人只能住在一個生活圈）` : '']
+        .filter(Boolean).join('；') + '；其他內容已正常開啟。建議先另存新檔，保留原來的檔案。', skipped ? '部分資料略過' : '生活圈已合併');
+    }
     else toast('已開啟。', 'ok');
   }
 
@@ -5276,7 +5358,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     $('btnHousehold').addEventListener('click', () => {
       const ps = selOf('person');
       if (!ps.length) { toast('請先選取同住的人：點第一個人，再按住 Shift 點其他人。', 'warn', 6000); return; }
-      const hid = mutate(d => GT.addHousehold(d, ps, '')); select([hid]);
+      circleHousehold(ps);
     });
     $('btnLabel').addEventListener('click', () => {
       const c = viewCenter();
@@ -5555,6 +5637,19 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       if (outBtn) outBtn.click();
       checks.hhjoin = lit && !!askBtn && askBtn.textContent === '加入' && notYet && joined && askBtn.getBoundingClientRect().height === 0;
       checks.hhleave = !!outBtn && !state.doc.households[hid].members.includes(q) && state.doc.households[hid].members.includes(a);
+      // 一個人只能在一個生活圈（使用者 2026-10-28）：原本 a 一人，再圈 a、q → 併進原本的圈（同一個 id，連線不掉）；
+      // a、q 同住，又圈 a、r（只選到一部分）→ 先問；選「合併成一個」→ 一個圈三個人
+      select([a, q]); $('btnHousehold').click();
+      const hs1 = Object.values(state.doc.households);
+      const superset = hs1.length === 1 && hs1[0].id === hid && hs1[0].members.length === 2 && !$('dlg').open;
+      const r3 = Object.keys(state.doc.persons).find(x => x !== a && x !== q);
+      select([a, r3]); $('btnHousehold').click();
+      const askedMerge = $('dlg').open && $('dlgTitle').textContent === '這些人已經有生活圈';
+      const mergeBtn = [...$('dlgFoot').querySelectorAll('button')].find(b => b.textContent.startsWith('合併成一個'));
+      if (mergeBtn) mergeBtn.click();
+      const hs2 = Object.values(state.doc.households);
+      checks.hhunique = superset && askedMerge && hs2.length === 1 && hs2[0].id === hid && hs2[0].members.length === 3 &&
+        Object.keys(state.doc.persons).every(p => hs2.filter(h => h.members.includes(p)).length <= 1);
       // 自動排版：要確認才排；排完不重疊；一次復原回到原樣
       const beforeLayout = JSON.stringify(state.doc);
       $('btnLayout').click();

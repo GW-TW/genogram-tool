@@ -622,18 +622,51 @@
     return id;
   }
 
-  function addHousehold(doc, members, label) {
+  // ── 生活圈：一個人只住在一個生活圈（使用者 2026-10-28）──
+  // 同住是遞移的：A 跟 B 同住、A、B、C 又同住＝就是 A、B、C 同住，圖上只畫一個圈。所有改生活圈的指令都守這條。
+  const householdOf = (doc, pid) => Object.values(doc.households).find(h => h.members.includes(pid)) || null;
+  // 把 from 併進 into：成員合在一起；連到 from 的生態連結改連 into（兩端變成同一個圈的線拿掉）；into 沒名稱就沿用 from 的
+  function absorbHousehold(doc, into, from) {
+    const a = doc.households[into], b = doc.households[from];
+    if (!a || !b || a === b) return;
+    for (const m of b.members) if (!a.members.includes(m)) a.members.push(m);
+    if (!a.label && b.label) a.label = b.label;
+    for (const t of Object.values(doc.ties)) {
+      if (t.a === from) t.a = into;
+      if (t.b === from) t.b = into;
+      if (t.a === t.b) delete doc.ties[t.id];
+    }
+    delete doc.households[from];
+  }
+  // 圈成生活圈。選到的人已經在別的生活圈時：
+  //   mode 'merge'＝合併：選到的人＋他們原本生活圈的所有人變成一個圈，保留最早那個圈（名稱與生態連結都留著）
+  //   其他（預設）＝只圈選到的人：他們從原本的生活圈移出（原本的圈沒人了就一起刪）
+  function addHousehold(doc, members, label, mode) {
     const ms = Array.from(new Set(members)).filter(id => doc.persons[id]);
     if (!ms.length) return null;
+    const order = Object.keys(doc.households);
+    const old = Array.from(new Set(ms.map(m => householdOf(doc, m)).filter(Boolean)))
+      .sort((x, y) => order.indexOf(x.id) - order.indexOf(y.id));
+    if (mode === 'merge' && old.length) {
+      const keep = old[0].id;
+      old.slice(1).forEach(h => absorbHousehold(doc, keep, h.id));
+      const h = doc.households[keep];
+      for (const m of ms) if (!h.members.includes(m)) h.members.push(m);
+      if (!h.label && label) h.label = String(label).slice(0, 30);
+      return keep;
+    }
+    for (const m of ms) { const h = householdOf(doc, m); if (h) leaveHousehold(doc, h.id, m); }
     const id = newId(doc, 'h');
     doc.households[id] = { id, members: ms, label: String(label || '').slice(0, 30) };
     return id;
   }
-  // 加入／移出生活圈（使用者 2026-10-28：在圖上把人拖進圈裡就能加入）；回傳實際加入的人數
+  // 加入生活圈（使用者 2026-10-28：在圖上把人拖進圈裡就能加入）；本來在別的生活圈的人＝搬過來（從原本的圈移出）。
+  // 回傳實際加入的人數
   function joinHousehold(doc, hid, ids) {
     const h = doc.households[hid];
     if (!h) return 0;
     const add = Array.from(new Set(ids)).filter(id => doc.persons[id] && !h.members.includes(id));
+    for (const m of add) { const o = householdOf(doc, m); if (o) leaveHousehold(doc, o.id, m); }
     h.members.push(...add);
     return add.length;
   }
@@ -869,6 +902,12 @@
         dir: has(TIE_DIRS, e.dir) ? e.dir : '',
         note: str(e.note, 60) };
     }
+    // 一個人只能在一個生活圈（使用者 2026-10-28）：舊檔裡有同一個人的生活圈合併成一個（同住是遞移的）。
+    // 放在讀完生態連結之後：連到被併掉的圈的線要改連過去，不能因為圈不見了就被丟掉
+    for (const pid of Object.keys(P)) {
+      const hs = Object.values(doc.households).filter(h => h.members.includes(pid));
+      for (const h of hs.slice(1)) { absorbHousehold(doc, hs[0].id, h.id); warn.push('household-merged'); }
+    }
     // 家庭圓的位置（0.8.0 起才有；舊檔沒有＝自動置中）：座標不是有限數字就當沒拖過
     const fp = raw.familyPos;
     if (fp && typeof fp === 'object' && Number.isFinite(Number(fp.x)) && Number.isFinite(Number(fp.y)) && Object.keys(P).length)
@@ -925,7 +964,7 @@
     unionsOf, parentUnionOf, unionBetween,
     addPerson, linkPartners, addPartner, addChild, addChildToPerson, addParents, addSibling, attachChild,
     commonParentUnion, setTwins, twinGroupOf, clearTwin,
-    addRelation, addHousehold, joinHousehold, leaveHousehold, addLabel, moveItems, snapItems, deleteItems,
+    addRelation, addHousehold, joinHousehold, leaveHousehold, householdOf, addLabel, moveItems, snapItems, deleteItems,
     FAMILY_ID, familyAt,
     addSystem, addTie, tieBetween, tieEndExists, BASIC_LINE_TYPES, isSpecialLine,
     History, normalizeDoc, serialize, FormatError,

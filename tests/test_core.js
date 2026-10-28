@@ -610,3 +610,84 @@ T.test('生態圖的家庭圓：可以拖、會吸附、存檔讀回；沒拖過
   GT.moveItems(e, [GT.FAMILY_ID], 10, 10);
   T.eq(e.familyPos, null, '沒有人時拖不動（沒有家庭圓）');
 });
+
+// 一個人只能在一個生活圈（使用者 2026-10-28）：每個人最多在一個圈、沒有空圈、生態連結的兩端都在
+function householdsOk(d) {
+  const ps = Object.keys(d.persons), hs = Object.values(d.households);
+  return ps.every(p => hs.filter(h => h.members.includes(p)).length <= 1) && hs.every(h => h.members.length > 0) &&
+         Object.values(d.ties).every(t => GT.tieEndExists(d, t.a) && GT.tieEndExists(d, t.b) && t.a !== t.b);
+}
+
+T.test('生活圈：一個人只能在一個生活圈——圈、合併、加入都守這條（使用者 2026-10-28）', () => {
+  const d = GT.newDoc();
+  const [a, b, c, e] = [person(d), person(d), person(d), person(d)];
+  const s = GT.addSystem(d, { name: '家防中心' });
+  const h1 = GT.addHousehold(d, [a, b], '同住');
+  const t1 = GT.addTie(d, s, h1);
+  T.eq(GT.householdOf(d, a).id, h1, '查得到一個人住在哪個生活圈');
+  T.eq(GT.householdOf(d, c), null, '沒有生活圈的人');
+  // 原本 A、B 同住，又圈 A、B、C（合併）＝就是 A、B、C 同住，只有一個圈，名稱與連線都留著
+  T.eq(GT.addHousehold(d, [a, b, c], '', 'merge'), h1, '併進原本的圈（同一個 id）');
+  T.eq(d.households[h1].members, [a, b, c]);
+  T.eq([Object.keys(d.households).length, d.households[h1].label, !!d.ties[t1]], [1, '同住', true], '只有一個圈、名稱與生態連結都留著');
+  // 只圈選取的人（預設）：選到的人搬出原本的圈
+  const h2 = GT.addHousehold(d, [c, e], '');
+  T.eq(d.households[h1].members, [a, b], 'C 從原本的圈移出');
+  T.eq(d.households[h2].members, [c, e]);
+  T.ok(householdsOk(d), '每個人最多在一個圈');
+  // 兩個圈合併：保留比較早的圈；連到被併掉的圈的線改連過去；兩端變成同一個圈的線拿掉
+  const s2 = GT.addSystem(d, { name: '學校' });
+  const t2 = GT.addTie(d, s2, h2), t3 = GT.addTie(d, h1, h2);
+  T.eq(GT.addHousehold(d, [b, c], '', 'merge'), h1, '合併兩個圈：留下比較早的那個');
+  T.eq(d.households[h1].members.slice().sort(), [a, b, c, e].sort(), '兩個圈的人全部合在一起');
+  T.ok(!d.households[h2], '被併掉的圈不見了');
+  T.eq([d.ties[t2] && d.ties[t2].b, d.ties[t3]], [h1, undefined], '連到被併掉的圈的線改連過去；圈連圈的線拿掉');
+  T.ok(householdsOk(d), '合併後仍然每個人最多在一個圈');
+  // 加入＝搬過來：從原本的圈移出；原本的圈沒人了就連同連線一起刪
+  const f = person(d);
+  const h3 = GT.addHousehold(d, [f], '');
+  const t4 = GT.addTie(d, s, h3);
+  T.eq(GT.joinHousehold(d, h1, [f]), 1, '加入一人');
+  T.ok(!d.households[h3] && !d.ties[t4], '原本的圈只剩他一人：圈和連到它的線一起刪');
+  T.eq(GT.householdOf(d, f).id, h1, '現在住在新的圈');
+  T.ok(householdsOk(d), '加入後仍然每個人最多在一個圈');
+});
+
+T.test('生活圈：不管怎麼圈、怎麼加入移出，都不會有人同時在兩個圈（隨機 300 步）', () => {
+  let seed = 20261028;
+  const rnd = (n) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n; };
+  const d = GT.newDoc();
+  const ps = Array.from({ length: 7 }, () => person(d));
+  const s = GT.addSystem(d, { name: '社福中心' });
+  let bad = 0;
+  for (let i = 0; i < 300; i++) {
+    const pick = ps.filter(() => rnd(3) === 0);
+    const hs = Object.keys(d.households), op = rnd(4);
+    if (op === 0 && pick.length) GT.addHousehold(d, pick, '', rnd(2) ? 'merge' : undefined);
+    else if (op === 1 && hs.length && pick.length) GT.joinHousehold(d, hs[rnd(hs.length)], pick);
+    else if (op === 2 && hs.length) { const h = d.households[hs[rnd(hs.length)]]; GT.leaveHousehold(d, h.id, h.members[rnd(h.members.length)]); }
+    else if (op === 3 && hs.length) GT.addTie(d, s, hs[rnd(hs.length)]);
+    if (!householdsOk(d)) bad++;
+  }
+  T.eq(bad, 0, '每一步之後都成立');
+  T.ok(Object.keys(d.households).length >= 1, '過程中真的有圈（不是空轉）');
+});
+
+T.test('生活圈：舊檔裡有同一個人的生活圈，開檔時合併成一個，連線改連過去（使用者 2026-10-28）', () => {
+  const P = (id) => ({ id, gender: 'M', x: 0, y: 0 });
+  const raw = { format: 'genogram-tool', version: 3,
+    persons: { p1: P('p1'), p2: P('p2'), p3: P('p3'), p4: P('p4'), p5: P('p5') },
+    households: { h1: { id: 'h1', members: ['p1', 'p2'], label: '同住' },
+                  h2: { id: 'h2', members: ['p2', 'p3'], label: '祖父母家' },
+                  h3: { id: 'h3', members: ['p3', 'p4'], label: '' },
+                  h4: { id: 'h4', members: ['p5'], label: '另一家' } },
+    systems: { s1: { id: 's1', name: '學校', x: 0, y: 0 } },
+    ties: { e1: { id: 'e1', a: 's1', b: 'h2' }, e2: { id: 'e2', a: 'h1', b: 'h3' }, e3: { id: 'e3', a: 's1', b: 'h4' } } };
+  const { doc, warnings } = GT.normalizeDoc(raw);
+  T.eq(Object.keys(doc.households).sort(), ['h1', 'h4'], 'A-B、B-C、C-D 連成一串＝一個圈；沒重疊的圈不動');
+  T.eq(doc.households.h1.members, ['p1', 'p2', 'p3', 'p4']);
+  T.eq(doc.households.h1.label, '同住', '名稱用最先出現的圈');
+  T.eq([doc.ties.e1 && doc.ties.e1.b, doc.ties.e2, doc.ties.e3 && doc.ties.e3.b], ['h1', undefined, 'h4'], '連到被併掉的圈的線改連過去；圈連圈的線拿掉；別的圈不受影響');
+  T.eq(warnings.filter(w => w === 'household-merged').length, 2, '告訴使用者合併了幾個圈');
+  T.ok(householdsOk(doc), '開檔後每個人最多在一個圈');
+});

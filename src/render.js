@@ -977,19 +977,105 @@
     return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
   }
 
-  // 匯出用完整 SVG（白底、緊貼內容、字型寫在根節點）
+  // ── 匯出用的圖例（2026-11-11）：只列這張圖真的用到的符號與線條，看報告的人不用另外查 ──
+  // 回傳 [{ kind, key, label, over }]；順序＝人物、伴侶關係、親子與雙胞胎、情感關係、生活圈、生態圖
+  function legendItems(doc) {
+    const mode = viewMode(doc), items = [];
+    const add = (kind, key, label, over) => items.push({ kind, key, label, over: over || null });
+    const P = Object.values(doc.persons);
+    if (mode !== 'ecomap') {
+      const first = (fn) => P.find(fn);
+      const plain = (g) => first(p => p.gender === g && !p.life);
+      if (plain('M')) add('sym', 'M', '男性', { gender: 'M' });
+      if (plain('F')) add('sym', 'F', '女性', { gender: 'F' });
+      if (plain('U')) add('sym', 'U', '未知性別', { gender: 'U' });
+      if (plain('P')) add('sym', 'P', '寵物', { gender: 'P' });
+      const ix = first(p => p.index && !p.life), dead = first(p => p.deceased && !p.life);
+      if (ix) add('sym', 'index', '服務使用者', { gender: ix.gender, index: true });
+      if (dead) add('sym', 'deceased', '已歿', { gender: dead.gender === 'U' ? 'M' : dead.gender, deceased: true });
+      for (const t of GT.LIFE_STATES) if (t.key && first(p => p.life === t.key)) add('sym', 'life:' + t.key, t.label, { gender: 'U', life: t.key });
+      for (const t of GT.CULTURES) if (t.key && first(p => p.culture === t.key)) add('sym', 'culture:' + t.key, t.label, { gender: 'M', culture: t.key });
+      const body = (p) => !p.life && p.gender !== 'U';                      // 疾病與濫用只畫在方形、圓形符號上
+      if (first(p => body(p) && p.illness === 'active')) add('sym', 'ill', '身體或精神疾病', { gender: 'M', illness: 'active' });
+      if (first(p => body(p) && p.illness === 'recovery')) add('sym', 'illrec', '疾病復原中', { gender: 'M', illness: 'recovery' });
+      if (first(p => body(p) && p.substance === 'active')) add('sym', 'sub', '酒精或藥物濫用', { gender: 'M', substance: 'active' });
+      if (first(p => body(p) && p.substance === 'suspected')) add('sym', 'subsus', '疑似酒精或藥物濫用', { gender: 'M', substance: 'suspected' });
+      if (first(p => body(p) && p.substance === 'recovery')) add('sym', 'subrec', '濫用復原中', { gender: 'M', substance: 'recovery' });
+      for (const c of GT.CONDITIONS) {
+        if (!first(p => body(p) && (p.conditions || []).includes(c.key) && (c.kind !== 'medical' || p.illness))) continue;
+        add('sym', 'cond:' + c.key, c.label, c.kind === 'medical' ? { gender: 'M', illness: 'active', conditions: [c.key] } : { gender: 'M', conditions: [c.key] });
+      }
+      const U = Object.values(doc.unions), two = U.filter(u => u.partners.length === 2);
+      for (const t of GT.FAMILY_TYPES) if (two.some(u => u.type === t.key)) add('union', t.key, t.label);
+      for (const t of GT.CHILD_LINKS) if (t.key !== 'bio' && U.some(u => u.children.some(c => c.link === t.key))) add('child', t.key, t.label + '子女');
+      for (const t of GT.TWIN_KINDS) if (U.some(u => (u.twins || []).some(g => g.kind === t.key))) add('twins', t.key, t.label);
+      const Rl = Object.values(doc.relations);
+      for (const t of GT.EMOTION_TYPES) if (Rl.some(r => r.type === t.key)) add('relation', t.key, t.label);
+      if (Object.keys(doc.households).length) add('household', '', '生活圈（同住）');
+    }
+    if (mode !== 'genogram') {
+      const Ts = Object.values(doc.ties);
+      if (Object.keys(doc.systems).length) add('system', '', '資源（外部系統）');
+      for (const t of GT.TIE_STRENGTHS) if (Ts.some(x => x.strength === t.key && !x.stress)) add('tie', t.key, '連結：' + t.label);
+      if (Ts.some(x => x.stress)) add('tie', 'stress', '有壓力或衝突');
+      if (Ts.some(x => x.dir === 'a2b' || x.dir === 'b2a')) add('tie', 'dir', '資源流向（箭頭）');
+      if (Ts.some(x => x.dir === 'both')) add('tie', 'both', '雙向');
+    }
+    return items;
+  }
+  // 圖例畫成一塊：標題＋每格「樣本＋名稱」。不用巢狀的 <svg>（貼進 Word 轉成圖形時比較不會出狀況），樣本用 <g transform>
+  const LG = { cell: 200, row: 38, sample: 72, pad: 12, title: 26 };
+  function legendBlock(doc, width) {
+    const items = legendItems(doc);
+    if (!items.length) return null;
+    const colored = doc.settings.colorRelations;
+    const cols = Math.max(2, Math.floor((width - LG.pad * 2) / LG.cell)), rows = Math.ceil(items.length / cols);
+    const w = cols * LG.cell + LG.pad * 2, h = LG.title + rows * LG.row + LG.pad;
+    const draw = (x0, y0) => {
+      const out = [`<g class="legendblock"><rect x="${f(x0)}" y="${f(y0)}" width="${f(w)}" height="${f(h)}" rx="6" fill="#FFFFFF" stroke="#BDBDBD" stroke-width="1"/>`,
+                   `<text x="${f(x0 + LG.pad)}" y="${f(y0 + 19)}" font-size="13" font-weight="700" fill="${C.INK}">圖例</text>`];
+      items.forEach((it, i) => {
+        const cx = x0 + LG.pad + (i % cols) * LG.cell + LG.sample / 2, cy = y0 + LG.title + Math.floor(i / cols) * LG.row + LG.row / 2;
+        if (it.kind === 'sym') {
+          const d = GT.newDoc();
+          d.settings.colorRelations = colored;
+          const q = Object.assign({ id: 'lg-' + i, gender: 'M', x: 0, y: 0, name: '', index: false, deceased: false, age: '', birth: '', death: '', deathAge: '',
+                                    attrs: {}, life: '', culture: '', illness: '', substance: '', conditions: [] }, it.over);
+          out.push(`<g transform="translate(${f(cx)},${f(cy + (q.culture ? 7 : 0))}) scale(0.62)">${symbolMarkup(d, q)}</g>`);
+        } else if (it.kind === 'household') {
+          out.push(`<rect x="${f(cx - 27)}" y="${f(cy - 11)}" width="54" height="22" rx="7" fill="${C.BRAND}" fill-opacity="0.06" stroke="${C.BRAND}" stroke-width="2.2" stroke-dasharray="6 4"/>`);
+        } else {
+          const s = sampleParts(it.kind, it.key, colored), k = Math.min(64 / s.vb[2], 30 / s.vb[3]);
+          out.push(`<g transform="translate(${f(cx - (s.vb[0] + s.vb[2] / 2) * k)},${f(cy - (s.vb[1] + s.vb[3] / 2) * k)}) scale(${f(k * 100) / 100})">${s.body}</g>`);
+        }
+        const lines = GT.wrapText(it.label, 10).slice(0, 2), tx = cx + LG.sample / 2 + 6;
+        lines.forEach((ln, j) => out.push(`<text x="${f(tx)}" y="${f(cy + 4 + (j - (lines.length - 1) / 2) * 14)}" font-size="12" fill="${C.INK}">${esc(ln)}</text>`));
+      });
+      out.push('</g>');
+      return out.join('');
+    };
+    return { w, h, draw, count: items.length };
+  }
+
+  // 匯出用完整 SVG（白底、緊貼內容、字型寫在根節點）。opts.legend＝在圖的下方附圖例
   function exportSVG(doc, opts) {
     const o = opts || {};
     const m = o.margin == null ? 24 : o.margin;
     const b = bbox(doc);
-    const x = f(b.x - m), y = f(b.y - m), w = f(b.w + m * 2), h = f(b.h + m * 2);
+    const L = o.legend ? legendBlock(doc, b.w) : null, gap = 20;
+    const x = f(b.x - m), y = f(b.y - m), w = f(Math.max(b.w, L ? L.w : 0) + m * 2), h = f(b.h + (L ? gap + L.h : 0) + m * 2);
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${x} ${y} ${w} ${h}" font-family="${esc(FONT)}">` +
            `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#FFFFFF"/>` +
-           renderWorld(doc, { forExport: true }) + '</svg>';
+           renderWorld(doc, { forExport: true }) + (L ? L.draw(b.x, b.y + b.h + gap) : '') + '</svg>';
   }
 
   // 圖例用的小樣本（說明對話框顯示每種線條長什麼樣子）
   function sampleSVG(kind, key, colored) {
+    const s = sampleParts(kind, key, colored);
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${s.vb.join(' ')}" width="64" height="${s.hpx}">${s.body}</svg>`;
+  }
+  // 樣本的內容與範圍（圖例視窗包成小 <svg>；匯出的圖例直接放進大圖）
+  function sampleParts(kind, key, colored) {
     const d = GT.newDoc();
     d.settings.colorRelations = colored !== false;
     const mk = (id, x, y, g) => { d.persons[id] = { id, gender: g, x, y, name: '', index: false, deceased: false, age: '', birth: '', death: '', deathAge: '', attrs: {},
@@ -1026,7 +1112,7 @@
       body = unionMarkup(d, d.unions.u, { forExport: true });
       vb = '0 -24 64 30';
     }
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" width="64" height="${hpx}">${body}</svg>`;
+    return { body, vb: vb.split(' ').map(Number), hpx };
   }
 
   // 屬性面板的小預覽：只畫符號本身（含成癮、疾病、文化等狀態），不畫標籤。
@@ -1079,7 +1165,7 @@
     return out;
   }
 
-  GT.render = { C, G, FONT, HALF, esc, renderWorld, exportSVG, bbox, unionGeometry, personBox, labelBox, sampleSVG, symbolSVG, itemsInRect, householdInterior,
+  GT.render = { C, G, FONT, HALF, esc, renderWorld, exportSVG, legendItems, bbox, unionGeometry, personBox, labelBox, sampleSVG, symbolSVG, itemsInRect, householdInterior,
                 tieGeometry, lineLabels, lineLabelBox, lineLabelText, unionMarks,
                 viewMode, systemRadius, systemBox, familyNode, tieAnchor, edgePoint,
                 householdParts, householdIntruders, symExtent, symTop, symBottom,

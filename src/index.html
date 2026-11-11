@@ -31,10 +31,13 @@
     <button id="btnSaveAs" class="btn">另存新檔…</button>
     <span class="menu">
       <button id="btnExport" class="btn" aria-expanded="false" aria-controls="exportMenu">匯出</button>
-      <ul class="menu__list" id="exportMenu" hidden>
-        <li><button class="menu__item" id="btnCopy">複製圖片（貼進 Word）</button></li>
-        <li><button class="menu__item" id="btnPng">匯出 PNG 圖檔</button></li>
-        <li><button class="menu__item" id="btnSvg">匯出 SVG 向量圖</button></li>
+      <ul class="menu__list menu__list--wide" id="exportMenu" hidden>
+        <li><button class="menu__item" id="btnWordHelp"><span class="menu__text"><b>貼進 Word 之後怎麼改</b><small>打開說明：怎麼縮放、怎麼把圖轉成可以修改的圖形</small></span></button></li>
+        <li class="menu__sep" role="separator"></li>
+        <li><button class="menu__item" id="btnCopy"><span class="menu__text"><b>複製圖片</b><small>最快：到 Word 按 Ctrl+V 就貼上</small></span></button></li>
+        <li><button class="menu__item" id="btnPng"><span class="menu__text"><b>匯出 PNG 圖檔</b><small>高解析度，適合列印或放進簡報；貼上後不能再改線條</small></span></button></li>
+        <li><button class="menu__item" id="btnSvg"><span class="menu__text"><b>匯出 SVG 向量圖</b><small>放大不模糊；在 Word 可以轉成圖形，再改線條與文字</small></span></button></li>
+        <li><label class="check menu__check"><input type="checkbox" id="optLegend"><span>圖的下方附圖例（只列這張圖用到的符號與線條）</span></label></li>
       </ul>
     </span>
     <span class="topbar__sep" aria-hidden="true"></span>

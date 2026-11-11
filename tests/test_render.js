@@ -23,6 +23,89 @@ const groupOf = (svg, id) => {
 };
 const count = (s, sub) => s.split(sub).length - 1;
 
+T.test('匯出附圖例：只列這張圖用到的符號與線條；沒勾就跟原本一樣（2026-11-11）', () => {
+  const R = GT.render, d = GT.newDoc();
+  const a = GT.addPerson(d, { gender: 'M', x: 0, y: 0 });
+  d.persons[a].index = true; d.persons[a].illness = 'active'; d.persons[a].conditions = ['Diabetes'];
+  const r = GT.addPartner(d, a), kid = GT.addChild(d, r.unionId, 'F');
+  d.unions[r.unionId].children[0].link = 'adopted';
+  GT.addRelation(d, a, r.personId, 'Discord');
+  GT.addHousehold(d, [a, kid], '同住');
+  const labels = R.legendItems(d).map(i => i.label), lab = (list, k) => GT.labelOf(list, k);
+  for (const w of ['男性', '女性', '服務使用者', '身體或精神疾病', '糖尿病', lab(GT.FAMILY_TYPES, 'Marriage'), '收養子女', lab(GT.EMOTION_TYPES, 'Discord'), '生活圈（同住）'])
+    T.ok(labels.includes(w), `圖上有的要列：${w}`);
+  for (const w of ['未知性別', '寵物', '已歿', lab(GT.FAMILY_TYPES, 'Divorce'), lab(GT.EMOTION_TYPES, 'Harmony'), '資源（外部系統）', '酒精或藥物濫用', '憂鬱症'])
+    T.ok(!labels.includes(w), `圖上沒有的不列：${w}`);
+  T.eq(new Set(labels).size, labels.length, '每一項只列一次');
+  const plain = R.exportSVG(d), withL = R.exportSVG(d, { legend: true });
+  T.eq(R.exportSVG(d, { legend: false }), plain, '沒勾附圖例：匯出的圖跟原本一模一樣');
+  T.ok(!plain.includes('>圖例<') && withL.includes('>圖例<'), '勾了才有「圖例」');
+  const size = (s) => s.match(/width="([\d.]+)" height="([\d.]+)"/).slice(1).map(Number);
+  T.ok(size(withL)[1] > size(plain)[1] + 60 && size(withL)[0] >= size(plain)[0], '圖例加在下方：圖變高，不會變窄');
+  T.ok(labels.every(w => GT.wrapText(w, 10).every(ln => withL.includes('>' + R.esc(ln) + '<'))), '每一項的名稱都寫在圖上');
+  T.eq(count(withL, '<svg'), 1, '圖例不用巢狀的 svg（貼進 Word 轉成圖形時比較不會出狀況）');
+  const ids = [...withL.matchAll(/ id="([^"]+)"/g)].map(m => m[1]);
+  T.eq(new Set(ids).size, ids.length, '圖例裡的符號不會跟圖上的人撞 id');
+  const world = plain.slice(plain.indexOf('/>') + 2, -'</svg>'.length);
+  T.ok(world.length > 500 && withL.includes(world), '圖本身的內容一個字都沒變，圖例是另外加在後面');
+  T.ok(!T.TECH.test(labels.join('')), '圖例的字不含技術細節');
+});
+
+T.test('匯出附圖例：空白的圖不畫圖例；生態圖模式只列生態圖的項目；只看家系圖不列資源（2026-11-11）', () => {
+  const R = GT.render;
+  T.ok(!R.exportSVG(GT.newDoc(), { legend: true }).includes('>圖例<'), '空白的圖：沒有圖例');
+  const d = GT.newDoc();
+  const a = GT.addPerson(d, { gender: 'F', x: 0, y: 0 });
+  const s = GT.addSystem(d, { name: '學校', x: 300, y: 0 });
+  const t = GT.addTie(d, a, s); d.ties[t].strength = 'strong'; d.ties[t].dir = 'a2b';
+  const t2 = GT.addTie(d, s, a); d.ties[t2].stress = true;
+  const both = R.legendItems(d).map(i => i.label);
+  T.ok(['女性', '資源（外部系統）', '連結：強（雙線）', '有壓力或衝突', '資源流向（箭頭）'].every(w => both.includes(w)), '家系圖＋生態圖：兩邊都列');
+  T.ok(!both.includes('連結：普通（單線）') && !both.includes('雙向'), '沒用到的連結樣式不列');
+  d.settings.view = 'ecomap';
+  const eco = R.legendItems(d).map(i => i.label);
+  T.ok(!eco.includes('女性') && eco.includes('資源（外部系統）'), '生態圖模式：人收成家庭圓，不列人物符號');
+  d.settings.view = 'genogram';
+  const geno = R.legendItems(d).map(i => i.label);
+  T.ok(geno.includes('女性') && !geno.includes('資源（外部系統）') && !geno.some(w => w.startsWith('連結')), '只看家系圖：不列資源與連結');
+  for (const v of ['both', 'ecomap', 'genogram']) {
+    d.settings.view = v;
+    const svg = R.exportSVG(d, { legend: true });
+    T.ok(svg.includes('>圖例<') && !/NaN|undefined/.test(svg), `${v}：畫得出來，沒有壞掉的數字`);
+  }
+});
+
+T.test('匯出附圖例：每一種符號與線條都畫得出樣本（2026-11-11）', () => {
+  const R = GT.render, d = GT.newDoc();
+  const ids = [];
+  GT.GENDERS.forEach((g, i) => ids.push(GT.addPerson(d, { gender: g.key, x: i * 100, y: 0 })));
+  const extra = (over) => { const id = GT.addPerson(d, { gender: 'M', x: ids.length * 100, y: 0 }); Object.assign(d.persons[id], over); ids.push(id); return id; };
+  extra({ deceased: true }); extra({ index: true });
+  GT.LIFE_STATES.filter(t => t.key).forEach(t => extra({ gender: 'U', life: t.key }));
+  GT.CULTURES.filter(t => t.key).forEach(t => extra({ culture: t.key }));
+  extra({ illness: 'recovery', substance: 'suspected' }); extra({ substance: 'recovery' }); extra({ substance: 'active' });
+  extra({ illness: 'active', conditions: GT.CONDITIONS.map(c => c.key) });
+  const mom = extra({ gender: 'F' });
+  GT.FAMILY_TYPES.forEach((t, i) => {
+    const p = extra({ gender: 'F' }), u = GT.linkPartners(d, ids[0], p, t.key);
+    if (i < 3) { const k = GT.addChild(d, u, 'M'); d.unions[u].children[0].link = GT.CHILD_LINKS[i].key; ids.push(k); }
+  });
+  const u0 = GT.linkPartners(d, ids[4], mom), k1 = GT.addChild(d, u0, 'M'), k2 = GT.addChild(d, u0, 'F'), k3 = GT.addChild(d, u0, 'F'), k4 = GT.addChild(d, u0, 'M');
+  const k5 = GT.addChild(d, u0, 'M'), k6 = GT.addChild(d, u0, 'M');
+  GT.setTwins(d, u0, [k1, k2], 'Fraternal'); GT.setTwins(d, u0, [k3, k4], 'Identical'); GT.setTwins(d, u0, [k5, k6], 'Unknown');
+  GT.EMOTION_TYPES.forEach((t, i) => GT.addRelation(d, ids[i % 5], ids[5 + (i % 7)], t.key));
+  const want = GT.FAMILY_TYPES.length + GT.EMOTION_TYPES.length + GT.TWIN_KINDS.length + GT.CONDITIONS.length;
+  const items = R.legendItems(d);
+  T.ok(items.length >= want + 12, `全部種類都列出來（${items.length} 項）`);
+  const svg = R.exportSVG(d, { legend: true });
+  T.ok(!/NaN|undefined|Infinity/.test(svg), '沒有壞掉的數字');
+  T.eq(count(svg, '<svg'), 1, '整張圖只有一個 svg');
+  const block = svg.slice(svg.indexOf('<g class="legendblock">'));
+  T.ok(count(block, 'scale(') >= items.length - 1, '每一項都有樣本');
+  const ids2 = [...svg.matchAll(/ id="([^"]+)"/g)].map(m => m[1]);
+  T.eq(new Set(ids2).size, ids2.length, 'id 都不重複');
+});
+
 T.test('空白文件', () => {
   const d = GT.newDoc();
   T.eq(GT.render.renderWorld(d, {}), '');

@@ -158,7 +158,8 @@
 
   // ───── 版面：左右兩欄可以收起來；視窗窄時右欄浮在畫布上（2026-11-11）─────
   // left／right：null＝自動（看視窗寬度與有沒有選取），true／false＝使用者自己按的；pan＝「移動畫面」開著
-  const ui = { left: null, right: null, pan: false, width: 0 };     // width：自我測試用來假裝視窗寬度（0＝用真的）
+  // legend＝匯出的圖下方附圖例（匯出選單裡勾選；只放在這次開啟的視窗裡）
+  const ui = { left: null, right: null, pan: false, width: 0, legend: false };   // width：自我測試用來假裝視窗寬度（0＝用真的）
   GT.app.ui = ui;
   const winW = () => ui.width || window.innerWidth;
   const leftOpen = () => (ui.left == null ? winW() > 640 : ui.left);
@@ -1553,7 +1554,7 @@
 
   // ───── 匯出圖片 ─────
   function exportParts() {
-    const svg = R.exportSVG(state.doc);
+    const svg = R.exportSVG(state.doc, { legend: ui.legend });
     const m = svg.match(/width="([\d.]+)" height="([\d.]+)"/);
     return { svg, w: +m[1], h: +m[2] };
   }
@@ -1719,8 +1720,13 @@
       $('btnExport').setAttribute('aria-expanded', String(open));
     });
     // 一般的「按鈕＋展開清單」（審查 2026-10-28 M5：原本宣告成 ARIA 選單卻沒有選單的鍵盤行為）
-    const exportItems = () => [...exportMenu.querySelectorAll('button')];
-    exportMenu.addEventListener('click', (e) => { closeExport(); if (e.detail === 0) $('btnExport').focus(); });   // 鍵盤選的：焦點回到「匯出」
+    const exportItems = () => [...exportMenu.querySelectorAll('button, input')];
+    exportMenu.addEventListener('click', (e) => {
+      if (e.target.closest('.menu__check')) return;                        // 勾「附圖例」不關選單：勾完接著選要匯出哪一種
+      closeExport(); if (e.detail === 0) $('btnExport').focus();           // 鍵盤選的：焦點回到「匯出」
+    });
+    $('optLegend').addEventListener('change', (e) => { ui.legend = e.target.checked; });
+    $('btnWordHelp').addEventListener('click', () => openHelp('save'));
     document.addEventListener('click', (e) => { if (!exportMenu.hidden && !e.target.closest('.menu')) closeExport(); });
     $('btnExport').closest('.menu').addEventListener('focusout', (e) => {
       if (!exportMenu.hidden && !(e.relatedTarget && e.target.closest('.menu').contains(e.relatedTarget))) closeExport();
@@ -2151,6 +2157,15 @@
                      !!getComputedStyle(root).getPropertyValue('--focus-ring').trim();
       $('btnExport').click();
       const menuOpen = !$('exportMenu').hidden && $('btnExport').getAttribute('aria-expanded') === 'true';
+      // 匯出選單（2026-11-11）：每個選項有一行「什麼時候用」；勾「附圖例」選單不會關，匯出的圖下方多一塊圖例；最上面是 Word 的說明
+      const descs = [...$('exportMenu').querySelectorAll('.menu__item')].every(b => !!b.querySelector('small') && b.querySelector('small').textContent.length >= 8);
+      const plainSvg = exportParts().svg;
+      $('optLegend').click();
+      const stayOpen = !$('exportMenu').hidden && ui.legend === true;
+      const legendSvg = exportParts();
+      $('optLegend').click();
+      checks.exportlegend = descs && stayOpen && !plainSvg.includes('>圖例<') && legendSvg.svg.includes('>圖例<') && legendSvg.svg.includes('>男性<') &&
+                            ui.legend === false && exportParts().svg === plainSvg && $('exportMenu').querySelector('button').id === 'btnWordHelp';
       document.body.click();
       checks.exportmenu = menuOpen && $('exportMenu').hidden;
       // 錯誤用畫布上的 alert，不用 toast（設計規範：不可以用 toast 報錯誤）

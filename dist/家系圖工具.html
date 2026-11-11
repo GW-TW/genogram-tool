@@ -3,7 +3,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-jnl3yT0fPE3cVk43Xgralj4V8A6rU42/gHIUhMe8eDA=' 'sha256-OtY6/vaNe4gG/yQfv5z9IoXWkny+Oi5k72VevsB7BvM=' 'sha256-dD1zJ0RkwLncOUox/CCBPTmbICMAXvp04VryUlDWLRM=' 'sha256-MQHxv3ws6RX1zXjs2ddzGuzRkLxsqmCvC2Z6+7TcwhM=' 'sha256-qgebTF+sM+Rg4BfVddU9PS/rcu49W1i/Syp3jt7Q+NM=' 'sha256-n87jdLJ6qT5vBDbUvKAnhlWklJLPNa32tVq4PzbSD5c='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-jnl3yT0fPE3cVk43Xgralj4V8A6rU42/gHIUhMe8eDA=' 'sha256-OtY6/vaNe4gG/yQfv5z9IoXWkny+Oi5k72VevsB7BvM=' 'sha256-xrRsK3vfjB6YRg9VoY8ViYn/Wv9/xk+35tqH0Ae8gww=' 'sha256-MQHxv3ws6RX1zXjs2ddzGuzRkLxsqmCvC2Z6+7TcwhM=' 'sha256-ZZ/HN/q0GYB6n+DhnV0ZDaweP7dpZzhp4/dXfy9kILk=' 'sha256-Dp+gWOtdMttYECzP2nAfmktNVIVeo5NO2hI4IX7tXQg='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>家系圖工具</title>
 <style>
@@ -1056,6 +1056,13 @@ body {
 }
 .empty__box b { color: var(--accent); }
 
+/* ── 匯出選單（2026-11-11）：每個選項一行名稱＋一行「什麼時候用」 ── */
+.menu__list--wide { min-width: 340px; max-width: min(380px, 92vw); }
+.menu__text { display: flex; flex-direction: column; gap: 2px; }
+.menu__text small { font-size: var(--text-xs); color: var(--fg-2); font-weight: 400; line-height: var(--leading-ui); }
+.menu__item { padding-block: var(--space-2); }
+.menu__check { padding: var(--space-2) var(--space-3); margin: 0; font-size: var(--text-sm); border-top: var(--border-width) solid var(--border-soft); }
+
 /* ── 狀態列 ── */
 .statusbar {
   display: flex; align-items: center; gap: var(--space-4);
@@ -1247,10 +1254,13 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     <button id="btnSaveAs" class="btn">另存新檔…</button>
     <span class="menu">
       <button id="btnExport" class="btn" aria-expanded="false" aria-controls="exportMenu">匯出</button>
-      <ul class="menu__list" id="exportMenu" hidden>
-        <li><button class="menu__item" id="btnCopy">複製圖片（貼進 Word）</button></li>
-        <li><button class="menu__item" id="btnPng">匯出 PNG 圖檔</button></li>
-        <li><button class="menu__item" id="btnSvg">匯出 SVG 向量圖</button></li>
+      <ul class="menu__list menu__list--wide" id="exportMenu" hidden>
+        <li><button class="menu__item" id="btnWordHelp"><span class="menu__text"><b>貼進 Word 之後怎麼改</b><small>打開說明：怎麼縮放、怎麼把圖轉成可以修改的圖形</small></span></button></li>
+        <li class="menu__sep" role="separator"></li>
+        <li><button class="menu__item" id="btnCopy"><span class="menu__text"><b>複製圖片</b><small>最快：到 Word 按 Ctrl+V 就貼上</small></span></button></li>
+        <li><button class="menu__item" id="btnPng"><span class="menu__text"><b>匯出 PNG 圖檔</b><small>高解析度，適合列印或放進簡報；貼上後不能再改線條</small></span></button></li>
+        <li><button class="menu__item" id="btnSvg"><span class="menu__text"><b>匯出 SVG 向量圖</b><small>放大不模糊；在 Word 可以轉成圖形，再改線條與文字</small></span></button></li>
+        <li><label class="check menu__check"><input type="checkbox" id="optLegend"><span>圖的下方附圖例（只列這張圖用到的符號與線條）</span></label></li>
       </ul>
     </span>
     <span class="topbar__sep" aria-hidden="true"></span>
@@ -3490,19 +3500,105 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
   }
 
-  // 匯出用完整 SVG（白底、緊貼內容、字型寫在根節點）
+  // ── 匯出用的圖例（2026-11-11）：只列這張圖真的用到的符號與線條，看報告的人不用另外查 ──
+  // 回傳 [{ kind, key, label, over }]；順序＝人物、伴侶關係、親子與雙胞胎、情感關係、生活圈、生態圖
+  function legendItems(doc) {
+    const mode = viewMode(doc), items = [];
+    const add = (kind, key, label, over) => items.push({ kind, key, label, over: over || null });
+    const P = Object.values(doc.persons);
+    if (mode !== 'ecomap') {
+      const first = (fn) => P.find(fn);
+      const plain = (g) => first(p => p.gender === g && !p.life);
+      if (plain('M')) add('sym', 'M', '男性', { gender: 'M' });
+      if (plain('F')) add('sym', 'F', '女性', { gender: 'F' });
+      if (plain('U')) add('sym', 'U', '未知性別', { gender: 'U' });
+      if (plain('P')) add('sym', 'P', '寵物', { gender: 'P' });
+      const ix = first(p => p.index && !p.life), dead = first(p => p.deceased && !p.life);
+      if (ix) add('sym', 'index', '服務使用者', { gender: ix.gender, index: true });
+      if (dead) add('sym', 'deceased', '已歿', { gender: dead.gender === 'U' ? 'M' : dead.gender, deceased: true });
+      for (const t of GT.LIFE_STATES) if (t.key && first(p => p.life === t.key)) add('sym', 'life:' + t.key, t.label, { gender: 'U', life: t.key });
+      for (const t of GT.CULTURES) if (t.key && first(p => p.culture === t.key)) add('sym', 'culture:' + t.key, t.label, { gender: 'M', culture: t.key });
+      const body = (p) => !p.life && p.gender !== 'U';                      // 疾病與濫用只畫在方形、圓形符號上
+      if (first(p => body(p) && p.illness === 'active')) add('sym', 'ill', '身體或精神疾病', { gender: 'M', illness: 'active' });
+      if (first(p => body(p) && p.illness === 'recovery')) add('sym', 'illrec', '疾病復原中', { gender: 'M', illness: 'recovery' });
+      if (first(p => body(p) && p.substance === 'active')) add('sym', 'sub', '酒精或藥物濫用', { gender: 'M', substance: 'active' });
+      if (first(p => body(p) && p.substance === 'suspected')) add('sym', 'subsus', '疑似酒精或藥物濫用', { gender: 'M', substance: 'suspected' });
+      if (first(p => body(p) && p.substance === 'recovery')) add('sym', 'subrec', '濫用復原中', { gender: 'M', substance: 'recovery' });
+      for (const c of GT.CONDITIONS) {
+        if (!first(p => body(p) && (p.conditions || []).includes(c.key) && (c.kind !== 'medical' || p.illness))) continue;
+        add('sym', 'cond:' + c.key, c.label, c.kind === 'medical' ? { gender: 'M', illness: 'active', conditions: [c.key] } : { gender: 'M', conditions: [c.key] });
+      }
+      const U = Object.values(doc.unions), two = U.filter(u => u.partners.length === 2);
+      for (const t of GT.FAMILY_TYPES) if (two.some(u => u.type === t.key)) add('union', t.key, t.label);
+      for (const t of GT.CHILD_LINKS) if (t.key !== 'bio' && U.some(u => u.children.some(c => c.link === t.key))) add('child', t.key, t.label + '子女');
+      for (const t of GT.TWIN_KINDS) if (U.some(u => (u.twins || []).some(g => g.kind === t.key))) add('twins', t.key, t.label);
+      const Rl = Object.values(doc.relations);
+      for (const t of GT.EMOTION_TYPES) if (Rl.some(r => r.type === t.key)) add('relation', t.key, t.label);
+      if (Object.keys(doc.households).length) add('household', '', '生活圈（同住）');
+    }
+    if (mode !== 'genogram') {
+      const Ts = Object.values(doc.ties);
+      if (Object.keys(doc.systems).length) add('system', '', '資源（外部系統）');
+      for (const t of GT.TIE_STRENGTHS) if (Ts.some(x => x.strength === t.key && !x.stress)) add('tie', t.key, '連結：' + t.label);
+      if (Ts.some(x => x.stress)) add('tie', 'stress', '有壓力或衝突');
+      if (Ts.some(x => x.dir === 'a2b' || x.dir === 'b2a')) add('tie', 'dir', '資源流向（箭頭）');
+      if (Ts.some(x => x.dir === 'both')) add('tie', 'both', '雙向');
+    }
+    return items;
+  }
+  // 圖例畫成一塊：標題＋每格「樣本＋名稱」。不用巢狀的 <svg>（貼進 Word 轉成圖形時比較不會出狀況），樣本用 <g transform>
+  const LG = { cell: 200, row: 38, sample: 72, pad: 12, title: 26 };
+  function legendBlock(doc, width) {
+    const items = legendItems(doc);
+    if (!items.length) return null;
+    const colored = doc.settings.colorRelations;
+    const cols = Math.max(2, Math.floor((width - LG.pad * 2) / LG.cell)), rows = Math.ceil(items.length / cols);
+    const w = cols * LG.cell + LG.pad * 2, h = LG.title + rows * LG.row + LG.pad;
+    const draw = (x0, y0) => {
+      const out = [`<g class="legendblock"><rect x="${f(x0)}" y="${f(y0)}" width="${f(w)}" height="${f(h)}" rx="6" fill="#FFFFFF" stroke="#BDBDBD" stroke-width="1"/>`,
+                   `<text x="${f(x0 + LG.pad)}" y="${f(y0 + 19)}" font-size="13" font-weight="700" fill="${C.INK}">圖例</text>`];
+      items.forEach((it, i) => {
+        const cx = x0 + LG.pad + (i % cols) * LG.cell + LG.sample / 2, cy = y0 + LG.title + Math.floor(i / cols) * LG.row + LG.row / 2;
+        if (it.kind === 'sym') {
+          const d = GT.newDoc();
+          d.settings.colorRelations = colored;
+          const q = Object.assign({ id: 'lg-' + i, gender: 'M', x: 0, y: 0, name: '', index: false, deceased: false, age: '', birth: '', death: '', deathAge: '',
+                                    attrs: {}, life: '', culture: '', illness: '', substance: '', conditions: [] }, it.over);
+          out.push(`<g transform="translate(${f(cx)},${f(cy + (q.culture ? 7 : 0))}) scale(0.62)">${symbolMarkup(d, q)}</g>`);
+        } else if (it.kind === 'household') {
+          out.push(`<rect x="${f(cx - 27)}" y="${f(cy - 11)}" width="54" height="22" rx="7" fill="${C.BRAND}" fill-opacity="0.06" stroke="${C.BRAND}" stroke-width="2.2" stroke-dasharray="6 4"/>`);
+        } else {
+          const s = sampleParts(it.kind, it.key, colored), k = Math.min(64 / s.vb[2], 30 / s.vb[3]);
+          out.push(`<g transform="translate(${f(cx - (s.vb[0] + s.vb[2] / 2) * k)},${f(cy - (s.vb[1] + s.vb[3] / 2) * k)}) scale(${f(k * 100) / 100})">${s.body}</g>`);
+        }
+        const lines = GT.wrapText(it.label, 10).slice(0, 2), tx = cx + LG.sample / 2 + 6;
+        lines.forEach((ln, j) => out.push(`<text x="${f(tx)}" y="${f(cy + 4 + (j - (lines.length - 1) / 2) * 14)}" font-size="12" fill="${C.INK}">${esc(ln)}</text>`));
+      });
+      out.push('</g>');
+      return out.join('');
+    };
+    return { w, h, draw, count: items.length };
+  }
+
+  // 匯出用完整 SVG（白底、緊貼內容、字型寫在根節點）。opts.legend＝在圖的下方附圖例
   function exportSVG(doc, opts) {
     const o = opts || {};
     const m = o.margin == null ? 24 : o.margin;
     const b = bbox(doc);
-    const x = f(b.x - m), y = f(b.y - m), w = f(b.w + m * 2), h = f(b.h + m * 2);
+    const L = o.legend ? legendBlock(doc, b.w) : null, gap = 20;
+    const x = f(b.x - m), y = f(b.y - m), w = f(Math.max(b.w, L ? L.w : 0) + m * 2), h = f(b.h + (L ? gap + L.h : 0) + m * 2);
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${x} ${y} ${w} ${h}" font-family="${esc(FONT)}">` +
            `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#FFFFFF"/>` +
-           renderWorld(doc, { forExport: true }) + '</svg>';
+           renderWorld(doc, { forExport: true }) + (L ? L.draw(b.x, b.y + b.h + gap) : '') + '</svg>';
   }
 
   // 圖例用的小樣本（說明對話框顯示每種線條長什麼樣子）
   function sampleSVG(kind, key, colored) {
+    const s = sampleParts(kind, key, colored);
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${s.vb.join(' ')}" width="64" height="${s.hpx}">${s.body}</svg>`;
+  }
+  // 樣本的內容與範圍（圖例視窗包成小 <svg>；匯出的圖例直接放進大圖）
+  function sampleParts(kind, key, colored) {
     const d = GT.newDoc();
     d.settings.colorRelations = colored !== false;
     const mk = (id, x, y, g) => { d.persons[id] = { id, gender: g, x, y, name: '', index: false, deceased: false, age: '', birth: '', death: '', deathAge: '', attrs: {},
@@ -3539,7 +3635,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       body = unionMarkup(d, d.unions.u, { forExport: true });
       vb = '0 -24 64 30';
     }
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" width="64" height="${hpx}">${body}</svg>`;
+    return { body, vb: vb.split(' ').map(Number), hpx };
   }
 
   // 屬性面板的小預覽：只畫符號本身（含成癮、疾病、文化等狀態），不畫標籤。
@@ -3592,7 +3688,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     return out;
   }
 
-  GT.render = { C, G, FONT, HALF, esc, renderWorld, exportSVG, bbox, unionGeometry, personBox, labelBox, sampleSVG, symbolSVG, itemsInRect, householdInterior,
+  GT.render = { C, G, FONT, HALF, esc, renderWorld, exportSVG, legendItems, bbox, unionGeometry, personBox, labelBox, sampleSVG, symbolSVG, itemsInRect, householdInterior,
                 tieGeometry, lineLabels, lineLabelBox, lineLabelText, unionMarks,
                 viewMode, systemRadius, systemBox, familyNode, tieAnchor, edgePoint,
                 householdParts, householdIntruders, symExtent, symTop, symBottom,
@@ -4182,10 +4278,17 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 > 沒儲存就關掉視窗，畫的內容會不見。檔名旁邊出現黃色的「未儲存」標記時，記得先存。
 
 ## 放進 Word
-按上方「匯出」，會展開三個選項：
+按上方「匯出」，選單裡每個選項底下都有一行說明什麼時候用：
 - **複製圖片**：到 Word 按 [[Ctrl]]+[[V]] 貼上。最快。
-- **匯出 PNG**：存成高解析度的圖檔，再插入 Word。適合列印。
-- **匯出 SVG**：向量圖，放大不會模糊。在 Word 插入 SVG 之後，對圖按右鍵選「轉換為圖形」，每條線、每個圓都可以再修改。
+- **匯出 PNG**：存成高解析度的圖檔，再插入 Word。適合列印或放進簡報。
+- **匯出 SVG**：向量圖，放大不會模糊，在 Word 裡還可以再修改。
+- **圖的下方附圖例**：勾起來之後，匯出的圖下面會多一塊「圖例」，只列這張圖用到的符號與線條，看報告的人不用另外查。勾選只在這次開啟期間有效。
+
+## 貼進 Word 之後怎麼改
+- **調大小**：點一下圖，拖四個角落的圓點（拖角落才不會變形）。
+- **用「複製圖片」或 PNG 貼的圖**：是一整張圖片，不能改裡面的線條與文字。要改內容，回到這個工具改好，再貼一次。
+- **用 SVG 插入的圖**：在 Word 按「插入」「圖片」選那個 SVG 檔；對圖按右鍵選「轉換為圖形」，之後每條線、每個符號、每段文字都可以點選修改。改完建議全選之後「組成群組」，才不會不小心拖散。
+- **圖跑到奇怪的位置**：點圖，按右上角的「版面配置選項」，選「與文字排列」，圖就會乖乖待在那一行。
 
 產生圖片的時候「匯出」會暫時顯示「處理中…」，圖比較大時要等一兩秒。
 
@@ -4376,7 +4479,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 (function (GT) {
   'use strict';
   const APP_VERSION = '0.9.0';
-  const BUILD = '2026-11-11 16:23';
+  const BUILD = '2026-11-11 16:27';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -4529,7 +4632,8 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 
   // ───── 版面：左右兩欄可以收起來；視窗窄時右欄浮在畫布上（2026-11-11）─────
   // left／right：null＝自動（看視窗寬度與有沒有選取），true／false＝使用者自己按的；pan＝「移動畫面」開著
-  const ui = { left: null, right: null, pan: false, width: 0 };     // width：自我測試用來假裝視窗寬度（0＝用真的）
+  // legend＝匯出的圖下方附圖例（匯出選單裡勾選；只放在這次開啟的視窗裡）
+  const ui = { left: null, right: null, pan: false, width: 0, legend: false };   // width：自我測試用來假裝視窗寬度（0＝用真的）
   GT.app.ui = ui;
   const winW = () => ui.width || window.innerWidth;
   const leftOpen = () => (ui.left == null ? winW() > 640 : ui.left);
@@ -5924,7 +6028,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 
   // ───── 匯出圖片 ─────
   function exportParts() {
-    const svg = R.exportSVG(state.doc);
+    const svg = R.exportSVG(state.doc, { legend: ui.legend });
     const m = svg.match(/width="([\d.]+)" height="([\d.]+)"/);
     return { svg, w: +m[1], h: +m[2] };
   }
@@ -6090,8 +6194,13 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       $('btnExport').setAttribute('aria-expanded', String(open));
     });
     // 一般的「按鈕＋展開清單」（審查 2026-10-28 M5：原本宣告成 ARIA 選單卻沒有選單的鍵盤行為）
-    const exportItems = () => [...exportMenu.querySelectorAll('button')];
-    exportMenu.addEventListener('click', (e) => { closeExport(); if (e.detail === 0) $('btnExport').focus(); });   // 鍵盤選的：焦點回到「匯出」
+    const exportItems = () => [...exportMenu.querySelectorAll('button, input')];
+    exportMenu.addEventListener('click', (e) => {
+      if (e.target.closest('.menu__check')) return;                        // 勾「附圖例」不關選單：勾完接著選要匯出哪一種
+      closeExport(); if (e.detail === 0) $('btnExport').focus();           // 鍵盤選的：焦點回到「匯出」
+    });
+    $('optLegend').addEventListener('change', (e) => { ui.legend = e.target.checked; });
+    $('btnWordHelp').addEventListener('click', () => openHelp('save'));
     document.addEventListener('click', (e) => { if (!exportMenu.hidden && !e.target.closest('.menu')) closeExport(); });
     $('btnExport').closest('.menu').addEventListener('focusout', (e) => {
       if (!exportMenu.hidden && !(e.relatedTarget && e.target.closest('.menu').contains(e.relatedTarget))) closeExport();
@@ -6522,6 +6631,15 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
                      !!getComputedStyle(root).getPropertyValue('--focus-ring').trim();
       $('btnExport').click();
       const menuOpen = !$('exportMenu').hidden && $('btnExport').getAttribute('aria-expanded') === 'true';
+      // 匯出選單（2026-11-11）：每個選項有一行「什麼時候用」；勾「附圖例」選單不會關，匯出的圖下方多一塊圖例；最上面是 Word 的說明
+      const descs = [...$('exportMenu').querySelectorAll('.menu__item')].every(b => !!b.querySelector('small') && b.querySelector('small').textContent.length >= 8);
+      const plainSvg = exportParts().svg;
+      $('optLegend').click();
+      const stayOpen = !$('exportMenu').hidden && ui.legend === true;
+      const legendSvg = exportParts();
+      $('optLegend').click();
+      checks.exportlegend = descs && stayOpen && !plainSvg.includes('>圖例<') && legendSvg.svg.includes('>圖例<') && legendSvg.svg.includes('>男性<') &&
+                            ui.legend === false && exportParts().svg === plainSvg && $('exportMenu').querySelector('button').id === 'btnWordHelp';
       document.body.click();
       checks.exportmenu = menuOpen && $('exportMenu').hidden;
       // 錯誤用畫布上的 alert，不用 toast（設計規範：不可以用 toast 報錯誤）

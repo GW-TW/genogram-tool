@@ -211,6 +211,13 @@ body {
 }
 .empty__box b { color: var(--accent); }
 
+/* ── 匯出選單（2026-11-11）：每個選項一行名稱＋一行「什麼時候用」 ── */
+.menu__list--wide { min-width: 340px; max-width: min(380px, 92vw); }
+.menu__text { display: flex; flex-direction: column; gap: 2px; }
+.menu__text small { font-size: var(--text-xs); color: var(--fg-2); font-weight: 400; line-height: var(--leading-ui); }
+.menu__item { padding-block: var(--space-2); }
+.menu__check { padding: var(--space-2) var(--space-3); margin: 0; font-size: var(--text-sm); border-top: var(--border-width) solid var(--border-soft); }
+
 /* ── 狀態列 ── */
 .statusbar {
   display: flex; align-items: center; gap: var(--space-4);

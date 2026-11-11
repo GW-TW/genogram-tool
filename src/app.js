@@ -159,12 +159,15 @@
   // ───── 版面：左右兩欄可以收起來；視窗窄時右欄浮在畫布上（2026-11-11）─────
   // left／right：null＝自動（看視窗寬度與有沒有選取），true／false＝使用者自己按的；pan＝「移動畫面」開著
   // legend＝匯出的圖下方附圖例（匯出選單裡勾選；只放在這次開啟的視窗裡）
-  const ui = { left: null, right: null, pan: false, width: 0, legend: false };   // width：自我測試用來假裝視窗寬度（0＝用真的）
+  // help＝使用說明欄開著
+  const ui = { left: null, right: null, pan: false, width: 0, legend: false, help: false };   // width：自我測試用來假裝視窗寬度（0＝用真的）
   GT.app.ui = ui;
   const winW = () => ui.width || window.innerWidth;
   const leftOpen = () => (ui.left == null ? winW() > 640 : ui.left);
   // 視窗窄的時候右欄會蓋住畫布：沒選東西先收著，點到東西（放開滑鼠之後）才滑出來
-  const rightOpen = () => (ui.right != null ? ui.right : winW() > 1024 || (state.sel.size > 0 && !held));
+  // 說明欄開著、自己佔一欄的時候，畫布可用的寬度要扣掉它：扣完不夠寬，右欄也是「有選東西才出來」
+  const roomW = () => winW() - (ui.help && winW() >= 1280 ? 360 : 0);
+  const rightOpen = () => (ui.right != null ? ui.right : roomW() > 1024 || (state.sel.size > 0 && !held));
   function syncLayout() {
     const ws = document.querySelector('.workspace'), w = winW();
     const before = canvas.getBoundingClientRect().left;
@@ -179,6 +182,10 @@
       b.setAttribute('aria-expanded', String(open)); b.dataset.tip = tip; b.setAttribute('aria-label', tip);
     };
     set('btnPanelL', leftOpen(), '左邊的工具欄'); set('btnPanelR', rightOpen(), '右邊的資料欄');
+    // 使用說明欄：視窗夠寬就多佔一欄（什麼都不蓋住）；不夠寬就浮在右邊
+    ws.classList.toggle('has-help', !!ui.help && w >= 1280);
+    ws.classList.toggle('help-over', !!ui.help && w < 1280);
+    $('btnHelp').setAttribute('aria-expanded', String(!!ui.help));
   }
   // 「移動畫面」（2026-11-11）：原本只能按住空白鍵或滑鼠中鍵拖曳，不知道快捷鍵的人、用觸控螢幕的人沒辦法移動畫面
   function setPan(on) {
@@ -1434,27 +1441,42 @@
     });
   }
 
-  // 使用說明：章節分頁（一次看一章）；原稿在 src/manual.js 的 MANUAL
-  let helpTab = 'start';
-  function openHelp(tab) {
-    const M = GT.manual.MANUAL;
+  // 使用說明：右側的說明欄（2026-11-11：原本是對話框，開著就不能畫；章節按鈕排成兩三列）。
+  // 可以一直開著邊看邊畫；章節用下拉選單；原稿在 src/manual.js 的 MANUAL，第一章是四步的建議畫法
+  let helpTab = 'quick';
+  function drawHelp() {
+    const M = GT.manual.MANUAL, i = Math.max(0, M.findIndex(c => c.key === helpTab));
+    helpTab = M[i].key;
+    $('helpChapter').value = helpTab;
+    $('helpBody').innerHTML = GT.manual.render(M[i].body) +
+      `<p class="text-muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）｜作者 GW-TW｜僅限公益用途，不開放商業使用｜聯絡 github.com/GW-TW/genogram-tool/issues</p>`;
+    $('helpBody').scrollTop = 0;
+    $('helpPrev').disabled = i === 0;
+    $('helpNext').disabled = i === M.length - 1;
+  }
+  function openHelp(tab, viaKeyboard) {
     if (tab) helpTab = tab;
-    if (!M.some(c => c.key === helpTab)) helpTab = M[0].key;
-    const body = dialog('使用說明', `<div class="picker htabs"><div class="cats">${M.map(c =>
-      `<button type="button" data-htab="${esc(c.key)}" class="${c.key === helpTab ? 'on' : ''}">${esc(c.title)}</button>`).join('')}</div></div>
-      <div class="help-doc" id="helpBody"></div>
-      <p class="text-muted" style="margin-top:12px">版本 ${esc(APP_VERSION)}（${esc(BUILD)}）｜作者 GW-TW｜僅限公益用途，不開放商業使用｜聯絡 github.com/GW-TW/genogram-tool/issues</p>`,
-      [{ label: '看圖例說明', onClick: () => openLegend() }, { label: '關閉', primary: true }], { wide: true });
-    const draw = () => { body.querySelector('#helpBody').innerHTML = GT.manual.render(M.find(c => c.key === helpTab).body); };
-    draw();
-    body.querySelector('.htabs').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-htab]');
-      if (!b) return;
-      helpTab = b.dataset.htab;
-      body.querySelectorAll('[data-htab]').forEach(x => x.classList.toggle('on', x === b));
-      draw();
-      body.scrollTop = 0;
-    });
+    ui.help = true;
+    $('helpDock').hidden = false;
+    drawHelp();
+    syncLayout();
+    if (viaKeyboard) $('helpBody').focus();             // 用鍵盤開的：焦點進說明欄，方向鍵可以捲動；用滑鼠開的不搶焦點（接著按 Delete 還是刪圖上的東西）
+  }
+  function closeHelp(refocus) {
+    if (!ui.help) return;
+    const inside = $('helpDock').contains(document.activeElement);
+    ui.help = false;
+    $('helpDock').hidden = true;
+    syncLayout();
+    if (refocus || inside) $('btnHelp').focus();
+  }
+  // 範本（2026-11-11）：空白畫面按一下就有一張可以改的圖；放上去之後排版一次
+  function useTemplate(key) {
+    const t = GT.TEMPLATES.find(x => x.key === key);
+    if (!t || !isEmpty()) return;
+    mutate(d => { GT.buildTemplate(d, key); GT.layout.autoLayout(d); });
+    select([]); fitView();
+    toast(`已放上範本「${t.label}」。請點每個人改成實際的資料，並勾選誰是服務使用者；多的人可以刪掉（按 Ctrl+Z 可以整個復原）。`, 'ok', 9000);
   }
 
   // 作者資訊（使用者 2026-10-28：放在「使用說明」旁邊；照交接系統「開發者資訊」的格式，最後一行是 CRPD 宣言）
@@ -1770,7 +1792,24 @@
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       toast('已複製圖片，到 Word 按 Ctrl+V 貼上。', 'ok');
     }));
-    $('btnHelp').addEventListener('click', () => openHelp());
+    // 使用說明欄：按一下打開、再按一下關閉
+    $('helpChapter').innerHTML = GT.manual.MANUAL.map(c => `<option value="${esc(c.key)}">${esc(c.title)}</option>`).join('');
+    setIcon('helpClose', 'x');
+    $('btnHelp').addEventListener('click', (e) => { if (ui.help) closeHelp(); else openHelp(null, e.detail === 0); });
+    $('helpClose').addEventListener('click', () => closeHelp(true));
+    $('helpChapter').addEventListener('change', () => { helpTab = $('helpChapter').value; drawHelp(); });
+    const stepHelp = (n) => {
+      const M = GT.manual.MANUAL, i = M.findIndex(c => c.key === helpTab) + n;
+      if (M[i]) { helpTab = M[i].key; drawHelp(); }
+    };
+    $('helpPrev').addEventListener('click', () => stepHelp(-1));
+    $('helpNext').addEventListener('click', () => stepHelp(1));
+    $('helpLegend').addEventListener('click', () => openLegend());
+    $('helpDock').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeHelp(true); } });
+    // 空白畫面：範本與「看建議畫法」
+    $('tplList').innerHTML = GT.TEMPLATES.map(t => `<button type="button" class="btn" data-tpl="${esc(t.key)}"><b>${esc(t.label)}</b><small>${esc(t.desc)}</small></button>`).join('');
+    $('tplList').addEventListener('click', (e) => { const b = e.target.closest('[data-tpl]'); if (b) useTemplate(b.dataset.tpl); });
+    $('emptyHelp').addEventListener('click', () => openHelp('quick'));
     $('btnAbout').addEventListener('click', openAbout);
     $('btnUndo').addEventListener('click', undo);
     $('btnRedo').addEventListener('click', redo);
@@ -1783,11 +1822,12 @@
       const tag = document.activeElement && document.activeElement.tagName;
       const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
       const mod = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
-      if (e.key === 'F1') { e.preventDefault(); if (!$('dlg').open) openHelp(); return; }   // 對話框開著時不換掉它（審查 2026-09-21）
+      if (e.key === 'F1') { e.preventDefault(); if (!$('dlg').open) openHelp(null, true); return; }   // 對話框開著時不動它（審查 2026-09-21）
       if (mod && key === 's') { e.preventDefault(); act('SAVE', () => save(e.shiftKey)); return; }
       if (mod && key === 'o') { e.preventDefault(); if (!$('dlg').open) askDiscard(() => act('OPEN', openFile), '開啟別的檔案'); return; }
       if ($('dlg').open || typing) return;
       const ae = document.activeElement;
+      if (ae && ae.closest && ae.closest('#helpDock')) return;             // 焦點在說明欄裡：方向鍵是捲動說明，Delete 不刪圖上的東西
       const onControl = ae && /^(BUTTON|SUMMARY|A)$/.test(ae.tagName);
       if (onControl && (key === 'delete' || key === 'backspace' || key.startsWith('arrow'))) return;
       if (e.code === 'Space') {
@@ -2088,13 +2128,38 @@
       checks.linelabeloff = !$('world').innerHTML.includes('class="linelabel"');
       $('optLineLabels').click();
       // 內建使用說明與圖例說明（BASE 模式 16 §6：開起來真的有內容）
+      // 使用說明是右側的說明欄（2026-11-11）：不是對話框，開著的時候照樣可以操作畫面
+      const helpText = () => $('helpBody').textContent;
+      $('btnHelp').click();
+      const quickFirst = !$('helpDock').hidden && $('helpChapter').value === 'quick' && $('helpBody').querySelectorAll('ol > li').length === 4 && $('helpPrev').disabled;
       openHelp('ecomap');
-      checks.manual = $('dlg').open && $('dlgBody').textContent.length > 500 && $('dlgBody').textContent.includes('拉生態連結');
-      document.querySelector('[data-htab=save]').click();
-      checks.manualtab = $('dlgBody').textContent.includes('轉換為圖形');
+      checks.manual = !$('helpDock').hidden && !$('dlg').open && helpText().length > 500 && helpText().includes('拉生態連結');
+      $('helpChapter').value = 'save'; $('helpChapter').dispatchEvent(new Event('change', { bubbles: true }));
+      checks.manualtab = helpText().includes('轉換為圖形');
       // 授權標示（使用者 2026-10-28：作者 GW-TW、僅限公益用途、不開放商業使用、聯絡信箱）
-      checks.license = ['GW-TW', '僅限公益用途', '不開放商業使用', 'github.com/GW-TW/genogram-tool/issues'].every(w => $('dlgBody').textContent.includes(w));
-      $('dlg').close();
+      checks.license = ['GW-TW', '僅限公益用途', '不開放商業使用', 'github.com/GW-TW/genogram-tool/issues'].every(w => helpText().includes(w));
+      // 視窗夠寬：說明欄自己佔一欄，左右兩欄都還在；開著的時候按左邊的按鈕照樣有作用；上一章／下一章會換章
+      const wsH = document.querySelector('.workspace');
+      const docked = wsH.classList.contains('has-help') && getComputedStyle($('helpDock')).position !== 'absolute' &&
+                     getComputedStyle($('tools')).display !== 'none' && $('btnHelp').getAttribute('aria-expanded') === 'true';
+      const nBeforeHelp = Object.keys(state.doc.persons).length;
+      document.querySelector('[data-add=F]').click();
+      const usable = Object.keys(state.doc.persons).length === nBeforeHelp + 1;
+      undo();
+      $('helpNext').click();
+      const stepped = $('helpChapter').value !== 'save' && !helpText().includes('轉換為圖形');
+      const helpTiny = [...document.querySelectorAll('#helpDock button, #helpDock select')]
+        .filter(el => el.offsetParent !== null && (el.offsetHeight < 44 || el.offsetWidth < 44)).map(el => `help:${el.id}:${el.offsetWidth}x${el.offsetHeight}`);
+      // 視窗不夠寬：說明欄浮在右邊，不擠畫布
+      ui.width = 1100; syncLayout();
+      const floated = wsH.classList.contains('help-over') && getComputedStyle($('helpDock')).position === 'absolute';
+      ui.width = 1366; syncLayout();
+      // 游標在說明欄裡按 Esc：只關說明欄，焦點回到「使用說明」，不取消選取
+      select([a]); $('helpBody').focus();
+      $('helpBody').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      checks.helpdock = quickFirst && docked && usable && stepped && floated && $('helpDock').hidden && document.activeElement === $('btnHelp') &&
+                        state.sel.has(a) && $('btnHelp').getAttribute('aria-expanded') === 'false' && !wsH.classList.contains('has-help');
+      $('btnHelp').blur();
       // 作者資訊在「使用說明」旁邊：系統名稱、作者、版本號、授權、聯絡，最後是 CRPD 宣言（照交接系統「開發者資訊」的格式）
       const ab = $('btnAbout'), hb = $('btnHelp');
       const nextToHelp = hb.nextElementSibling === ab && ab.textContent.includes('GW-TW');
@@ -2121,7 +2186,7 @@
       openHelp('draw');
       const helpUl = document.querySelector('#helpBody ul');
       checks.helpcss = !!helpUl && parseFloat(getComputedStyle(helpUl).marginBottom) >= 8;
-      $('dlg').close();
+      closeHelp();
       // 不再支援 .gno（使用者 2026-09-21 拿掉匯入）：開 .gno 要說清楚原因，目前的圖不能被動到
       const beforeGno = JSON.stringify(state.doc);
       await loadFile(new File(['<GenoPro></GenoPro>'], '舊個案.gno'), null);
@@ -2190,6 +2255,7 @@
           if (el.matches('button') && GLYPH.test(el.textContent)) glyph.push(`${where}:${el.textContent.trim()}`);
         }
       };
+      for (const b of helpTiny) tiny.push(b);
       inspect('doc');
       select([a]);
       const accHealth = document.querySelector('#props [data-acc=health]');
@@ -2236,11 +2302,24 @@
       $('dlg').close();
       notice('測試用提醒'); inspect('alert'); clearError();
       toast('測試用提示', 'info', 3000, { label: '加入', run: () => {} }); inspect('toast');
+      // 空白畫面的範本（2026-11-11）：按一下就有一張排好的圖（不填姓名、不指定服務使用者）；一次復原回到空白
+      const savedDoc = state.doc;
+      setDoc(GT.newDoc(), { dirty: false });
+      const tplBtns = document.querySelectorAll('#tplList [data-tpl]');
+      const emptyShown = !$('empty').hidden && tplBtns.length === GT.TEMPLATES.length;
+      inspect('empty');
+      document.querySelector('#tplList [data-tpl=three]').click();
+      const tps = Object.values(state.doc.persons);
+      const built = tps.length === 6 && $('empty').hidden && tps.every(p => !p.name && !p.index) &&
+                    tps.every(p => tps.every(o => o === p || o.y !== p.y || Math.abs(o.x - p.x) >= 60)) && state.sel.size === 0;
+      undo();
+      checks.template = emptyShown && built && Object.keys(state.doc.persons).length === 0 && !$('empty').hidden;
+      setDoc(savedDoc, { dirty: false });
       checks.tapsize = tiny.length === 0;
       checks.noglyph = glyph.length === 0;
       if (tiny.length || glyph.length) GT.log.push({ time: new Date().toISOString(), ref: 'SELFTEST', code: 'SELFTEST', detail: tiny.concat(glyph).join('; ') });
       // 長對話框：本文自己捲，標題與「關閉」一直看得到（M2）
-      openHelp('draw');
+      openLegend('emotion');
       const fr0 = $('dlgFoot').getBoundingClientRect(), hd = document.querySelector('#dlg .dialog__header').getBoundingClientRect();
       checks.dlgfoot = fr0.bottom <= innerHeight && fr0.height > 0 && hd.top >= 0 && $('dlgBody').scrollHeight > $('dlgBody').clientHeight;
       $('dlg').close();
@@ -2297,7 +2376,7 @@
       setDoc(GT.normalizeDoc(JSON.parse(GT.serialize(x))).doc, { fileName: evil.slice(0, 40) + '.json', dirty: true });
       const dirty = [];
       const scan = (where) => {
-        for (const sel of ['#props', '#tools', '#dlg', '#fileLabel', '#toasts', '#world', '.stage__notices', '#selTools'])
+        for (const sel of ['#props', '#tools', '#dlg', '#fileLabel', '#toasts', '#world', '.stage__notices', '#selTools', '#helpDock', '#selActs'])
           for (const el of document.querySelectorAll(`${sel} img, ${sel} script, ${sel} iframe, ${sel} object, ${sel} embed, ${sel} foreignObject, ${sel} [onerror], ${sel} [onload]`))
             dirty.push(`${where}:${sel}:${el.tagName}`);
       };
@@ -2305,7 +2384,7 @@
       select([p1, kid]); scan('multi');
       openLegend('family'); scan('legend'); $('dlg').close();
       openFieldManager(); scan('fields'); $('dlg').close();
-      openHelp('draw'); scan('help'); $('dlg').close();
+      openHelp('draw'); scan('help'); closeHelp();
       notice(evil); scan('alert'); clearError();
       toast(evil, 'warn', 1000, { label: evil, run: () => {} }); scan('toast');
       checks.injection = dirty.length === 0 && window.__pwn === undefined &&

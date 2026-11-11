@@ -52,6 +52,25 @@ T.test('一次加好幾個手足：還沒有父母先加上父母；加在同一
   T.eq(GT.addSiblings(d, 'nobody', ['M']), null, '沒有這個人');
 });
 
+T.test('範本：四種家庭結構都建得出來；只有結構，不填姓名也不指定服務使用者（2026-11-11）', () => {
+  const want = { nuclear: [4, 1], three: [6, 2], single: [3, 1], blended: [5, 2] };
+  T.eq(GT.TEMPLATES.map(t => t.key), Object.keys(want), '四個範本');
+  T.ok(GT.TEMPLATES.every(t => t.label && t.desc && t.desc.length <= 20), '每個範本都有名稱與一句說明');
+  for (const t of GT.TEMPLATES) {
+    const d = GT.newDoc(), n = GT.buildTemplate(d, t.key);
+    const ps = Object.values(d.persons);
+    T.eq([n, Object.keys(d.unions).length], want[t.key], `${t.label}：人數與關係數`);
+    T.ok(ps.every(p => !p.name && !p.index && !p.age), `${t.label}：不填姓名、年齡，不指定服務使用者`);
+    T.eq(GT.normalizeDoc(JSON.parse(GT.serialize(d))).warnings, [], `${t.label}：存檔再開，資料完整`);
+    GT.layout.autoLayout(d);
+    T.ok(ps.every(p => ps.every(o => o === p || o.y !== p.y || Math.abs(o.x - p.x) >= 60)), `${t.label}：排版後同一列的人不重疊`);
+  }
+  const b = GT.newDoc(); GT.buildTemplate(b, 'blended');
+  T.eq(Object.values(b.unions).map(u => u.type).sort(), ['Divorce', 'Marriage'], '重組家庭：一段離婚、一段結婚');
+  T.eq(Object.values(b.unions).map(u => u.children.length), [1, 1], '兩段關係各有一個孩子');
+  T.eq(GT.buildTemplate(GT.newDoc(), '沒有這個範本'), 0, '不認得的範本：不加任何人');
+});
+
 T.test('新文件：格式與預設欄位', () => {
   const d = GT.newDoc(new Date(2026, 8, 15));
   T.eq(d.format, 'genogram-tool');

@@ -12,6 +12,7 @@
   --paper-grid: #E9E4F2;
   --sidebar-w: 264px;
   --props-w: 340px;
+  --help-w: 360px;
   /* 焦點環加深（審查 2026-10-28 L5：設計系統的 alpha .55 實算對比只有 2.3～2.7:1，未達 3:1） */
   --focus-ring: 0 0 0 3px rgba(31, 100, 163, 0.9);
 }
@@ -61,7 +62,7 @@ body {
    left-off／right-off＝收起；narrow＝視窗窄，右欄改成浮在畫布上；tiny＝更窄，左欄也浮在畫布上 */
 .workspace.left-off { --sidebar-w: 0px; }
 .workspace.right-off { --props-w: 0px; }
-.workspace.left-off > .sidebar, .workspace.right-off > .props, .workspace.help-off > .helpdock { display: none; }
+.workspace.left-off > .sidebar, .workspace.right-off > .props { display: none; }
 .workspace.narrow { grid-template-columns: var(--sidebar-w) minmax(0, 1fr) 0; }
 .workspace.narrow > .props, .workspace.tiny > .sidebar {
   position: absolute; top: 0; bottom: 0; z-index: 8; grid-column: 1 / -1;
@@ -71,6 +72,24 @@ body {
 .workspace.tiny { grid-template-columns: 0 minmax(0, 1fr) 0; }
 .workspace.tiny > .sidebar { left: 0; width: min(264px, 88%); }
 .toolbar__sep { width: 1px; align-self: stretch; margin: var(--space-1) 0; background: var(--border-soft); }
+/* 使用說明欄（2026-11-11）：視窗夠寬（has-help）就多一欄，不蓋住任何東西；不夠寬（help-over）浮在右邊 */
+.helpdock {
+  grid-column: 4; grid-row: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column;
+  background: var(--surface); border-left: var(--border-width) solid var(--border-soft);
+}
+.helpdock[hidden] { display: none; }
+.workspace.has-help { grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--props-w) var(--help-w); }
+.workspace.help-over > .helpdock {
+  position: absolute; top: 0; bottom: 0; right: 0; width: min(var(--help-w), 92%); z-index: 9; grid-column: 1 / -1;
+  box-shadow: var(--elev-overlay);
+}
+.helpdock__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-bottom: var(--border-width) solid var(--border-soft); }
+.helpdock__title { font-size: var(--text-lg); margin: 0; }
+.helpdock__nav { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); font-size: var(--text-sm); font-weight: 600; color: var(--fg-2); }
+.helpdock__nav .input { flex: 1; min-width: 0; }
+.helpdock__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 var(--space-4) var(--space-4); overflow-wrap: anywhere; }
+.helpdock__foot { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-top: var(--border-width) solid var(--border-soft); }
+.helpdock__foot .btn--ghost { margin-left: auto; }
 .toolgroup { display: flex; flex-direction: column; }
 .toolgroup .sidebar__group { padding-left: 0; padding-top: 0; }
 .sidebar .field > legend { font-size: var(--text-xs); color: var(--fg-2); font-weight: 700; }
@@ -210,6 +229,12 @@ body {
   display: flex; flex-direction: column; gap: var(--space-2); box-shadow: var(--elev-raised);
 }
 .empty__box b { color: var(--accent); }
+/* 空白畫面的範本：只有按鈕接滑鼠，其他地方照樣可以在畫布上操作 */
+.empty__or { margin-top: var(--space-3); font-size: var(--text-sm); color: var(--fg-2); }
+.empty__tpl { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); pointer-events: auto; }
+.empty__tpl .btn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; height: auto; min-height: 56px; padding: var(--space-2) var(--space-3); text-align: left; white-space: normal; }
+.empty__tpl small { font-size: var(--text-xs); color: var(--fg-2); font-weight: 400; }
+.empty__box > .btn--ghost { pointer-events: auto; align-self: center; }
 
 /* ── 匯出選單（2026-11-11）：每個選項一行名稱＋一行「什麼時候用」 ── */
 .menu__list--wide { min-width: 340px; max-width: min(380px, 92vw); }

@@ -42,7 +42,7 @@
     </span>
     <span class="topbar__sep" aria-hidden="true"></span>
     <button id="btnTheme" class="btn btn--icon tooltip" data-tip="配色：跟隨系統" aria-label="配色：跟隨系統"></button>
-    <button id="btnHelp" class="btn btn--ghost">使用說明</button>
+    <button id="btnHelp" class="btn btn--ghost" aria-expanded="false" aria-controls="helpDock">使用說明</button>
     <button id="btnAbout" class="btn btn--ghost topbar__author" aria-label="作者資訊：GW-TW、版本、授權、聯絡方式與 CRPD 宣言">作者：GW-TW</button>
   </nav>
 </header>
@@ -142,6 +142,9 @@
     <div class="empty" id="empty"><div class="empty__box">
       <p>按左邊「<b>男</b>」「<b>女</b>」開始畫，或按上方「<b>開啟…</b>」打開之前存的家系圖檔。</p>
       <p class="help">點選人物後，右邊可以填年齡、職業、經濟等資料，會自動顯示在圖上。</p>
+      <p class="empty__or">也可以從範本開始，再改成實際的家庭：</p>
+      <div class="empty__tpl" id="tplList"></div>
+      <button class="btn btn--ghost" id="emptyHelp">第一次用？看四步的建議畫法</button>
     </div></div>
 
     <div class="stage__toolbar toolbar" role="toolbar" aria-label="編輯">
@@ -183,6 +186,24 @@
   </section>
 
   <aside class="props" id="props" aria-label="屬性"></aside>
+
+  <!-- 使用說明：右側的說明欄，不是對話框，可以開著邊看邊畫（2026-11-11） -->
+  <aside class="helpdock" id="helpDock" aria-labelledby="helpTitle" hidden>
+    <div class="helpdock__head">
+      <h2 class="helpdock__title" id="helpTitle">使用說明</h2>
+      <button id="helpClose" class="btn btn--icon" aria-label="關閉使用說明"></button>
+    </div>
+    <div class="helpdock__nav">
+      <label for="helpChapter">章節</label>
+      <select class="input" id="helpChapter"></select>
+    </div>
+    <div class="helpdock__body help-doc" id="helpBody" tabindex="0" role="region" aria-labelledby="helpTitle"></div>
+    <div class="helpdock__foot">
+      <button class="btn" id="helpPrev">上一章</button>
+      <button class="btn" id="helpNext">下一章</button>
+      <button class="btn btn--ghost" id="helpLegend">看圖例說明</button>
+    </div>
+  </aside>
 </main>
 
 <footer class="statusbar">

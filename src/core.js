@@ -631,6 +631,33 @@
     return { ids: genders.slice(0, 12).map(g => addChild(doc, u.id, g)), unionId: u.id, madeParents };
   }
 
+  // 範本（2026-11-11）：空白畫面按一下就有一張可以改的圖。只建結構（性別與關係），不填姓名、年齡，也不指定誰是服務使用者。
+  // 位置只是大概，介面層接著跑一次自動排版
+  const TEMPLATES = [
+    { key: 'nuclear', label: '核心家庭',  desc: '父母與兩個孩子' },
+    { key: 'three',   label: '三代同堂',  desc: '祖父母、父母與兩個孩子' },
+    { key: 'single',  label: '單親家庭',  desc: '一位家長與兩個孩子' },
+    { key: 'blended', label: '重組家庭',  desc: '離婚後再婚，兩段關係各有孩子' },
+  ];
+  function buildTemplate(doc, key) {
+    const n0 = Object.keys(doc.persons).length;
+    if (key === 'nuclear' || key === 'three') {
+      const f = addPerson(doc, { gender: 'M', x: 0, y: 0 }), r = addPartner(doc, f);
+      addChildren(doc, f, ['M', 'F'], r.unionId);
+      if (key === 'three') addParents(doc, f);
+    } else if (key === 'single') {
+      addChildren(doc, addPerson(doc, { gender: 'F', x: 0, y: 0 }), ['M', 'F']);
+    } else if (key === 'blended') {
+      const f = addPerson(doc, { gender: 'M', x: 0, y: 0 });
+      const ex = addPartner(doc, f);
+      doc.unions[ex.unionId].type = 'Divorce';
+      addChildren(doc, f, ['F'], ex.unionId);
+      const now = addPartner(doc, f);
+      addChildren(doc, f, ['M'], now.unionId);
+    }
+    return Object.keys(doc.persons).length - n0;
+  }
+
   // 把某人加為某段關係的子女（例：先各自畫好再連起來）
   function attachChild(doc, unionId, pid) {
     const u = doc.unions[unionId];
@@ -1026,7 +1053,7 @@
     addField, renameField, fieldUsage, removeField, moveField,
     unionsOf, parentUnionOf, unionBetween,
     addPerson, linkPartners, addPartner, addChild, addChildToPerson, addParents, addSibling, attachChild,
-    parseKinCode, addChildren, addSiblings,
+    parseKinCode, addChildren, addSiblings, TEMPLATES, buildTemplate,
     commonParentUnion, setTwins, twinGroupOf, clearTwin,
     addRelation, addHousehold, joinHousehold, leaveHousehold, householdOf, addLabel, moveItems, snapItems, deleteItems,
     FAMILY_ID, familyAt,

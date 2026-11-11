@@ -247,3 +247,100 @@ T.test('自動排版：隨機 30 個家族，每段關係的子女出生序排�
   }
   T.eq(bad, 0, `${total} 個家族都保持出生序、不重疊`);
 });
+
+// ── 只整理一支（2026-11-11）──
+const posOf = (d, ids) => JSON.stringify(ids.map(id => [id, d.persons[id].x, d.persons[id].y]));
+
+T.test('只整理一支：本人的位置不動、其他人完全不動，只重排他的伴侶與子孫', () => {
+  const f = threeGen(), d = f.d;
+  GT.layout.autoLayout(d);
+  const kid2 = GT.addChild(d, f.up, 'M');                                   // 父母再多一個孩子，然後把孩子們亂擺
+  d.persons[f.me].x += 380; d.persons[f.me].y += 90; d.persons[f.sis].x -= 260; d.persons[kid2].y -= 40;
+  const others = [f.gf, f.gm, f.mgf, f.mgm, f.aunt], before = posOf(d, others), faPos = posOf(d, [f.fa]), order = kidOrder(d);
+  const structure = coordsOnly(d);
+  T.eq(GT.layout.branchIds(d, f.fa).slice().sort(), [f.fa, f.mo, f.me, f.sis, kid2].sort(), '這一支＝本人、伴侶、子女（不含伴侶的父母）');
+  const r = GT.layout.layoutBranch(d, f.fa);
+  T.eq(r.n, 5, '排了 5 個人');
+  T.eq(posOf(d, [f.fa]), faPos, '本人的位置不動');
+  T.eq(posOf(d, others), before, '不在這一支的人完全不動');
+  T.eq(coordsOnly(d), structure, '只改座標，關係資料一個字都沒動');
+  const P = d.persons, kids = [f.me, f.sis, kid2];
+  T.ok(kids.every(k => P[k].y === P[f.me].y) && P[f.me].y >= P[f.fa].y + GT.GAP_Y, '子女排在同一列，在父母下一列');
+  T.eq(P[f.mo].y, P[f.fa].y, '伴侶跟本人同一列');
+  T.ok(Math.abs(P[f.mo].x - P[f.fa].x) <= GT.GAP_X * 1.3, '伴侶在本人旁邊');
+  T.ok(Math.abs(midX(d, kids) - midX(d, [f.fa, f.mo])) <= GT.GRID, '子女置中在父母下方');
+  T.ok(kids.every((k, i) => i === 0 || Math.abs(P[k].x - P[kids[i - 1]].x) >= 60), '子女之間不重疊');
+  T.eq(kidOrder(d), order, '手足的左右順序（出生序）不變');
+  T.ok(Object.values(P).every(p => p.x % GT.GRID === 0 && p.y % GT.GRID === 0), '都落在格線上');
+  const once = posOf(d, Object.keys(P));
+  const r2 = GT.layout.layoutBranch(d, f.fa);
+  T.eq(posOf(d, Object.keys(P)), once, '排第二次不會再跳動');
+  T.eq(r2.overlaps, r.overlaps, '重疊數前後一致');
+});
+
+T.test('只整理一支：往下好幾代都會排；子孫的伴侶跟著走', () => {
+  const f = threeGen(), d = f.d;
+  const wife = GT.addPartner(d, f.me), g1 = GT.addChild(d, wife.unionId, 'F'), g2 = GT.addChild(d, wife.unionId, 'M');
+  GT.layout.autoLayout(d);
+  d.persons[g1].x += 500; d.persons[g2].y += 120; d.persons[wife.personId].x -= 300;
+  const ids = GT.layout.branchIds(d, f.gf);
+  T.eq(ids.length, 10, '祖父這一支：祖父母、姑姑、父母、孫子與孫女、孫媳、兩個曾孫，共 10 人');
+  T.ok(!ids.includes(f.mgf) && !ids.includes(f.mgm), '媳婦的父母不算在這一支');
+  const outside = [f.mgf, f.mgm], before = posOf(d, outside), gfPos = posOf(d, [f.gf]);
+  const r = GT.layout.layoutBranch(d, f.gf);
+  T.eq([r.n, posOf(d, [f.gf]), posOf(d, outside)], [10, gfPos, before], '祖父不動、外祖父母不動');
+  const P = d.persons;
+  T.ok(P[g1].y === P[g2].y && P[g1].y > P[f.me].y && P[f.me].y > P[f.fa].y && P[f.fa].y > P[f.gf].y, '四代各在自己那一列');
+  T.eq(P[wife.personId].y, P[f.me].y, '孫媳跟孫子同一列');
+  const branch = ids.map(id => P[id]);
+  T.ok(branch.every(p => branch.every(o => o === p || o.y !== p.y || Math.abs(o.x - p.x) >= 60)), '這一支裡面沒有人重疊');
+});
+
+T.test('只整理一支：沒有子女不排；排完跟旁人疊在一起會回報；不存在的人不出錯', () => {
+  const f = threeGen(), d = f.d;
+  GT.layout.autoLayout(d);
+  const all = posOf(d, Object.keys(d.persons));
+  T.eq(GT.layout.layoutBranch(d, f.sis), { n: 0, overlaps: 0 }, '沒有子女：不排');
+  T.eq(GT.layout.layoutBranch(d, 'nobody'), { n: 0, overlaps: 0 }, '沒有這個人：不排');
+  T.eq(GT.layout.branchIds(d, 'nobody'), [], '沒有這個人：這一支是空的');
+  T.eq(posOf(d, Object.keys(d.persons)), all, '都沒有動到任何人');
+  // 把一個不相干的人放在子女那一列的正中間：排完會疊在一起，要回報
+  const stranger = GT.addPerson(d, { gender: 'U', x: 5000, y: 5000 });
+  GT.layout.layoutBranch(d, f.fa);
+  d.persons[stranger].x = d.persons[f.me].x; d.persons[stranger].y = d.persons[f.me].y;
+  const sPos = posOf(d, [stranger]);
+  const r = GT.layout.layoutBranch(d, f.fa);
+  T.ok(r.overlaps >= 1, '有人跟沒被排到的人疊在一起：回報人數');
+  T.eq(posOf(d, [stranger]), sPos, '那個不相干的人沒有被移動');
+});
+
+T.test('只整理一支：隨機 30 個家族，挑一個有子女的人整理，其他人都不動、出生序不變、這一支不重疊', () => {
+  let seed = 1111, bad = [];
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  for (let n = 0; n < 30; n++) {
+    const d = GT.newDoc();
+    const add = (g, y) => GT.addPerson(d, { gender: g, x: 0, y });
+    let unions = [GT.linkPartners(d, add('M', 0), add('F', 0))];
+    for (let gen = 1; gen <= 3; gen++) {
+      const next = [];
+      for (const uid of unions) {
+        const kids = Array.from({ length: 1 + Math.floor(rnd() * 4) }, () => add(rnd() < 0.5 ? 'M' : 'F', gen * 160));
+        d.unions[uid].children = kids.map(id => ({ id, link: 'bio' }));
+        for (const k of kids) if (rnd() < 0.5) next.push(GT.addPartner(d, k).unionId);
+      }
+      unions = next;
+    }
+    GT.layout.autoLayout(d);
+    const parents = Object.values(d.unions).filter(u => u.children.length).map(u => u.partners[0]);
+    const pid = parents[Math.floor(rnd() * parents.length)];
+    const ids = GT.layout.branchIds(d, pid), inB = new Set(ids);
+    for (const id of ids) if (id !== pid) d.persons[id].x += Math.round(rnd() * 300 - 150);     // 這一支稍微弄亂（左右順序可能變，以弄亂後為準）
+    const outside = Object.keys(d.persons).filter(id => !inB.has(id)), before = posOf(d, outside.concat(pid)), order = kidOrder(d);
+    const r = GT.layout.layoutBranch(d, pid);
+    const B = ids.map(id => d.persons[id]);
+    const ok = r.n === ids.length && posOf(d, outside.concat(pid)) === before && JSON.stringify(kidOrder(d)) === JSON.stringify(order) &&
+               B.every(p => B.every(o => o === p || o.y !== p.y || Math.abs(o.x - p.x) >= 60)) && B.every(p => Number.isFinite(p.x) && Number.isFinite(p.y));
+    if (!ok) bad.push(n);
+  }
+  T.eq(bad, [], '30 個家族都符合');
+});

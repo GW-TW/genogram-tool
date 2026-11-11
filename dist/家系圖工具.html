@@ -3,7 +3,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-6syNkVurJ9fcrKmkiFxGVXWLsHmMCemVf7LF/LGUCzI=' 'sha256-q3x+PTQhtjcm+bTupZqGlgcXqIFP+lVyzv59yiNwLMI=' 'sha256-xrRsK3vfjB6YRg9VoY8ViYn/Wv9/xk+35tqH0Ae8gww=' 'sha256-MQHxv3ws6RX1zXjs2ddzGuzRkLxsqmCvC2Z6+7TcwhM=' 'sha256-q51l7Pj4m20KZxPO999UKk95XtdF0D0iE3V6tS06ArY=' 'sha256-8J5WcN6o9hR/6zNRvcFzna0ymapqXBG+WwQQYA05pYA='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-6syNkVurJ9fcrKmkiFxGVXWLsHmMCemVf7LF/LGUCzI=' 'sha256-q3x+PTQhtjcm+bTupZqGlgcXqIFP+lVyzv59yiNwLMI=' 'sha256-xrRsK3vfjB6YRg9VoY8ViYn/Wv9/xk+35tqH0Ae8gww=' 'sha256-ra1mwaYu8zOhFMziJbWLUmKZ3Kyb9CgMQ/g3adrPLKg=' 'sha256-tMPE+cZGp1sWZYytBHnISWbn7rmfP2aXfewM4xHBMww=' 'sha256-OYtkv22caHR3e1J1HETa7m+pf+blwjCZMopaC+/pmvQ='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>家系圖工具</title>
 <style>
@@ -3871,7 +3871,9 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     const P = doc.persons;
     const parentOf = new Map(), partnerIn = new Map(ids.map(id => [id, []]));
     for (const u of Object.values(doc.unions)) {
-      for (const c of u.children) if (partnerIn.has(c.id)) parentOf.set(c.id, u);
+      // 父母都不在這次要排的人裡面（只整理一支的時候，那一支最上面的人就是這樣）：當成沒有父母，位置不受上一代牽動
+      const inside = u.partners.some(p => partnerIn.has(p));
+      for (const c of u.children) if (inside && partnerIn.has(c.id)) parentOf.set(c.id, u);
       for (const p of u.partners) if (partnerIn.has(p)) partnerIn.get(p).push(u);
     }
     const units = unitsOf(doc, ids, gen);
@@ -4027,7 +4029,51 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     return ps.length;
   }
 
-  GT.layout = { autoLayout, generations, pav };
+  // ── 只整理一個人和他的子孫（2026-11-11）──
+  // 這一支有誰：本人、本人的伴侶，往下每一代的子女與子女的伴侶。伴侶的前一段關係、伴侶的父母不算
+  function branchIds(doc, pid) {
+    const P = doc.persons;
+    if (!P[pid]) return [];
+    const ids = new Set([pid]), queue = [pid];
+    for (let i = 0; i < queue.length; i++) {
+      for (const u of Object.values(doc.unions)) {
+        if (!u.partners.includes(queue[i])) continue;
+        for (const m of u.partners) if (P[m]) ids.add(m);
+        for (const c of u.children) if (P[c.id] && !ids.has(c.id)) { ids.add(c.id); queue.push(c.id); }
+      }
+    }
+    return [...ids];
+  }
+  // 本人的位置不動，這一支的其他人重新排；不在這一支的人完全不動。
+  // 回傳 { n: 這一支有幾個人, overlaps: 排完之後跟沒被排到的人疊在一起的有幾個 }；沒有子女就不排（n＝0）
+  function layoutBranch(doc, pid) {
+    const P = doc.persons, root = P[pid];
+    const ids = branchIds(doc, pid);
+    if (!root || !Object.values(doc.unions).some(u => u.partners.includes(pid) && u.children.some(c => P[c.id]))) return { n: 0, overlaps: 0 };
+    const box = new Map(ids.map(id => [id, R.personBox(doc, P[id])]));
+    const ext = (id) => { const b = box.get(id); return { half: (b.x2 - b.x1) / 2, above: P[id].y - b.y1, below: b.y2 - P[id].y }; };
+    const { gen } = generations(doc);
+    const X = layoutComponent(doc, ids, gen, (id) => ext(id).half);
+    // 各列的高度：跟整張圖的排法一樣（至少一個世代的高度，資料很多行時再拉開），以本人那一列為準
+    const rowOf = (id) => gen.get(id) - gen.get(pid);
+    const rows = [...new Set(ids.map(rowOf))].sort((a, b) => a - b), rowY = new Map([[rows[0], 0]]);
+    for (let i = 1; i < rows.length; i++) {
+      const up = ids.filter(id => rowOf(id) === rows[i - 1]), down = ids.filter(id => rowOf(id) === rows[i]);
+      rowY.set(rows[i], rowY.get(rows[i - 1]) + Math.max(GT.GAP_Y * (rows[i] - rows[i - 1]),
+        Math.max(...up.map(id => ext(id).below)) + 60 + Math.max(...down.map(id => ext(id).above))));
+    }
+    const x0 = X.get(pid), y0 = rowY.get(0), rx = root.x, ry = root.y;
+    for (const id of ids) {
+      if (id === pid) continue;
+      P[id].x = rx + GT.snap(X.get(id) - x0);
+      P[id].y = ry + GT.snap(rowY.get(rowOf(id)) - y0);
+    }
+    const inBranch = new Set(ids), others = Object.values(P).filter(p => !inBranch.has(p.id));
+    const overlaps = ids.filter(id => others.some(o => Math.abs(o.y - P[id].y) < GT.S * 1.5 && Math.abs(o.x - P[id].x) < 60)).length;
+    return { n: ids.length, overlaps };
+  }
+
+  GT.layout = { autoLayout, layoutBranch, branchIds, generations, pav };
 })(globalThis.GT = globalThis.GT || {});
 
 </script>
@@ -4203,6 +4249,13 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 - **手足由左到右的順序（出生序）照你原本畫的，不會被調換**。排版前請先把手足照出生序由左到右擺好。
 - 資源圓和文字說明會跟著整張圖移動。
 - 要不要用由你決定：按了會先問一次，按「開始排版」才會排。
+
+## 只整理一家
+其他地方都排好了，只有某一家的子孫亂掉時，不必整張圖重排：
+1. 點選那一家最上面的那個人（要有子女）。
+2. 按畫布左上角工具列後面的「整理子孫…」，或左邊的「自動排版…」。
+3. 選「只排○○和子孫」：他本人的位置不動，只重新排他的伴侶、子女、孫子女；其他人都不動。
+- 排完如果跟旁邊沒被排到的人疊在一起，畫布上方會提醒有幾個人重疊，請把他們拖開，或按復原後改選「排整張圖」。
 
 > 排完不滿意，按「復原」（[[Ctrl]]+[[Z]]）就回到原來的樣子；也可以排完再手動拖曳微調。
 ` },
@@ -4571,7 +4624,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 (function (GT) {
   'use strict';
   const APP_VERSION = '0.9.0';
-  const BUILD = '2026-11-11 16:35';
+  const BUILD = '2026-11-11 16:36';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -5792,17 +5845,31 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
   function openAutoLayout() {
     if (Object.keys(state.doc.persons).length < 2) { toast('圖上至少要有兩個人才需要排版。', 'warn'); return; }
     if (R.viewMode(state.doc) === 'ecomap') { toast('生態圖模式看不到每個人的位置。請先在「顯示」切到「家系圖＋生態圖」或「只看家系圖」。', 'warn', 6000); return; }
+    // 選了一個有子女的人：可以只整理他這一支（2026-11-11），其他人不動
+    const ps = selOf('person'), one = state.sel.size === 1 && ps.length === 1 && hasDescendants(ps[0]) ? ps[0] : null;
+    const nBranch = one ? GT.layout.branchIds(state.doc, one).length : 0;
+    const whole = () => {
+      if (state.pending) cancelPending();
+      mutate(d => GT.layout.autoLayout(d));
+      fitView();
+      toast('已重新排版。不滿意可以按復原（Ctrl+Z）。', 'ok', 6000);
+    };
+    const branch = () => {
+      if (state.pending) cancelPending();
+      if (!state.doc.persons[one]) { notice('原本選的人已經不在圖上了，請重新選取再操作。'); return; }
+      const r = mutate(d => GT.layout.layoutBranch(d, one));
+      if (r.overlaps) notice(`排好了 ${r.n} 個人，但有 ${r.overlaps} 個人跟旁邊沒有被排到的人疊在一起。請把他們拖開，或按復原之後改用「排整張圖」。`, '排好了，但有人重疊');
+      else toast(`已重新排列 ${r.n} 個人，其他人沒有動。不滿意可以按復原（Ctrl+Z）。`, 'ok', 6000);
+    };
     dialog('自動排版', `<div class="help-doc">
-      <p>依世代和家庭關係，重新排列<b>所有人</b>的位置：</p>
+      <p>依世代和家庭關係重新排列位置：</p>
       <ul><li>同一代排在同一列，伴侶相鄰。</li><li>子女排在父母下方；多段婚姻照「前任—本人—現任」排。</li>
-      <li>資源圓和文字說明會跟著整張圖移動。</li></ul>
+      <li>手足由左到右的順序照你原本畫的，不會調換。</li></ul>
+      ${one ? `<p><b>只排「${esc(personName(one))}」和子孫</b>：他本人的位置不動，只重新排他的伴侶、子女、孫子女（共 ${nBranch} 人），其他人都不動。<br>
+      <b>排整張圖</b>：所有人都重新排，資源圓和文字說明跟著整張圖移動。</p>` : '<p>會重新排列<b>所有人</b>；資源圓和文字說明跟著整張圖移動。要只整理某一家，先點選那個人（要有子女）再按「自動排版」。</p>'}
       <p class="help">排完不滿意，按「復原」（Ctrl+Z）就回到原來的樣子；也可以排完再手動拖曳微調。</p></div>`,
-      [{ label: '取消' }, { label: '開始排版', primary: true, onClick: () => {
-        if (state.pending) cancelPending();
-        mutate(d => GT.layout.autoLayout(d));
-        fitView();
-        toast('已重新排版。不滿意可以按復原（Ctrl+Z）。', 'ok', 6000);
-      } }]);
+      one ? [{ label: '取消' }, { label: `只排「${personName(one).slice(0, 8)}」和子孫`, onClick: branch }, { label: '排整張圖', primary: true, onClick: whole }]
+          : [{ label: '取消' }, { label: '開始排版', primary: true, onClick: whole }]);
   }
 
   // 新增資源：先選大類、再選項目（跟關係選擇器同一種操作）
@@ -6687,6 +6754,22 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       const changed = JSON.stringify(state.doc) !== beforeLayout, birthOrder = JSON.stringify(kidOrder()) === order0;
       undo();
       checks.autolayout = asked && changed && apart && birthOrder && !$('dlg').open && JSON.stringify(state.doc) === beforeLayout;
+      // 只整理一支（2026-11-11）：選一個有子女的人，工具列出現「整理子孫…」；確認後只動他的伴侶與子孫，本人與其他人不動；一次復原回去
+      select([a]);
+      const kidIds = state.doc.unions[u0].children.map(c => c.id), pos = () => JSON.stringify(Object.values(state.doc.persons).map(p => [p.id, p.x, p.y]));
+      mutate(d => { d.persons[kidIds[0]].x += 400; d.persons[kidIds[0]].y += 70; });
+      const messy = pos(), aPos = [state.doc.persons[a].x, state.doc.persons[a].y];
+      const branchBtn = document.querySelector('#selActs [data-sel-act=branch]');
+      if (branchBtn) branchBtn.click();
+      const askedBranch = $('dlg').open && $('dlgTitle').textContent === '自動排版' && pos() === messy;
+      const onlyBtn = [...$('dlgFoot').querySelectorAll('button')].find(b => b.textContent.startsWith('只排'));
+      if (onlyBtn) onlyBtn.click();
+      const bp = Object.values(state.doc.persons), kidsY = kidIds.map(id => state.doc.persons[id].y);
+      const tidied = pos() !== messy && state.doc.persons[a].x === aPos[0] && state.doc.persons[a].y === aPos[1] &&
+                     kidsY.every(y => y === kidsY[0] && y > aPos[1]) && bp.every(p => bp.every(o => o === p || o.y !== p.y || Math.abs(o.x - p.x) >= 60));
+      undo();
+      checks.branch = !!branchBtn && askedBranch && !!onlyBtn && tidied && pos() === messy && !$('dlg').open;
+      undo();
       // 線旁說明：特殊線條自動標名稱；顯示設定可以關掉
       mutate(d => { d.unions[u0].type = 'SeparationLegal'; });
       checks.linelabel = $('world').innerHTML.includes('合法分居');

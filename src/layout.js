@@ -98,7 +98,9 @@
     const P = doc.persons;
     const parentOf = new Map(), partnerIn = new Map(ids.map(id => [id, []]));
     for (const u of Object.values(doc.unions)) {
-      for (const c of u.children) if (partnerIn.has(c.id)) parentOf.set(c.id, u);
+      // 父母都不在這次要排的人裡面（只整理一支的時候，那一支最上面的人就是這樣）：當成沒有父母，位置不受上一代牽動
+      const inside = u.partners.some(p => partnerIn.has(p));
+      for (const c of u.children) if (inside && partnerIn.has(c.id)) parentOf.set(c.id, u);
       for (const p of u.partners) if (partnerIn.has(p)) partnerIn.get(p).push(u);
     }
     const units = unitsOf(doc, ids, gen);
@@ -254,5 +256,49 @@
     return ps.length;
   }
 
-  GT.layout = { autoLayout, generations, pav };
+  // ── 只整理一個人和他的子孫（2026-11-11）──
+  // 這一支有誰：本人、本人的伴侶，往下每一代的子女與子女的伴侶。伴侶的前一段關係、伴侶的父母不算
+  function branchIds(doc, pid) {
+    const P = doc.persons;
+    if (!P[pid]) return [];
+    const ids = new Set([pid]), queue = [pid];
+    for (let i = 0; i < queue.length; i++) {
+      for (const u of Object.values(doc.unions)) {
+        if (!u.partners.includes(queue[i])) continue;
+        for (const m of u.partners) if (P[m]) ids.add(m);
+        for (const c of u.children) if (P[c.id] && !ids.has(c.id)) { ids.add(c.id); queue.push(c.id); }
+      }
+    }
+    return [...ids];
+  }
+  // 本人的位置不動，這一支的其他人重新排；不在這一支的人完全不動。
+  // 回傳 { n: 這一支有幾個人, overlaps: 排完之後跟沒被排到的人疊在一起的有幾個 }；沒有子女就不排（n＝0）
+  function layoutBranch(doc, pid) {
+    const P = doc.persons, root = P[pid];
+    const ids = branchIds(doc, pid);
+    if (!root || !Object.values(doc.unions).some(u => u.partners.includes(pid) && u.children.some(c => P[c.id]))) return { n: 0, overlaps: 0 };
+    const box = new Map(ids.map(id => [id, R.personBox(doc, P[id])]));
+    const ext = (id) => { const b = box.get(id); return { half: (b.x2 - b.x1) / 2, above: P[id].y - b.y1, below: b.y2 - P[id].y }; };
+    const { gen } = generations(doc);
+    const X = layoutComponent(doc, ids, gen, (id) => ext(id).half);
+    // 各列的高度：跟整張圖的排法一樣（至少一個世代的高度，資料很多行時再拉開），以本人那一列為準
+    const rowOf = (id) => gen.get(id) - gen.get(pid);
+    const rows = [...new Set(ids.map(rowOf))].sort((a, b) => a - b), rowY = new Map([[rows[0], 0]]);
+    for (let i = 1; i < rows.length; i++) {
+      const up = ids.filter(id => rowOf(id) === rows[i - 1]), down = ids.filter(id => rowOf(id) === rows[i]);
+      rowY.set(rows[i], rowY.get(rows[i - 1]) + Math.max(GT.GAP_Y * (rows[i] - rows[i - 1]),
+        Math.max(...up.map(id => ext(id).below)) + 60 + Math.max(...down.map(id => ext(id).above))));
+    }
+    const x0 = X.get(pid), y0 = rowY.get(0), rx = root.x, ry = root.y;
+    for (const id of ids) {
+      if (id === pid) continue;
+      P[id].x = rx + GT.snap(X.get(id) - x0);
+      P[id].y = ry + GT.snap(rowY.get(rowOf(id)) - y0);
+    }
+    const inBranch = new Set(ids), others = Object.values(P).filter(p => !inBranch.has(p.id));
+    const overlaps = ids.filter(id => others.some(o => Math.abs(o.y - P[id].y) < GT.S * 1.5 && Math.abs(o.x - P[id].x) < 60)).length;
+    return { n: ids.length, overlaps };
+  }
+
+  GT.layout = { autoLayout, layoutBranch, branchIds, generations, pav };
 })(globalThis.GT = globalThis.GT || {});

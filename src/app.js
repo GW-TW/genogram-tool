@@ -1226,17 +1226,31 @@
   function openAutoLayout() {
     if (Object.keys(state.doc.persons).length < 2) { toast('圖上至少要有兩個人才需要排版。', 'warn'); return; }
     if (R.viewMode(state.doc) === 'ecomap') { toast('生態圖模式看不到每個人的位置。請先在「顯示」切到「家系圖＋生態圖」或「只看家系圖」。', 'warn', 6000); return; }
+    // 選了一個有子女的人：可以只整理他這一支（2026-11-11），其他人不動
+    const ps = selOf('person'), one = state.sel.size === 1 && ps.length === 1 && hasDescendants(ps[0]) ? ps[0] : null;
+    const nBranch = one ? GT.layout.branchIds(state.doc, one).length : 0;
+    const whole = () => {
+      if (state.pending) cancelPending();
+      mutate(d => GT.layout.autoLayout(d));
+      fitView();
+      toast('已重新排版。不滿意可以按復原（Ctrl+Z）。', 'ok', 6000);
+    };
+    const branch = () => {
+      if (state.pending) cancelPending();
+      if (!state.doc.persons[one]) { notice('原本選的人已經不在圖上了，請重新選取再操作。'); return; }
+      const r = mutate(d => GT.layout.layoutBranch(d, one));
+      if (r.overlaps) notice(`排好了 ${r.n} 個人，但有 ${r.overlaps} 個人跟旁邊沒有被排到的人疊在一起。請把他們拖開，或按復原之後改用「排整張圖」。`, '排好了，但有人重疊');
+      else toast(`已重新排列 ${r.n} 個人，其他人沒有動。不滿意可以按復原（Ctrl+Z）。`, 'ok', 6000);
+    };
     dialog('自動排版', `<div class="help-doc">
-      <p>依世代和家庭關係，重新排列<b>所有人</b>的位置：</p>
+      <p>依世代和家庭關係重新排列位置：</p>
       <ul><li>同一代排在同一列，伴侶相鄰。</li><li>子女排在父母下方；多段婚姻照「前任—本人—現任」排。</li>
-      <li>資源圓和文字說明會跟著整張圖移動。</li></ul>
+      <li>手足由左到右的順序照你原本畫的，不會調換。</li></ul>
+      ${one ? `<p><b>只排「${esc(personName(one))}」和子孫</b>：他本人的位置不動，只重新排他的伴侶、子女、孫子女（共 ${nBranch} 人），其他人都不動。<br>
+      <b>排整張圖</b>：所有人都重新排，資源圓和文字說明跟著整張圖移動。</p>` : '<p>會重新排列<b>所有人</b>；資源圓和文字說明跟著整張圖移動。要只整理某一家，先點選那個人（要有子女）再按「自動排版」。</p>'}
       <p class="help">排完不滿意，按「復原」（Ctrl+Z）就回到原來的樣子；也可以排完再手動拖曳微調。</p></div>`,
-      [{ label: '取消' }, { label: '開始排版', primary: true, onClick: () => {
-        if (state.pending) cancelPending();
-        mutate(d => GT.layout.autoLayout(d));
-        fitView();
-        toast('已重新排版。不滿意可以按復原（Ctrl+Z）。', 'ok', 6000);
-      } }]);
+      one ? [{ label: '取消' }, { label: `只排「${personName(one).slice(0, 8)}」和子孫`, onClick: branch }, { label: '排整張圖', primary: true, onClick: whole }]
+          : [{ label: '取消' }, { label: '開始排版', primary: true, onClick: whole }]);
   }
 
   // 新增資源：先選大類、再選項目（跟關係選擇器同一種操作）
@@ -2121,6 +2135,22 @@
       const changed = JSON.stringify(state.doc) !== beforeLayout, birthOrder = JSON.stringify(kidOrder()) === order0;
       undo();
       checks.autolayout = asked && changed && apart && birthOrder && !$('dlg').open && JSON.stringify(state.doc) === beforeLayout;
+      // 只整理一支（2026-11-11）：選一個有子女的人，工具列出現「整理子孫…」；確認後只動他的伴侶與子孫，本人與其他人不動；一次復原回去
+      select([a]);
+      const kidIds = state.doc.unions[u0].children.map(c => c.id), pos = () => JSON.stringify(Object.values(state.doc.persons).map(p => [p.id, p.x, p.y]));
+      mutate(d => { d.persons[kidIds[0]].x += 400; d.persons[kidIds[0]].y += 70; });
+      const messy = pos(), aPos = [state.doc.persons[a].x, state.doc.persons[a].y];
+      const branchBtn = document.querySelector('#selActs [data-sel-act=branch]');
+      if (branchBtn) branchBtn.click();
+      const askedBranch = $('dlg').open && $('dlgTitle').textContent === '自動排版' && pos() === messy;
+      const onlyBtn = [...$('dlgFoot').querySelectorAll('button')].find(b => b.textContent.startsWith('只排'));
+      if (onlyBtn) onlyBtn.click();
+      const bp = Object.values(state.doc.persons), kidsY = kidIds.map(id => state.doc.persons[id].y);
+      const tidied = pos() !== messy && state.doc.persons[a].x === aPos[0] && state.doc.persons[a].y === aPos[1] &&
+                     kidsY.every(y => y === kidsY[0] && y > aPos[1]) && bp.every(p => bp.every(o => o === p || o.y !== p.y || Math.abs(o.x - p.x) >= 60));
+      undo();
+      checks.branch = !!branchBtn && askedBranch && !!onlyBtn && tidied && pos() === messy && !$('dlg').open;
+      undo();
       // 線旁說明：特殊線條自動標名稱；顯示設定可以關掉
       mutate(d => { d.unions[u0].type = 'SeparationLegal'; });
       checks.linelabel = $('world').innerHTML.includes('合法分居');

@@ -3,7 +3,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-DJtht9GXj8GdYTyPRj5NGOCuJdGTjSyGxgo8RUkbMik=' 'sha256-BxaLDMXQD3feP3T3K/ienP7fcCLfpYiGfqWYlkx5mj4=' 'sha256-O3RVlKvoQ/5A4ZcpSdENG+5uSRLlduajqEsfuDzgalQ=' 'sha256-MQHxv3ws6RX1zXjs2ddzGuzRkLxsqmCvC2Z6+7TcwhM=' 'sha256-/U2Dze5DrGwmqlk/Tb01AQbyTiSGawSc1XUd/SUCOic=' 'sha256-IGvX3ZT4ND4k0RaSSzxga7M37w3UJnLovukvB8feWW0='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-DJtht9GXj8GdYTyPRj5NGOCuJdGTjSyGxgo8RUkbMik=' 'sha256-BxaLDMXQD3feP3T3K/ienP7fcCLfpYiGfqWYlkx5mj4=' 'sha256-dD1zJ0RkwLncOUox/CCBPTmbICMAXvp04VryUlDWLRM=' 'sha256-MQHxv3ws6RX1zXjs2ddzGuzRkLxsqmCvC2Z6+7TcwhM=' 'sha256-ONjuKed7ImPehvtZj5rBfnyNsQ75JzMFu0f3D6GHRpo=' 'sha256-MC1WrlKsXt+apvS6+PU9j9E8lnfL9Ap0PUzzjnhF06A='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>家系圖工具</title>
 <style>
@@ -2971,17 +2971,63 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       parts.push(...rr);
       rowRuns.push(rr);
     }
-    for (let i = 1; i < rowRuns.length; i++) {  // 相鄰兩列：挑最近的兩段接起來；會撞到別的生活圈就換一組
+    // 上下兩列接起來。連接帶是細細一條（寬 2×pad）：上下對得到、中間沒有人擋著就直直往下；
+    // 否則走兩列之間的空檔橫過去，中間隔著別的世代時，從那一列沒有人的地方穿過去。
+    // 絕不可以蓋到不同住的人，也要避開別的生活圈；能直走就直走。
+    // （使用者 2026-11-11 附圖：祖母與孫子同住，原本用一整片矩形連接，把已歿祖父和其他手足的上方都蓋住）
+    const people = others.map(o => o.b);
+    const uniq = (a) => [...new Set(a.map(v => Math.round(v)))];
+    const strip = (x, y1, y2) => ({ x1: x - pad, y1, x2: x + pad, y2 });
+    const bar = (xa, xb, y) => ({ x1: Math.min(xa, xb) - pad, y1: y, x2: Math.max(xa, xb) + pad, y2: y + 2 * pad });
+    for (let i = 1; i < rowRuns.length; i++) {
+      const ya = rows[i - 1].y, yb = rows[i].y;
+      // 夾在中間的世代（只看不同住的人），由上到下分列
+      const midRows = [];
+      for (const o of others.filter(o => o.p.y > ya + GT.S && o.p.y < yb - GT.S).sort((p, q) => p.p.y - q.p.y)) {
+        const r = midRows.find(m => Math.abs(m.y - o.p.y) < GT.S);
+        if (r) r.boxes.push(o.b); else midRows.push({ y: o.p.y, boxes: [o.b] });
+      }
+      const rowTop = (m) => Math.min(...m.boxes.map(q => q.y1)) - pad, rowBot = (m) => Math.max(...m.boxes.map(q => q.y2)) + pad;
+      const sideA = others.filter(o => Math.abs(o.p.y - ya) < GT.S).map(o => o.b.y2 + pad);
+      const sideB = others.filter(o => Math.abs(o.p.y - yb) < GT.S).map(o => o.b.y1 - pad);
       const cands = [];
       for (const a of rowRuns[i - 1]) for (const b of rowRuns[i]) {
+        const span = b.y1 - a.y2 + 4 * pad;
         const ov = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1);   // 正＝水平重疊寬度；負＝水平間隔
-        let x1, x2;
-        if (ov >= 2 * pad) { const c = (Math.max(a.x1, b.x1) + Math.min(a.x2, b.x2)) / 2, w = Math.min(ov / 2, 3 * pad); x1 = c - w; x2 = c + w; }
-        else { x1 = Math.min(a.x2, b.x2) - 2 * pad; x2 = Math.max(a.x1, b.x1) + 2 * pad; }
-        cands.push({ ov, r: { x1, y1: a.y2 - 2 * pad, x2, y2: b.y1 + 2 * pad } });
+        if (ov >= 2 * pad) {                                         // 直的
+          const c = (Math.max(a.x1, b.x1) + Math.min(a.x2, b.x2)) / 2, w = Math.min(ov / 2, 3 * pad);
+          cands.push({ rs: [{ x1: c - w, y1: a.y2 - 2 * pad, x2: c + w, y2: b.y1 + 2 * pad }], len: span });
+        }
+        const xs = (r) => uniq([(r.x1 + r.x2) / 2, r.x1 + 2 * pad, r.x2 - 2 * pad]).filter(x => x >= r.x1 + pad && x <= r.x2 - pad);
+        // 各個空檔可以走的高度：上一列（含旁邊不同住的人的標籤）底下，到下一列頭頂之間
+        const tops = [Math.max(a.y2, ...sideA), ...midRows.map(rowBot)], bots = [...midRows.map(rowTop), Math.min(b.y1, ...sideB)];
+        const lanes = tops.map((t, k) => {
+          const lo = Math.max(t, a.y2 - 2 * pad), hi = Math.max(lo, bots[k] - 2 * pad);
+          return k === 0 && !midRows.length ? uniq([(lo + hi) / 2, lo, hi]) : [Math.round((lo + hi) / 2)];
+        });
+        for (const xa of xs(a)) for (const xb of xs(b)) for (const y0 of lanes[0]) {
+          // 穿過中間每一列的位置：挑沒有人的地方，橫向總共少走一點（由上往下逐列挑離目標最近的）
+          const rs = [], ys = [y0, ...lanes.slice(1).map(l => l[0])];
+          let x = xa, len = span;
+          rs.push(strip(xa, a.y2 - 2 * pad, ys[0] + 2 * pad));
+          midRows.forEach((m, k) => {
+            const free = (v) => !m.boxes.some(q => q.x1 - 2 < v + pad && q.x2 + 2 > v - pad);
+            const opts = uniq([x, xb, ...m.boxes.flatMap(q => [q.x1 - pad - 4, q.x2 + pad + 4])]).filter(free);
+            const nx = opts.sort((p, q) => (Math.abs(p - x) + Math.abs(p - xb)) - (Math.abs(q - x) + Math.abs(q - xb)))[0];
+            if (nx !== x) { rs.push(bar(x, nx, ys[k])); len += Math.abs(nx - x) + 30; }
+            rs.push(strip(nx, ys[k], ys[k + 1] + 2 * pad));
+            x = nx;
+          });
+          const yl = ys[ys.length - 1];
+          if (x !== xb) { rs.push(bar(x, xb, yl)); len += Math.abs(xb - x) + 30; }
+          rs.push(strip(xb, yl, b.y1 + 2 * pad));
+          cands.push({ rs: rs.filter(r => r.y2 > r.y1), len: len + Math.abs(y0 - lanes[0][0]) / 100 });
+        }
       }
-      cands.sort((p, q) => q.ov - p.ov);                            // 重疊越多越好；不重疊就挑間隔最小的
-      parts.push((cands.find(c => !clash([c.r])) || cands[0]).r);
+      // 蓋到不同住的人最不行，其次是碰到別的生活圈，再來才比長短
+      for (const c of cands) c.cost = overlapArea(c.rs, people, 2) * 1000 + clash(c.rs) * 20 + c.len;
+      cands.sort((p, q) => p.cost - q.cost);
+      parts.push(...cands[0].rs);
     }
     if (h.label && parts.length) {                // 最上面那塊往上多留一行給名稱，不壓到人
       const top = parts.reduce((m, r) => (r.y1 < m.y1 ? r : m));
@@ -3834,7 +3880,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 - 把別的生活圈的人拖進來，按「加入」之後，他會從原本的圈移出。
 - 開舊檔時，如果有兩個生活圈有同一個人，會自動合併成一個，並在畫布上方告訴你。
 
-> 工具會盡量不把沒住在一起的人圈進去，兩個生活圈也不會重疊：要繞過別人時，碰到別的生活圈就改從上方繞過去。如果右邊提醒「圈內有非成員」，請把那個人拖到圈外。
+> 工具會盡量不把沒住在一起的人圈進去，兩個生活圈也不會重疊：要繞過別人時，碰到別的生活圈就改從上方繞過去。上下兩代同住（例如祖孫同住、父母不同住）時，兩代之間用細細一條連接帶連起來，會繞過不同住的人。如果右邊提醒「圈內有非成員」，請把那個人拖到圈外。
 
 ## 文字說明
 按左邊「新增文字說明」，可以在圖上任何地方加一段文字，拖曳就能移動位置。
@@ -4096,8 +4142,8 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.8.6';
-  const BUILD = '2026-10-28 15:51';
+  const APP_VERSION = '0.8.7';
+  const BUILD = '2026-11-11 15:31';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

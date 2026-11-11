@@ -186,10 +186,27 @@ T.test('生活圈不會把不同住的人圈進去（回歸）', () => {
 });
 
 T.test('生活圈：無法避開時，面板要能列出被圈到的人', () => {
+  // 2026-11-11 改情境：原本用「隔代同住、中間那代在同一直線上」，現在連接帶會繞過去（見下一組）；
+  // 真的避不開的是不同住的人疊在成員身上
+  const d = GT.newDoc();
+  const a = GT.addPerson(d, { gender: 'F', x: 0, y: 0 });
+  const x = GT.addPerson(d, { gender: 'M', x: 300, y: 0 });
+  d.persons[x].x = 10;                                       // 被拖到成員身上
+  const h = GT.addHousehold(d, [a]);
+  T.eq(GT.render.householdIntruders(d, d.households[h]), [x], '列出疊在成員身上的人');
+});
+
+T.test('回歸：隔代同住（祖孫同住、父母不同住），連接帶繞過中間那一代（使用者 2026-11-11）', () => {
   const d = GT.newDoc();
   const g = GT.addPerson(d, { gender: 'F', x: 0, y: 0 }), mid = GT.addPerson(d, { gender: 'M', x: 0, y: 160 }), k = GT.addPerson(d, { gender: 'M', x: 0, y: 320 });
-  const h = GT.addHousehold(d, [g, k]);   // 隔代同住，中間那代正好在同一直線上
-  T.eq(GT.render.householdIntruders(d, d.households[h]), [mid], '列出夾在中間的人');
+  const mw = GT.addPerson(d, { gender: 'F', x: 100, y: 160 });
+  d.persons[mid].name = '父親（不同住）';
+  const h = GT.addHousehold(d, [g, k]);   // 中間那代正好在同一直線上
+  const parts = GT.render.householdParts(d, d.households[h]);
+  T.eq(GT.render.householdIntruders(d, d.households[h]), [], '父母都沒被圈進去');
+  T.ok(!coversPerson(d, parts, mid) && !coversPerson(d, parts, mw), '連接帶沒有蓋到父親、母親（含姓名標籤）');
+  T.ok(partsConnected(parts), '祖母到孫子連成一片');
+  T.ok(coversPerson(d, parts, g) && coversPerson(d, parts, k), '祖母與孫子都在框裡');
 });
 
 const trackPts = (svg, id) => [...groupOf(svg, id).matchAll(/[ML](-?[\d.]+),(-?[\d.]+)/g)].map(m => ({ x: +m[1], y: +m[2] }));
@@ -658,4 +675,50 @@ T.test('生活圈：旁邊沒有別的圈時，照舊從夾在中間的人下方
   const mid = d.persons[Object.keys(d.persons).find(id => d.persons[id].x === 100 && d.persons[id].y === 0)];
   T.ok(A.some(r => r.x1 < mid.x && r.x2 > mid.x && r.y1 > mid.y), '繞路那一塊在中間那個人的下方');
   T.ok(partsConnected(A), '連成一片');
+});
+
+// ── 跨代同住（使用者 2026-11-11 附圖：祖母與孫子同住，框把已歿祖父與其他手足的上方整片蓋住）──
+function crossGenHousehold() {
+  const d = GT.newDoc();
+  const P = (g, x, y, o) => { const id = GT.addPerson(d, { gender: g, x, y }); Object.assign(d.persons[id], o || {}); return id; };
+  const gf = P('M', 300, 0, { deceased: true }), gm = P('F', 400, 0, { age: '82' });
+  const idx = P('M', 0, 160, { index: true }), sis = P('F', 100, 160), sh = P('M', 200, 160), bro = P('M', 300, 160), bw = P('F', 400, 160);
+  const u0 = GT.linkPartners(d, gf, gm); d.unions[u0].children = [idx, sis, bro].map(id => ({ id, link: 'bio' }));
+  GT.linkPartners(d, sis, sh); GT.linkPartners(d, bro, bw, 'Divorce');
+  const h = GT.addHousehold(d, [idx, gm], '');
+  return { d, h, gf, gm, idx, sis, sh, bro, bw };
+}
+// 一塊矩形有沒有蓋到某個人的「符號＋標籤」
+const coversPerson = (d, parts, id, m) => { const b = GT.render.personBox(d, d.persons[id]); return rectsHit(parts, [b], m || 0); };
+
+T.test('回歸：跨代同住的框不蓋到不同住的人（使用者 2026-11-11 附圖：祖母＋孫子，整片蓋住已歿祖父與手足上方）', () => {
+  const t = crossGenHousehold(), d = t.d;
+  const parts = GT.render.householdParts(d, d.households[t.h]);
+  for (const [name, id] of [['已歿祖父', t.gf], ['姊姊', t.sis], ['姊夫', t.sh], ['哥哥', t.bro], ['嫂嫂', t.bw]])
+    T.ok(!coversPerson(d, parts, id), `框沒有蓋到${name}`);
+  T.ok(coversPerson(d, parts, t.gm) && coversPerson(d, parts, t.idx), '祖母與孫子都在框裡');
+  T.ok(partsConnected(parts), '上下兩代仍然連成一片');
+  T.eq(GT.render.householdIntruders(d, d.households[t.h]), [], '沒有把不同住的人圈進去');
+  const area = parts.reduce((s, r) => s + (r.x2 - r.x1) * (r.y2 - r.y1), 0);
+  T.ok(area < 40000, `連接的部分是細細一條，不是一大片（面積 ${Math.round(area)}）`);
+});
+
+T.test('生活圈：隨機 40 張圖，框都不蓋到不同住的人、各塊連成一片（使用者 2026-11-11）', () => {
+  let seed = 1111, bad = [];
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  for (let n = 0; n < 40; n++) {
+    const d = GT.newDoc(), ids = [];
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 7; c++) if (rnd() < 0.6) {
+      const id = GT.addPerson(d, { gender: rnd() < 0.5 ? 'M' : 'F', x: c * 100, y: r * 160 });
+      if (rnd() < 0.5) d.persons[id].name = '王小明';
+      ids.push(id);
+    }
+    const members = ids.filter(() => rnd() < 0.25);
+    if (members.length < 2) continue;
+    const h = GT.addHousehold(d, members, rnd() < 0.5 ? '同住' : '');
+    const parts = GT.render.householdParts(d, d.households[h]);
+    const hit = ids.filter(id => !members.includes(id) && coversPerson(d, parts, id));
+    if (hit.length || !partsConnected(parts) || GT.render.householdIntruders(d, d.households[h]).length) bad.push(n);
+  }
+  T.eq(bad, [], '每一張都沒有蓋到不同住的人');
 });

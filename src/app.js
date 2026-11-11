@@ -2108,7 +2108,17 @@
       ptr('pointerdown', pA, $('world').querySelector(`[data-id="${a}"]`));
       const heldShut = state.sel.has(a) && disp($('props')) === 'none';
       ptr('pointerup', pA);
-      checks.narrow = nClosed && heldShut && disp($('props')) !== 'none' && getComputedStyle($('props')).position === 'absolute' && cw() === wN;
+      const floated0 = disp($('props')) !== 'none' && getComputedStyle($('props')).position === 'absolute' && cw() === wN;
+      // 右欄浮出來的時候，「收起右欄」的按鈕與縮放列沒有被蓋住（點得到）；按了就收起來，選取還在
+      const onTop = (el) => { const r = el.getBoundingClientRect(), t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!t && el.contains(t); };
+      $('toasts').innerHTML = '';                              // 前面幾項留下的提示會暫時疊在右下角，量之前先清掉
+      const reachable = onTop($('btnPanelR')) && onTop($('zoomFit'));
+      if (!reachable) GT.log.push({ time: new Date().toISOString(), ref: 'SELFTEST', code: 'SELFTEST', detail: 'narrow ' + JSON.stringify([onTop($('btnPanelR')), onTop($('zoomFit')),
+        Math.round($('btnPanelR').getBoundingClientRect().left), Math.round($('props').getBoundingClientRect().left), Math.round($('zoomFit').getBoundingClientRect().right)]) });
+      $('btnPanelR').click();
+      const shutByBtn = disp($('props')) === 'none' && state.sel.has(a);
+      ui.right = null;
+      checks.narrow = nClosed && heldShut && floated0 && reachable && shutByBtn;
       ui.width = 1366; select([]);
       // 「移動畫面」（2026-11-11）：開著時拖曳空白處是移動畫面（不是框選），點一下人照樣選得到；再按一次關閉
       $('btnPan').click();
@@ -2257,7 +2267,9 @@
         .filter(el => el.offsetParent !== null && (el.offsetHeight < 44 || el.offsetWidth < 44)).map(el => `help:${el.id}:${el.offsetWidth}x${el.offsetHeight}`);
       // 視窗不夠寬：說明欄浮在右邊，不擠畫布
       ui.width = 1100; syncLayout();
-      const floated = wsH.classList.contains('help-over') && getComputedStyle($('helpDock')).position === 'absolute';
+      $('toasts').innerHTML = '';
+      const floated = wsH.classList.contains('help-over') && getComputedStyle($('helpDock')).position === 'absolute' &&
+                      (() => { const r = $('zoomFit').getBoundingClientRect(), t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!t && $('zoomFit').contains(t); })();
       ui.width = 1366; syncLayout();
       // 游標在說明欄裡按 Esc：只關說明欄，焦點回到「使用說明」，不取消選取
       select([a]); $('helpBody').focus();

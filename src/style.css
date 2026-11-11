@@ -68,7 +68,15 @@ body {
   position: absolute; top: 0; bottom: 0; z-index: 8; grid-column: 1 / -1;
   box-shadow: var(--elev-overlay);
 }
-.workspace.narrow > .props { right: 0; width: min(320px, 88%); }
+.workspace.narrow { --over-w: min(320px, 88vw); }
+.workspace.help-over { --over-w: min(var(--help-w), 92vw); }
+.workspace.narrow > .props { right: 0; width: var(--over-w); }
+/* 右欄或說明欄浮在畫布上的時候，畫布右上角的收合鈕與右下角的縮放列往左讓開，不能被蓋住
+   （2026-11-11 看截圖發現：右欄一浮出來就把「收起右欄」的按鈕蓋掉，只能靠取消選取才收得回去） */
+.workspace.narrow:not(.right-off) .stage__side, .workspace.narrow:not(.right-off) .stage__zoom,
+.workspace.help-over .stage__side, .workspace.help-over .stage__zoom { right: calc(var(--over-w) + var(--space-4)); }
+/* 左上角的工具列也只用看得到的那一段寬度，放不下就折到第二列，不要伸到收合鈕底下 */
+.workspace.narrow:not(.right-off) .stage__toolbar, .workspace.help-over .stage__toolbar { max-width: calc(100% - var(--over-w) - var(--space-4) * 2 - 64px); }
 .workspace.tiny { grid-template-columns: 0 minmax(0, 1fr) 0; }
 .workspace.tiny > .sidebar { left: 0; width: min(264px, 88%); }
 .toolbar__sep { width: 1px; align-self: stretch; margin: var(--space-1) 0; background: var(--border-soft); }
@@ -80,7 +88,7 @@ body {
 .helpdock[hidden] { display: none; }
 .workspace.has-help { grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--props-w) var(--help-w); }
 .workspace.help-over > .helpdock {
-  position: absolute; top: 0; bottom: 0; right: 0; width: min(var(--help-w), 92%); z-index: 9; grid-column: 1 / -1;
+  position: absolute; top: 0; bottom: 0; right: 0; width: var(--over-w); z-index: 9; grid-column: 1 / -1;
   box-shadow: var(--elev-overlay);
 }
 .helpdock__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-bottom: var(--border-width) solid var(--border-soft); }

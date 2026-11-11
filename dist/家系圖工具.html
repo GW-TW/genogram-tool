@@ -3,7 +3,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-H06vyuQAmND+nzmtvu6jF3Vbfql6oNpJLXJ13Tiezxg=' 'sha256-q3x+PTQhtjcm+bTupZqGlgcXqIFP+lVyzv59yiNwLMI=' 'sha256-xrRsK3vfjB6YRg9VoY8ViYn/Wv9/xk+35tqH0Ae8gww=' 'sha256-ra1mwaYu8zOhFMziJbWLUmKZ3Kyb9CgMQ/g3adrPLKg=' 'sha256-INYBGZWm6tNcTDxIc0Xz1usqCzwlmpiVye/RxVOlPIM=' 'sha256-OG5/DklqdznnkIpDo8Ne3FSpi/d8l32FgFyGCq2UfXU=' 'sha256-pLzw1eB4sBL2eJzTu2WC9bgfOefxtQ/gYKrqHs9P9Y8='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-H06vyuQAmND+nzmtvu6jF3Vbfql6oNpJLXJ13Tiezxg=' 'sha256-q3x+PTQhtjcm+bTupZqGlgcXqIFP+lVyzv59yiNwLMI=' 'sha256-xrRsK3vfjB6YRg9VoY8ViYn/Wv9/xk+35tqH0Ae8gww=' 'sha256-ra1mwaYu8zOhFMziJbWLUmKZ3Kyb9CgMQ/g3adrPLKg=' 'sha256-INYBGZWm6tNcTDxIc0Xz1usqCzwlmpiVye/RxVOlPIM=' 'sha256-OG5/DklqdznnkIpDo8Ne3FSpi/d8l32FgFyGCq2UfXU=' 'sha256-IW4C8f6WKYlFRs1MeE49pbo7STsSYoVHuaONAtOY2RU='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>家系圖工具</title>
 <style>
@@ -913,7 +913,15 @@ body {
   position: absolute; top: 0; bottom: 0; z-index: 8; grid-column: 1 / -1;
   box-shadow: var(--elev-overlay);
 }
-.workspace.narrow > .props { right: 0; width: min(320px, 88%); }
+.workspace.narrow { --over-w: min(320px, 88vw); }
+.workspace.help-over { --over-w: min(var(--help-w), 92vw); }
+.workspace.narrow > .props { right: 0; width: var(--over-w); }
+/* 右欄或說明欄浮在畫布上的時候，畫布右上角的收合鈕與右下角的縮放列往左讓開，不能被蓋住
+   （2026-11-11 看截圖發現：右欄一浮出來就把「收起右欄」的按鈕蓋掉，只能靠取消選取才收得回去） */
+.workspace.narrow:not(.right-off) .stage__side, .workspace.narrow:not(.right-off) .stage__zoom,
+.workspace.help-over .stage__side, .workspace.help-over .stage__zoom { right: calc(var(--over-w) + var(--space-4)); }
+/* 左上角的工具列也只用看得到的那一段寬度，放不下就折到第二列，不要伸到收合鈕底下 */
+.workspace.narrow:not(.right-off) .stage__toolbar, .workspace.help-over .stage__toolbar { max-width: calc(100% - var(--over-w) - var(--space-4) * 2 - 64px); }
 .workspace.tiny { grid-template-columns: 0 minmax(0, 1fr) 0; }
 .workspace.tiny > .sidebar { left: 0; width: min(264px, 88%); }
 .toolbar__sep { width: 1px; align-self: stretch; margin: var(--space-1) 0; background: var(--border-soft); }
@@ -925,7 +933,7 @@ body {
 .helpdock[hidden] { display: none; }
 .workspace.has-help { grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--props-w) var(--help-w); }
 .workspace.help-over > .helpdock {
-  position: absolute; top: 0; bottom: 0; right: 0; width: min(var(--help-w), 92%); z-index: 9; grid-column: 1 / -1;
+  position: absolute; top: 0; bottom: 0; right: 0; width: var(--over-w); z-index: 9; grid-column: 1 / -1;
   box-shadow: var(--elev-overlay);
 }
 .helpdock__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-bottom: var(--border-width) solid var(--border-soft); }
@@ -5043,7 +5051,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 (function (GT) {
   'use strict';
   const APP_VERSION = '0.9.0';
-  const BUILD = '2026-11-11 16:50';
+  const BUILD = '2026-11-11 16:53';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -7146,7 +7154,17 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       ptr('pointerdown', pA, $('world').querySelector(`[data-id="${a}"]`));
       const heldShut = state.sel.has(a) && disp($('props')) === 'none';
       ptr('pointerup', pA);
-      checks.narrow = nClosed && heldShut && disp($('props')) !== 'none' && getComputedStyle($('props')).position === 'absolute' && cw() === wN;
+      const floated0 = disp($('props')) !== 'none' && getComputedStyle($('props')).position === 'absolute' && cw() === wN;
+      // 右欄浮出來的時候，「收起右欄」的按鈕與縮放列沒有被蓋住（點得到）；按了就收起來，選取還在
+      const onTop = (el) => { const r = el.getBoundingClientRect(), t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!t && el.contains(t); };
+      $('toasts').innerHTML = '';                              // 前面幾項留下的提示會暫時疊在右下角，量之前先清掉
+      const reachable = onTop($('btnPanelR')) && onTop($('zoomFit'));
+      if (!reachable) GT.log.push({ time: new Date().toISOString(), ref: 'SELFTEST', code: 'SELFTEST', detail: 'narrow ' + JSON.stringify([onTop($('btnPanelR')), onTop($('zoomFit')),
+        Math.round($('btnPanelR').getBoundingClientRect().left), Math.round($('props').getBoundingClientRect().left), Math.round($('zoomFit').getBoundingClientRect().right)]) });
+      $('btnPanelR').click();
+      const shutByBtn = disp($('props')) === 'none' && state.sel.has(a);
+      ui.right = null;
+      checks.narrow = nClosed && heldShut && floated0 && reachable && shutByBtn;
       ui.width = 1366; select([]);
       // 「移動畫面」（2026-11-11）：開著時拖曳空白處是移動畫面（不是框選），點一下人照樣選得到；再按一次關閉
       $('btnPan').click();
@@ -7295,7 +7313,9 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
         .filter(el => el.offsetParent !== null && (el.offsetHeight < 44 || el.offsetWidth < 44)).map(el => `help:${el.id}:${el.offsetWidth}x${el.offsetHeight}`);
       // 視窗不夠寬：說明欄浮在右邊，不擠畫布
       ui.width = 1100; syncLayout();
-      const floated = wsH.classList.contains('help-over') && getComputedStyle($('helpDock')).position === 'absolute';
+      $('toasts').innerHTML = '';
+      const floated = wsH.classList.contains('help-over') && getComputedStyle($('helpDock')).position === 'absolute' &&
+                      (() => { const r = $('zoomFit').getBoundingClientRect(), t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!t && $('zoomFit').contains(t); })();
       ui.width = 1366; syncLayout();
       // 游標在說明欄裡按 Esc：只關說明欄，焦點回到「使用說明」，不取消選取
       select([a]); $('helpBody').focus();

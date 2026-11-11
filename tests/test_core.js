@@ -2,6 +2,56 @@
 
 const person = (d, over) => { const id = GT.addPerson(d, { gender: 'M', x: 0, y: 0 }); Object.assign(d.persons[id], over || {}); return id; };
 
+T.test('簡碼：「男女女」解析成性別清單；看不懂的字回報出來，不要猜（2026-11-11）', () => {
+  T.eq(GT.parseKinCode('男女女'), { ok: true, genders: ['M', 'F', 'F'] }, '一男兩女');
+  T.eq(GT.parseKinCode(' 男、女，M f ？未 ').genders, ['M', 'F', 'M', 'F', 'U', 'U'], '空白與頓號略過；M／F 與問號也認得');
+  T.eq(GT.parseKinCode('男X女'), { ok: false, bad: 'X' }, '看不懂的字：回報那個字');
+  T.eq(GT.parseKinCode('兒子').ok, false, '「兒子」不是簡碼：不要猜成兩個人');
+  T.eq(GT.parseKinCode(''), { ok: false, bad: '' }, '空白：不算');
+  T.eq(GT.parseKinCode('  、 ').ok, false, '只有分隔符號：不算');
+  T.eq(GT.parseKinCode(null).ok, false, '沒有輸入不會出錯');
+  T.ok(GT.parseKinCode('男'.repeat(12)).ok, '12 個人可以');
+  T.eq(GT.parseKinCode('男'.repeat(13)), { ok: false, bad: '', tooMany: true }, '超過 12 個人：請分次');
+  T.eq(GT.parseKinCode('<b>').bad, '<', '塞標籤進來：只回報第一個看不懂的字');
+});
+
+T.test('一次加好幾個子女：照輸入的順序由左到右；多段關係要指定是哪一段（2026-11-11）', () => {
+  const d = GT.newDoc();
+  const a = GT.addPerson(d, { gender: 'M', x: 0, y: 0 }), r1 = GT.addPartner(d, a);
+  const out = GT.addChildren(d, a, ['M', 'F', 'F']);
+  const kids = out.ids.map(id => d.persons[id]);
+  T.eq(kids.map(k => k.gender), ['M', 'F', 'F'], '性別照輸入的順序');
+  T.ok(kids[0].x < kids[1].x && kids[1].x < kids[2].x, '由左到右＝出生序');
+  T.ok(kids.every(k => k.y === d.persons[a].y + GT.GAP_Y), '都在下一代那一列');
+  T.eq(d.unions[r1.unionId].children.map(c => c.id), out.ids, '加在唯一的那段關係，順序一樣');
+  const s = GT.addPerson(d, { gender: 'F', x: 900, y: 0 });
+  const single = GT.addChildren(d, s, ['F']);
+  T.eq(d.unions[single.unionId].partners, [s], '沒有伴侶：建單親家庭');
+  const r2 = GT.addPartner(d, a);
+  T.eq(GT.addChildren(d, a, ['M']), { needUnion: true }, '有兩段關係又沒指定：不猜，請介面先問');
+  const picked = GT.addChildren(d, a, ['M', 'F'], r2.unionId);
+  T.eq(d.unions[r2.unionId].children.map(c => c.id), picked.ids, '指定哪一段就加在哪一段');
+  T.eq(d.unions[r1.unionId].children.length, 3, '另一段不受影響');
+  T.eq(GT.addChildren(d, a, ['M'], single.unionId), { needUnion: true }, '指定了別人的關係：當成沒指定');
+  T.eq(GT.addChildren(d, 'nobody', ['M']), null, '沒有這個人');
+  T.eq(GT.addChildren(d, a, []), null, '沒有要加的人');
+  T.eq(GT.normalizeDoc(JSON.parse(GT.serialize(d))).warnings, [], '存檔再開：資料完整');
+});
+
+T.test('一次加好幾個手足：還沒有父母先加上父母；加在同一對父母下面（2026-11-11）', () => {
+  const d = GT.newDoc();
+  const a = GT.addPerson(d, { gender: 'F', x: 0, y: 0 });
+  const out = GT.addSiblings(d, a, ['M', 'F']);
+  const pu = GT.parentUnionOf(d, a);
+  T.ok(out.madeParents && !!pu && pu.partners.length === 2, '沒有父母：自動加上');
+  T.eq(pu.children.map(c => c.id), [a].concat(out.ids), '手足接在本人後面，同一對父母');
+  T.ok(d.persons[out.ids[0]].x < d.persons[out.ids[1]].x, '由左到右照輸入的順序');
+  T.ok(out.ids.every(id => d.persons[id].y === d.persons[a].y), '跟本人同一列');
+  const again = GT.addSiblings(d, a, ['U']);
+  T.ok(!again.madeParents && pu.children.length === 4, '已經有父母：直接加');
+  T.eq(GT.addSiblings(d, 'nobody', ['M']), null, '沒有這個人');
+});
+
 T.test('新文件：格式與預設欄位', () => {
   const d = GT.newDoc(new Date(2026, 8, 15));
   T.eq(d.format, 'genogram-tool');

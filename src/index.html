@@ -25,7 +25,7 @@
   <p class="filebar" id="fileLabel">未命名</p>
 
   <nav class="topbar__actions" aria-label="檔案與匯出">
-    <button id="btnNew" class="btn">新增</button>
+    <button id="btnNew" class="btn">開新圖</button>
     <button id="btnOpen" class="btn">開啟…</button>
     <button id="btnSave" class="btn btn--primary">儲存</button>
     <button id="btnSaveAs" class="btn">另存新檔…</button>
@@ -86,9 +86,10 @@
     <section class="toolgroup">
       <h2 class="sidebar__group">標註</h2>
       <div class="stack-2">
-        <button id="btnHousehold" class="btn btn--block" title="先選取同住的人（按住 Shift 可多選）">圈成生活圈（同住）</button>
+        <button id="btnHousehold" class="btn btn--block">圈成生活圈（同住）</button>
         <button id="btnLabel" class="btn btn--block">新增文字說明</button>
       </div>
+      <p class="help">生活圈：先選取同住的人（按住 Shift 可以多選），再按上面的按鈕。</p>
     </section>
 
     <section class="toolgroup">
@@ -132,6 +133,9 @@
       <g id="viewport"><rect id="gridRect" x="-100000" y="-100000" width="200000" height="200000" fill="url(#grid)"/><g id="world"></g><g id="overlay"></g></g>
     </svg>
 
+    <!-- 選取旁的工具：人物四周的加號、一小排常用動作（內容由 app.js 產生；不在 SVG 裡，所以不會被匯出） -->
+    <div class="seltools" id="selTools" hidden></div>
+
     <div class="empty" id="empty"><div class="empty__box">
       <p>按左邊「<b>男</b>」「<b>女</b>」開始畫，或按上方「<b>開啟…</b>」打開之前存的家系圖檔。</p>
       <p class="help">點選人物後，右邊可以填年齡、職業、經濟等資料，會自動顯示在圖上。</p>
@@ -143,6 +147,8 @@
       <button id="btnUndo" class="btn btn--icon tooltip" data-tip="復原（Ctrl+Z）" aria-label="復原"></button>
       <button id="btnRedo" class="btn btn--icon tooltip" data-tip="重做（Ctrl+Y）" aria-label="重做"></button>
       <button id="btnDelete" class="btn btn--icon btn--danger tooltip" data-tip="刪除選取的項目（Delete）" aria-label="刪除選取的項目"></button>
+      <!-- 選取之後常用的幾個動作，接在工具列後面（內容由 app.js 產生） -->
+      <span class="toolbar__ctx" id="selActs" hidden></span>
     </div>
 
     <!-- 提示條與錯誤訊息放在工具列下方、上下疊放：不互相蓋住，也不蓋住復原／重做／刪除（審查 2026-10-28） -->

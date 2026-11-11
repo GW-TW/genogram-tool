@@ -33,6 +33,31 @@ T.test('使用說明：關鍵功能都有寫到（功能改名時這裡會紅）
   T.ok(!/被照顧的人|個案檔/.test(all + Object.values(GT.manual.LEGEND_DESC).join('')), 'CRPD 精神的用語：「接受照顧的人」、「服務使用者的資料」');
 });
 
+T.test('使用說明：0.9.0 的新功能都有寫到（2026-11-11）', () => {
+  const all = GT.manual.MANUAL.map(c => c.title + c.body).join('\n');
+  for (const w of ['移動畫面', '兩指', '收起', '版本更新紀錄', '「手足」「父母」「伴侶」', '男女女', '跟誰的子女',
+                   '選取之後的常用動作', '排成一列', '點「其他人」裡的名字', '開新圖', '放棄變更', '刪除欄位與內容']) {
+    T.ok(all.includes(w), `有寫到「${w}」`);
+  }
+  T.ok(!all.includes('按上方「新增」') && !/上方\*\*：新增、/.test(all), '上方的「新增」已經改叫「開新圖」，說明沒有留舊名稱');
+});
+
+T.test('版本更新紀錄：由新到舊、格式完整、寫給使用的人看（設計規範 2026-10-29）', () => {
+  const C = GT.manual.CHANGELOG;
+  T.ok(Array.isArray(C) && C.length >= 10, '每一版都有一筆');
+  T.ok(C.every(c => /^\d+\.\d+\.\d+$/.test(c.v) && /^\d{4}-\d{2}-\d{2}$/.test(c.date) && Array.isArray(c.items) && c.items.length > 0), '每筆都有版本號、日期、至少一個項目');
+  T.eq(new Set(C.map(c => c.v)).size, C.length, '版本號不重複');
+  const num = (v) => v.split('.').map(Number).reduce((a, n) => a * 1000 + n, 0);
+  T.ok(C.every((c, i) => i === 0 || num(C[i - 1].v) > num(c.v)), '版本由新到舊');
+  T.ok(C.every((c, i) => i === 0 || C[i - 1].date >= c.date), '日期由新到舊');
+  const items = C.flatMap(c => c.items);
+  T.ok(items.every(s => s.length >= 8 && s.length <= 120), '每個項目是一兩句話');
+  T.ok(items.filter(s => /^(新增|修正|調整)：/.test(s)).length >= items.length - 1, '用「新增：」「修正：」「調整：」開頭（第一版那一筆除外）');
+  T.ok(items.every(s => !T.TECH.test(s) && !/[a-z]+\.(js|css|html)|function|householdParts|autoLayout/i.test(s)), '不寫檔名、函式名稱、技術細節');
+  T.ok(items.filter(s => s.startsWith('修正：')).every(s => /現在|改/.test(s)), '修正類有寫原本怎樣、現在怎樣');
+  T.ok(['案' + '主', '服務' + '對象'].every(x => !items.join('').includes(x)), '不用舊用詞');
+});
+
 T.test('使用說明：Markdown 轉換正確，內容一律跳脫', () => {
   const h = GT.manual.render('## 標題\n- 甲\n- 乙\n\n1. 一\n2. 二\n> 注意\n**粗體** 按 [[Ctrl]]\n<img src=x onerror=alert(1)>');
   T.ok(h.includes('<h3>標題</h3>'), '## → 小標題（h3：對話框標題是 h2，審查 2026-10-28 不跳級）');

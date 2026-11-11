@@ -121,11 +121,13 @@
                                                       dropTarget: drag && drag.mode === 'move' ? drag.target : null });
     applyView();
     $('empty').hidden = !isEmpty();
+    renderSelTools();
   }
   function applyView() {
     const v = state.view;
     $('viewport').setAttribute('transform', `translate(${v.x},${v.y}) scale(${v.k})`);
     $('zoomVal').textContent = Math.round(v.k * 100) + '%';
+    placeSelTools();
   }
   function toWorld(e) {
     const r = canvas.getBoundingClientRect(), v = state.view;
@@ -152,6 +154,7 @@
   }
 
   let drag = null, raf = 0, spaceDown = false, held = false;      // held＝滑鼠或手指還按在畫布上
+  let askToast = null;                                             // 拖進生活圈後的「要加入嗎」：下一次在畫布上按下去就收掉
 
   // ───── 版面：左右兩欄可以收起來；視窗窄時右欄浮在畫布上（2026-11-11）─────
   // left／right：null＝自動（看視窗寬度與有沒有選取），true／false＝使用者自己按的；pan＝「移動畫面」開著
@@ -183,6 +186,152 @@
     canvas.classList.toggle('grab', on || spaceDown);
   }
 
+  // ───── 選取旁的工具（2026-11-11）：人物四周的加號；常用動作接在畫布左上角的工具列後面 ─────
+  // 選到人就能直接加家人，不用回左欄找按鈕。
+  // 幾個要守住的地方：加號放在姓名與資料的外側（不蓋字）；「手足、父母、伴侶」排在人的上方、「子女」在下方，
+  // 不放左右兩邊（實測：旁邊的手足與伴侶只隔 80～100px，放兩邊會把他們蓋住、點不到）；
+  // 按著拖的時候整組收起來；圖縮得很小時不顯示。
+  // 常用動作原本想做成跟著選取跑的浮動工具列，實測會蓋住上一代的姓名，所以固定接在工具列後面
+  const selBox = $('selTools');
+  let selCtx = null, pop = null;
+  function closePop(refocus) {
+    if (!pop) return;
+    const from = pop.from;
+    pop.el.remove(); pop = null;
+    if (refocus && from && from.isConnected) from.focus();
+  }
+  const hasDescendants = (id) => GT.unionsOf(state.doc, id).some(u => u.children.length);
+  function renderSelTools() {
+    closePop();
+    const d = state.doc, ps = selOf('person');
+    const off = held || !!state.pending || R.viewMode(d) === 'ecomap';
+    const btn = (act, label) => `<button type="button" class="btn" data-sel-act="${act}">${label}</button>`;
+    let html = '', acts = '';
+    selCtx = null;
+    if (!off && state.sel.size === 1 && ps.length === 1) {
+      const id = ps[0], who = esc(personName(id));
+      selCtx = { kind: 'person', id };
+      const plus = (dir, kin, label, tip) => `<button type="button" class="selplus" data-dir="${dir}" data-plus-kin="${kin}" title="${tip}" aria-label="${tip}">${ico('plus', 16)}<span>${label}</span></button>`;
+      html = (GT.parentUnionOf(d, id) ? '' : plus('top', 'parents', '父母', `替${who}加上父母`)) +
+        plus('left', 'sibling', '手足', `替${who}加兄弟姊妹`) + plus('right', 'partner', '伴侶', `替${who}加一位伴侶`) +
+        plus('bottom', 'child', '子女', `替${who}加子女`);
+      acts = btn('relation', '拉情感線…') + (hasDescendants(id) ? btn('branch', '整理子孫…') : '');
+    } else if (!off && ps.length >= 2) {
+      acts = (ps.length === 2 ? btn('partner', '連為伴侶') + btn('relation', '拉情感線') : '') +
+        btn('household', '圈成生活圈') + btn('alignY', '排成一列');
+    }
+    selBox.innerHTML = html;
+    selBox.hidden = !html;
+    $('selActs').innerHTML = acts ? '<span class="toolbar__sep" aria-hidden="true"></span>' + acts : '';
+    $('selActs').hidden = !acts;
+    placeSelTools();
+  }
+  // 位置跟著人在螢幕上的位置走（移動畫面、縮放時只重算位置，不重畫）
+  function placeSelTools() {
+    if (!selCtx || selBox.hidden) return;
+    const d = state.doc, v = state.view;
+    const scr = (b) => ({ x1: b.x1 * v.k + v.x, y1: b.y1 * v.k + v.y, x2: b.x2 * v.k + v.x, y2: b.y2 * v.k + v.y });
+    const at = (el, x, y) => { el.style.left = Math.round(x) + 'px'; el.style.top = Math.round(y) + 'px'; };
+    const G = 8, Z = 48, p = d.persons[selCtx.id];
+    if (!p) return;
+    const box = scr(R.personBox(d, p));                                      // 符號＋底下的姓名與資料：加號放在這個範圍外面
+    const cx = p.x * v.k + v.x, tiny = v.k < 0.45;                           // 圖縮得很小時加號會蓋住上一代：不顯示
+    selBox.querySelectorAll('.selplus').forEach(el => {
+      el.hidden = tiny;
+      const dir = el.dataset.dir;
+      if (dir === 'bottom') at(el, cx - Z / 2, box.y2 + G);
+      // 上方一排：手足、父母、伴侶。圖縮小時人比加號窄，左右兩顆至少離中間那顆 4px，才不會疊在一起
+      else at(el, dir === 'top' ? cx - Z / 2 : dir === 'left' ? Math.min(box.x1 - G, cx - Z / 2 - 4) - Z : Math.max(box.x2 + G, cx + Z / 2 + 4), box.y1 - G - Z);
+    });
+    if (pop) placePop();
+  }
+  function placePop() {
+    const W = canvas.clientWidth, H = canvas.clientHeight, el = pop.el, f = pop.from;
+    const pw = el.offsetWidth, ph = el.offsetHeight;
+    let y = f.offsetTop + f.offsetHeight + 6;
+    if (y + ph > H - 4 && f.offsetTop - 6 - ph >= 4) y = f.offsetTop - 6 - ph;   // 下面放不下就放上面
+    el.style.left = Math.round(clamp(f.offsetLeft + f.offsetWidth / 2 - pw / 2, 4, Math.max(4, W - pw - 4))) + 'px';
+    el.style.top = Math.round(clamp(y, 4, Math.max(4, H - ph - 4))) + 'px';
+  }
+  // 子女、手足要選性別：按加號跳出一小塊，可以一個一個加，也可以輸入「男女女」一次加好幾個
+  function openKinPop(from, kin) {
+    closePop();
+    const d = state.doc, id = selCtx.id, child = kin === 'child';
+    const us = child ? GT.unionsOf(d, id) : [];
+    const el = document.createElement('div');
+    el.className = 'selpop'; el.setAttribute('role', 'group'); el.setAttribute('aria-label', child ? '新增子女' : '新增手足');
+    const partnerOf = (u) => u.partners.filter(x => x !== id).map(x => personName(x)).join('、') || '單親（沒有伴侶）';
+    el.innerHTML =
+      (us.length > 1 ? `<fieldset class="field"><legend>跟誰的子女？</legend><div class="segmented" role="group">${us.map((u, i) =>
+        `<button type="button" data-popu="${esc(u.id)}" aria-pressed="${i === 0}">${esc(partnerOf(u))}</button>`).join('')}</div></fieldset>` : '') +
+      `<div class="grid2"><button type="button" class="btn" data-pop="M" data-plus>${ico('plus', 16)}${child ? '兒子' : '兄弟'}</button>` +
+      `<button type="button" class="btn" data-pop="F" data-plus>${ico('plus', 16)}${child ? '女兒' : '姊妹'}</button></div>
+      <div class="field"><label for="popCode">一次加好幾個（照出生序，由左到右）</label>
+      <div class="input-group"><input type="text" class="input" id="popCode" maxlength="24" placeholder="例：男女女" autocomplete="off">` +
+      `<button type="button" class="btn" data-pop="code">加入</button></div>
+      <p class="help">「男」「女」各代表一個人；不確定性別用「？」。</p></div>`;
+    selBox.appendChild(el);
+    pop = { el, from, kin, uid: us.length > 1 ? us[0].id : null };
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closePop(true); }       // 只收起這一小塊，不取消選取
+      else if (e.key === 'Enter' && e.target.id === 'popCode') { e.preventDefault(); popSubmit('code'); }   // 打完按 Enter 就送出
+    });
+    placePop();
+    el.querySelector('[data-pop]').focus();
+  }
+  function popSubmit(g) {
+    if (!pop || !selCtx || selCtx.kind !== 'person') return;
+    const kin = pop.kin, pid = selCtx.id, uid = pop.uid, inp = pop.el.querySelector('#popCode');
+    let genders = [g];
+    if (g === 'code') {
+      const r = GT.parseKinCode(inp.value);
+      if (!r.ok) {                                                            // 看不懂就說是哪個字，寫在欄位正下方；不要猜
+        pop.el.querySelectorAll('.field__error').forEach(x => x.remove());
+        const p = document.createElement('p');
+        p.className = 'field__error'; p.id = 'popErr'; p.setAttribute('role', 'alert');
+        p.textContent = r.tooMany ? '一次最多加 12 個人，請分兩次輸入。'
+          : r.bad ? `看不懂「${r.bad}」。請只用「男」「女」「？」，例如：男女女。` : '請輸入要加的人，例如：男女女。';
+        inp.closest('.input-group').after(p);
+        inp.setAttribute('aria-invalid', 'true'); inp.setAttribute('aria-describedby', 'popErr');
+        inp.focus(); placePop();
+        return;
+      }
+      genders = r.genders;
+    }
+    const r = mutate(dd => (kin === 'child' ? GT.addChildren(dd, pid, genders, uid) : GT.addSiblings(dd, pid, genders)));
+    if (!r || !r.ids) { notice('沒有加成功，請重新點選那個人再試一次。'); return; }
+    select(r.ids);
+    if (r.ids.length === 1) focusFirstInput();
+    else toast(`已加 ${r.ids.length} 人，由左到右照你輸入的順序。點其中一人就能填資料（按 Ctrl+Z 可以復原）。`, 'ok', 6000);
+    if (r.madeParents) toast('已自動加上父母（可以填資料，不需要也可以刪掉）。', 'ok', 5000);
+  }
+  // 選取之後常用的幾個動作（接在畫布左上角工具列後面的那幾顆）
+  function doSel(m) {
+    const ps = selOf('person');
+    if (m === 'partner' && ps.length === 2) { const uid = mutate(d => GT.linkPartners(d, ps[0], ps[1])); select([uid]); }
+    else if (m === 'relation' && ps.length === 2) { const rid = mutate(d => GT.addRelation(d, ps[0], ps[1], state.relType)); select([rid]); }
+    else if (m === 'relation' && ps.length === 1) startPending('relation', ps[0], { type: state.relType });
+    else if (m === 'household' && ps.length) circleHousehold(ps);
+    else if (m === 'alignY' && ps.length > 1) {
+      mutate(d => { const y = GT.snap(ps.reduce((a, x) => a + d.persons[x].y, 0) / ps.length); ps.forEach(x => { d.persons[x].y = y; }); }, { keepPanel: true });
+    } else if (m === 'branch') openAutoLayout();
+  }
+  $('selActs').addEventListener('click', (e) => { const b = e.target.closest('[data-sel-act]'); if (b) doSel(b.dataset.selAct); });
+  selBox.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.popu) {
+      pop.uid = b.dataset.popu;
+      pop.el.querySelectorAll('[data-popu]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      return;
+    }
+    if (b.dataset.pop) { popSubmit(b.dataset.pop); return; }
+    const kin = b.dataset.plusKin;
+    if (kin === 'parents' || kin === 'partner') onKin(kin);
+    else if (kin) { if (pop && pop.from === b) closePop(); else openKinPop(b, kin); }
+  });
+  document.addEventListener('pointerdown', (e) => { if (pop && !pop.el.contains(e.target) && !pop.from.contains(e.target)) closePop(); });
+
   const scheduleRender = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; renderCanvas(); }); };
 
   // 拖曳圈選的框（畫在 viewport 裡，跟著縮放；線寬固定）
@@ -210,6 +359,7 @@
     if (e.button !== 0 && e.button !== 1) return;
     try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* 沒有實體指標（自我測試的合成事件）時不需要捕捉 */ }
     held = true;
+    if (askToast) { askToast.remove(); askToast = null; }
     if (e.pointerType === 'touch') {
       touches.set(e.pointerId, localPt(e));
       if (touches.size === 2) { startPinch(); return; }
@@ -271,7 +421,9 @@
     // 一個人只能在一個生活圈（使用者 2026-10-28）：本來住別的圈的人，加入＝搬過來，先講清楚
     const from = [...new Set(j.ids.map(x => GT.householdOf(doc0, x)).filter(o => o && o.id !== j.hid))];
     const moveNote = from.length === 1 ? `（會從「${from[0].label || '原本的生活圈'}」移出）` : from.length ? '（會從原本的生活圈移出）' : '';
-    toast(`要把${who}加入「${h.label || '生活圈'}」嗎？${moveNote}`, 'info', 10000, { label: '加入', run: () => {
+    // 這個詢問留到使用者做下一個動作為止（2026-11-11：原本 10 秒就消失，來不及按）
+    if (askToast) askToast.remove();
+    askToast = toast(`要把${who}加入「${h.label || '生活圈'}」嗎？${moveNote}`, 'info', 120000, { label: '加入', run: () => {
       // 這段時間裡按了復原、開了別的檔：圖已經不是同一張，不要套上去
       if (state.doc !== doc0 || !state.doc.households[j.hid]) { notice('圖已經有變動，所以沒有加入。請再拖曳一次。'); return; }
       const n = mutate(d => GT.joinHousehold(d, j.hid, j.ids));
@@ -339,12 +491,12 @@
     }
     drag = null;
   };
-  const endDrag = () => { held = false; finishDrag(); syncLayout(); };
+  const endDrag = () => { held = false; finishDrag(); syncLayout(); renderSelTools(); };
   const onPointerEnd = (e) => {
     if (e.pointerType === 'touch') {
       touches.delete(e.pointerId);
       if (drag && drag.mode === 'pinch') {                       // 放開一指就結束縮放；剩下那一指不接著做別的事
-        if (touches.size < 2) { drag = null; held = touches.size > 0; syncLayout(); }
+        if (touches.size < 2) { drag = null; held = touches.size > 0; syncLayout(); renderSelTools(); }
         return;
       }
     }
@@ -514,12 +666,10 @@
     });
     $('kinHint').textContent = one ? `目前選取：${personName(ps[0])}`
       : us.length === 1 ? '已選取伴侶線：可以按「兒子」「女兒」。' : '先在畫布上點選一個人。';
-    $('btnRelation').disabled = !(ps.length === 1 || ps.length === 2);
+    // 這幾顆不停用（2026-11-11：停用時原因只寫在滑鼠停留的提示裡，看不到）：沒選對東西就按，會說要先選什麼
     $('btnRelation').textContent = ps.length === 2 ? '連結選取的兩個人' : '從選取的人拉線…';
-    $('btnHousehold').disabled = !ps.length;
     document.querySelectorAll('input[name=viewMode]').forEach(r => { r.checked = r.value === (st.view || 'both'); });
     const ends = [...state.sel].filter(id => GT.tieEndExists(state.doc, id));
-    $('btnTie').disabled = !(ends.length === 1 || ends.length === 2);
     $('btnTie').textContent = ends.length === 2 ? '連結選取的兩者' : '拉生態連結…';
     $('tieHint').textContent = ends.length === 2 ? `${nodeName(ends[0])} 與 ${nodeName(ends[1])}`
       : ends.length === 1 ? `從「${nodeName(ends[0])}」拉線，按下後再點另一端。`
@@ -823,16 +973,31 @@
   function panelHousehold(P, id) {
     const h = state.doc.households[id];
     const intruders = R.householdIntruders(state.doc, h);
+    // 成員標籤（2026-11-11）：列出所有人，點一下加入或移出，不必拖曳。其他人照世代、再照左右順序排
+    const chipName = (x) => {
+      const p = state.doc.persons[x], age = GT.ageOf(state.doc, p).value;
+      const nm = p.name.trim() || `未命名${{ M: '男性', F: '女性', P: '寵物' }[p.gender] || ''}`;
+      return age === null || age === '' ? nm : `${nm}（${age}）`;
+    };
+    const others = Object.values(state.doc.persons).filter(p => !h.members.includes(p.id))
+      .sort((p, q) => p.y - q.y || p.x - q.x).map(p => p.id);
     P.innerHTML = `
     ${intruders.length ? `<div class="alert alert--warn" role="status"><strong>圈內有非成員</strong>
       <span><b>${intruders.map(x => esc(personName(x))).join('、')}</b> 不是這個生活圈的成員，但位置落在圈內。請把他們拖到圈外，或調整成員的位置，以免報告被誤讀。</span></div>` : ''}
     <section class="card"><div class="card__header"><h2 class="card__title">生活圈（同住）</h2></div>
       <div class="field"><label for="h-label">名稱（選填，顯示在圈的左上角）</label>
       <input type="text" class="input" id="h-label" data-hl data-autofocus value="${esc(h.label)}" maxlength="30" placeholder="例：同住、祖父母家"></div>
-      <h3 class="lh">成員（${h.members.length} 人）</h3>
-      <ul class="members">${h.members.map(x => `<li><span>${esc(personName(x))}</span>` +
-        `<button class="btn" data-hout="${esc(x)}" aria-label="把${esc(personName(x))}移出這個生活圈">移出</button></li>`).join('')}</ul>
-      <p class="help">要加人：在圖上把那個人拖進圈裡，放開後按「加入」。一個人只能住在一個生活圈，從別的圈拖過來的人會從原本的圈移出。</p>
+      <h3 class="lh">成員（${h.members.length} 人）：點名字移出</h3>
+      <div class="chips" role="group" aria-label="成員">${h.members.map(x =>
+        `<button type="button" class="chip" aria-pressed="true" data-hout="${esc(x)}" aria-label="${esc(chipName(x))}，是成員，點一下移出這個生活圈">` +
+        `${esc(chipName(x))}${ico('x', 14)}</button>`).join('')}</div>
+      ${others.length ? `<h3 class="lh">其他人：點名字加入</h3>
+      <div class="chips" role="group" aria-label="其他人">${others.map(x => {
+        const o = GT.householdOf(state.doc, x);
+        return `<button type="button" class="chip" aria-pressed="false" data-hin="${esc(x)}" aria-label="${esc(chipName(x))}，不是成員，點一下加入這個生活圈">` +
+          `${ico('plus', 14)}${esc(chipName(x))}${o ? `<span class="chip__note">在「${esc(o.label || '別的生活圈')}」</span>` : ''}</button>`;
+      }).join('')}</div>` : ''}
+      <p class="help">也可以在圖上把人拖進圈裡。一個人只能住在一個生活圈：原本住別的圈的人，加入之後會從那裡移出。</p>
     </section>
     ${usingEcomap() ? tieListHTML(id, 2) : ''}
     <section class="card"><button class="btn btn--danger btn--block" data-del>刪除這個生活圈（人會保留）</button></section>`;
@@ -842,6 +1007,11 @@
       const last = state.doc.households[id].members.length === 1;
       mutate(d => GT.leaveHousehold(d, id, b.dataset.hout));
       if (last) { select([]); toast('生活圈沒有成員了，已一併刪除（按 Ctrl+Z 可以復原）。', 'ok', 6000); }
+    }));
+    P.querySelectorAll('[data-hin]').forEach(b => b.addEventListener('click', () => {
+      const from = GT.householdOf(state.doc, b.dataset.hin);
+      mutate(d => GT.joinHousehold(d, id, [b.dataset.hin]));
+      if (from) toast(`已加入；也從「${from.label || '原本的生活圈'}」移出了（按 Ctrl+Z 可以復原）。`, 'ok', 6000);
     }));
     P.querySelector('[data-del]').addEventListener('click', deleteSelection);
   }
@@ -1112,7 +1282,7 @@
     for (const b of (buttons || [{ label: '關閉', primary: true }])) {
       const el = document.createElement('button');
       el.textContent = b.label;
-      el.className = 'btn' + (b.primary ? ' btn--primary' : '');
+      el.className = 'btn' + (b.primary ? ' btn--primary' : b.danger ? ' btn--danger' : '');
       el.addEventListener('click', () => { dlg.close(); if (b.onClick) b.onClick(); });
       foot.appendChild(el);
     }
@@ -1152,9 +1322,14 @@
           <span class="ops"><button class="btn" data-fu="${esc(f.key)}"${i === 0 ? ' disabled' : ''} aria-label="往上移">${ico('chevron-up', 16)}</button>` +
           `<button class="btn" data-fd="${esc(f.key)}"${i === fs.length - 1 ? ' disabled' : ''} aria-label="往下移">${ico('chevron-down', 16)}</button>` +
           `<button class="btn btn--danger" data-fx="${esc(f.key)}">刪除</button></span>
-        </div>`).join('') || '<div class="text-muted">目前沒有欄位。</div>';
+        </div>` + (askDel === f.key ? `<div class="alert alert--warn fieldask" role="alertdialog" aria-label="確認刪除欄位">
+          <span>有 ${GT.fieldUsage(state.doc, f.key)} 個人填了「${esc(f.label)}」。刪除這個欄位，這些內容會一起刪除（按 Ctrl+Z 可以復原）。
+          <span class="cluster"><button class="btn" data-fkeep>保留欄位</button><button class="btn btn--danger" data-fx="${esc(f.key)}">刪除欄位與內容</button></span></span></div>` : '')).join('') || '<div class="text-muted">目前沒有欄位。</div>';
     };
+    let askDel = null;                    // 正在問「要不要刪」的那個欄位
     draw();
+    // 打完新欄位名稱按 Enter 就新增（2026-11-11：原本沒反應，要改拿滑鼠）
+    $('fmNew').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('fmAdd').click(); } });
     body.addEventListener('change', (e) => {
       const t = e.target;
       if (t.dataset.fs) mutate(d => { d.settings.fields.find(f => f.key === t.dataset.fs).show = t.checked; });
@@ -1177,11 +1352,14 @@
       } else if (t.dataset.fu) mutate(d => GT.moveField(d, t.dataset.fu, -1));
       else if (t.dataset.fd) mutate(d => GT.moveField(d, t.dataset.fd, 1));
       else if (t.dataset.fx) {
-        const f = state.doc.settings.fields.find(x => x.key === t.dataset.fx), n = GT.fieldUsage(state.doc, t.dataset.fx);
-        if (n && !confirm(`有 ${n} 個人填了「${f.label}」。刪除這個欄位會一併刪除這些內容（可按 Ctrl+Z 復原）。確定要刪除嗎？`)) return;
-        mutate(d => GT.removeField(d, t.dataset.fx));
-      } else return;
+        // 有人填過的欄位：在那一列下面問一次，按鈕寫清楚會做什麼（2026-11-11：原本是瀏覽器的確認框，按鈕只有「確定／取消」）
+        if (GT.fieldUsage(state.doc, t.dataset.fx) && askDel !== t.dataset.fx) askDel = t.dataset.fx;
+        else { askDel = null; mutate(d => GT.removeField(d, t.dataset.fx)); }
+      } else if (t.dataset.fkeep !== undefined) askDel = null;
+      else return;
       draw();
+      const focusTo = askDel ? body.querySelector('[data-fkeep]') : null;
+      if (focusTo) focusTo.focus();
     });
   }
 
@@ -1300,7 +1478,13 @@
   // ───── 檔案 ─────
   const TYPES_JSON = [{ description: '家系圖檔案', accept: { 'application/json': ['.json'] } }];
 
-  const confirmDiscard = () => !state.dirty || confirm('目前的圖還沒儲存，確定要放棄這些變更嗎？');
+  // 還沒儲存就要開新圖或開別的檔：用工具自己的視窗問，按鈕寫清楚會做什麼
+  // （2026-11-11：原本是瀏覽器的確認框，按鈕只有「確定／取消」，看不出哪一顆會丟掉資料）
+  function askDiscard(then, what) {
+    if (!state.dirty) { then(); return; }
+    dialog('目前的圖還沒儲存', `<div class="help-doc"><p>${what}之後，這張圖還沒儲存的變更會不見。</p><p>要保留的話，請先按「繼續編輯」，再按上方的「儲存」。</p></div>`,
+      [{ label: '繼續編輯', primary: true }, { label: '放棄變更', danger: true, onClick: then }]);
+  }
 
   function setDoc(doc, o) {
     state.doc = doc; state.history.clear(); state.sel = new Set();
@@ -1331,7 +1515,6 @@
   }
 
   async function openFile() {
-    if (!confirmDiscard()) return;
     if (window.showOpenFilePicker) {
       let h;
       try { [h] = await window.showOpenFilePicker({ types: TYPES_JSON, multiple: false }); }
@@ -1552,8 +1735,8 @@
       items[next].focus();
     });
 
-    $('btnNew').addEventListener('click', () => { if (confirmDiscard()) setDoc(GT.newDoc(), { dirty: false }); });
-    $('btnOpen').addEventListener('click', () => act('OPEN', openFile));
+    $('btnNew').addEventListener('click', () => askDiscard(() => setDoc(GT.newDoc(), { dirty: false }), '開新圖'));
+    $('btnOpen').addEventListener('click', () => askDiscard(() => act('OPEN', openFile), '開啟別的檔案'));
     $('fileInput').addEventListener('change', () => { const f = $('fileInput').files[0]; if (f) act('OPEN', () => loadFile(f, null)); });
     $('btnSave').addEventListener('click', () => act('SAVE', () => save(false)));
     $('btnSaveAs').addEventListener('click', () => act('SAVE', () => save(true)));
@@ -1596,7 +1779,7 @@
       const mod = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
       if (e.key === 'F1') { e.preventDefault(); if (!$('dlg').open) openHelp(); return; }   // 對話框開著時不換掉它（審查 2026-09-21）
       if (mod && key === 's') { e.preventDefault(); act('SAVE', () => save(e.shiftKey)); return; }
-      if (mod && key === 'o') { e.preventDefault(); act('OPEN', openFile); return; }
+      if (mod && key === 'o') { e.preventDefault(); if (!$('dlg').open) askDiscard(() => act('OPEN', openFile), '開啟別的檔案'); return; }
       if ($('dlg').open || typing) return;
       const ae = document.activeElement;
       const onControl = ae && /^(BUTTON|SUMMARY|A)$/.test(ae.tagName);
@@ -1772,6 +1955,26 @@
       const hs2 = Object.values(state.doc.households);
       checks.hhunique = superset && askedMerge && hs2.length === 1 && hs2[0].id === hid && hs2[0].members.length === 3 &&
         Object.keys(state.doc.persons).every(p => hs2.filter(h => h.members.includes(p)).length <= 1);
+      // 生活圈面板（2026-11-11）：列出所有人的名字，點一下就加入、再點一下移出，不必拖曳
+      select([hid]);
+      const outsider = Object.keys(state.doc.persons).find(p => !state.doc.households[hid].members.includes(p));
+      const inBtn = document.querySelector(`#props [data-hin="${outsider}"]`), wasOut = !!inBtn && inBtn.getAttribute('aria-pressed') === 'false';
+      if (inBtn) inBtn.click();
+      const chipIn = state.doc.households[hid].members.includes(outsider) && state.sel.has(hid) &&
+                     !!document.querySelector(`#props [data-hout="${outsider}"][aria-pressed="true"]`);
+      const outBtn2 = document.querySelector(`#props [data-hout="${outsider}"]`);
+      if (outBtn2) outBtn2.click();
+      checks.hhchips = wasOut && chipIn && !state.doc.households[hid].members.includes(outsider) && !!document.querySelector(`#props [data-hin="${outsider}"]`);
+      // 還沒儲存就按「開新圖」（2026-11-11）：用工具自己的視窗問，「繼續編輯」不動資料，「放棄變更」才清掉；不用瀏覽器的確認框
+      const nBefore = Object.keys(state.doc.persons).length, dirty0 = state.dirty;
+      state.dirty = true; $('btnNew').click();
+      const askedNew = $('dlg').open && $('dlgTitle').textContent === '目前的圖還沒儲存';
+      const footBtn = (txt) => [...$('dlgFoot').querySelectorAll('button')].find(b => b.textContent === txt);
+      const keepBtn = footBtn('繼續編輯'), dropBtn = footBtn('放棄變更');
+      if (keepBtn) keepBtn.click();
+      checks.asknew = $('btnNew').textContent === '開新圖' && askedNew && !!dropBtn && dropBtn.classList.contains('btn--danger') &&
+                      !$('dlg').open && Object.keys(state.doc.persons).length === nBefore;
+      state.dirty = dirty0;
       // 版面（2026-11-11）：左右兩欄收得起來、畫布變寬、圖留在螢幕上原來的位置；再按一次回來
       const ws = document.querySelector('.workspace'), cw = () => canvas.getBoundingClientRect().width;
       const disp = (el) => getComputedStyle(el).display;
@@ -1815,6 +2018,50 @@
       tp('pointerup', 22, 250, 100); tp('pointermove', 21, 130, 140); tp('pointerup', 21, 130, 140);
       checks.pinch = zoomed && state.sel.size === 0 && $('overlay').innerHTML === '' && Math.abs(state.view.k - kExp) < 1e-9;
       state.view = v2; applyView();
+      // 選取旁的工具（2026-11-11）：選到一個人，四周出現加號（已經有父母的人沒有「父母」）；
+      // 加號在姓名與資料的外側，不蓋到字；按著的時候整組收起來，放開才出現
+      select([a]);
+      const plusOf = (kin) => document.querySelector(`#selTools [data-plus-kin="${kin}"]`), sb = (el) => el.getBoundingClientRect();
+      const four = ['parents', 'sibling', 'partner', 'child'].every(k => plusOf(k) && plusOf(k).offsetWidth >= 44 && plusOf(k).offsetHeight >= 44);
+      const bA = R.personBox(state.doc, state.doc.persons[a]), vw = state.view;
+      // 「手足、父母、伴侶」在人的上方排成一排，互不重疊；「子女」在姓名與資料的下方；都不在人的左右兩邊（那裡是旁邊的手足與伴侶）
+      const topY = cr.top + vw.y + bA.y1 * vw.k, upper = ['sibling', 'parents', 'partner'].map(k => sb(plusOf(k)));
+      const outside = four && upper.every(r => r.bottom <= topY) && upper[0].right <= upper[1].left && upper[1].right <= upper[2].left &&
+                      sb(plusOf('child')).top >= cr.top + vw.y + bA.y2 * vw.k;
+      const kid0 = state.doc.unions[u0].children[0].id;
+      select([kid0]);
+      const noParentsPlus = !plusOf('parents') && !!plusOf('child');
+      const pC = scr(state.doc.persons[a].x, state.doc.persons[a].y);
+      ptr('pointerdown', pC, $('world').querySelector(`[data-id="${a}"]`));
+      const hiddenHeld = state.sel.has(a) && $('selTools').hidden;
+      ptr('pointerup', pC);
+      checks.selplus = outside && noParentsPlus && hiddenHeld && !$('selTools').hidden && !!plusOf('partner');
+      if (!checks.selplus) GT.log.push({ time: new Date().toISOString(), ref: 'SELFTEST', code: 'SELFTEST',
+        detail: 'selplus ' + JSON.stringify({ four, outside, noParentsPlus, hiddenHeld, topY, upper: upper.map(r => [r.left, r.top, r.right, r.bottom]) }) });
+      // 子女的加號：輸入「男女」一次加兩個，由左到右照輸入的順序；看不懂的字會說是哪個字，不會亂加
+      const nP = Object.keys(state.doc.persons).length, kidsBefore = state.doc.unions[u0].children.length;
+      plusOf('child').click();
+      $('popCode').value = '男X'; document.querySelector('#selTools [data-pop=code]').click();
+      const refused = Object.keys(state.doc.persons).length === nP && !!$('popErr') && $('popErr').textContent.includes('X') &&
+                      $('popCode').getAttribute('aria-invalid') === 'true';
+      $('popCode').value = '男女';
+      $('popCode').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      const kidsNow = state.doc.unions[u0].children.slice(kidsBefore).map(c => state.doc.persons[c.id]);
+      const addedTwo = kidsNow.length === 2 && kidsNow[0].gender === 'M' && kidsNow[1].gender === 'F' && kidsNow[0].x < kidsNow[1].x &&
+                       state.sel.size === 2 && kidsNow.every(k => state.sel.has(k.id)) && !document.querySelector('#selTools .selpop');
+      undo();
+      checks.kincode = refused && addedTwo && Object.keys(state.doc.persons).length === nP;
+      // 選兩個人：左上角工具列後面出現常用動作（沒有加號）；按「排成一列」兩人到同一列，一次復原回去；取消選取就收起來
+      select([a, kid0]);
+      const selbar = $('selActs').hidden ? null : $('selActs');
+      const acts = selbar ? [...selbar.querySelectorAll('[data-sel-act]')].map(b => b.dataset.selAct) : [];
+      const y0 = state.doc.persons[a].y;
+      if (selbar) selbar.querySelector('[data-sel-act=alignY]').click();
+      const aligned = state.doc.persons[a].y === state.doc.persons[kid0].y;
+      undo();
+      select([]);
+      checks.selbar = ['partner', 'relation', 'household', 'alignY'].every(x => acts.includes(x)) && !plusOf('partner') &&
+                      aligned && state.doc.persons[a].y === y0 && state.doc.persons[kid0].y !== y0 && $('selActs').hidden;
       // 自動排版：要確認才排；排完不重疊；一次復原回到原樣
       const beforeLayout = JSON.stringify(state.doc);
       // 手足出生序（使用者 2026-10-28 附圖：排版把長女、次女對調）：每段關係的子女，排版前後左右順序一樣
@@ -1955,6 +2202,22 @@
       const ferr = document.querySelector('#dlg .field__error');
       checks.fielderror = !!ferr && ferr.previousElementSibling === fr[1].closest('.fieldrow') && fr[1].getAttribute('aria-invalid') === 'true' &&
                           ![...document.querySelectorAll('.toast')].some(t => t.textContent.includes('不能跟其他欄位重複'));
+      // 管理欄位（2026-11-11）：打完名稱按 Enter 就新增；刪除有人填過的欄位會先在那一列下面問，「保留欄位」不刪、「刪除欄位與內容」才刪
+      const nF = state.doc.settings.fields.length;
+      $('fmNew').value = '宗教信仰';
+      $('fmNew').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      const enterAdds = state.doc.settings.fields.length === nF + 1 && state.doc.settings.fields[nF].label === '宗教信仰' && $('fmNew').value === '';
+      const usedKey = state.doc.settings.fields.find(f => GT.fieldUsage(state.doc, f.key) > 0).key;
+      document.querySelector(`#dlg .fieldrow [data-fx="${usedKey}"]`).click();
+      const askedDel = !!document.querySelector('#dlg .fieldask') && state.doc.settings.fields.some(f => f.key === usedKey);
+      document.querySelector('#dlg [data-fkeep]').click();
+      const kept = !document.querySelector('#dlg .fieldask') && state.doc.settings.fields.some(f => f.key === usedKey);
+      document.querySelector(`#dlg .fieldrow [data-fx="${usedKey}"]`).click();
+      inspect('fieldask');
+      document.querySelector(`#dlg .fieldask [data-fx="${usedKey}"]`).click();
+      const gone = !state.doc.settings.fields.some(f => f.key === usedKey);
+      undo(); undo();
+      checks.fieldask = enterAdds && askedDel && kept && gone && state.doc.settings.fields.length === nF && state.doc.settings.fields.some(f => f.key === usedKey);
       $('dlg').close();
       notice('測試用提醒'); inspect('alert'); clearError();
       toast('測試用提示', 'info', 3000, { label: '加入', run: () => {} }); inspect('toast');
@@ -2019,7 +2282,7 @@
       setDoc(GT.normalizeDoc(JSON.parse(GT.serialize(x))).doc, { fileName: evil.slice(0, 40) + '.json', dirty: true });
       const dirty = [];
       const scan = (where) => {
-        for (const sel of ['#props', '#tools', '#dlg', '#fileLabel', '#toasts', '#world', '.stage__notices'])
+        for (const sel of ['#props', '#tools', '#dlg', '#fileLabel', '#toasts', '#world', '.stage__notices', '#selTools'])
           for (const el of document.querySelectorAll(`${sel} img, ${sel} script, ${sel} iframe, ${sel} object, ${sel} embed, ${sel} foreignObject, ${sel} [onerror], ${sel} [onload]`))
             dirty.push(`${where}:${sel}:${el.tagName}`);
       };

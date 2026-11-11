@@ -592,6 +592,45 @@
     return { personId: addChild(doc, u.id, gender), unionId: u.id };
   }
 
+  // 簡碼（2026-11-11）：一串字代表好幾個人的性別，照出生序由左到右。例：「男女女」＝一男兩女。
+  // 男／M＝男、女／F＝女、？／未＝未知；空白、頓號、逗號略過。看不懂的字回報出來，不要猜
+  function parseKinCode(text) {
+    const out = [];
+    for (const ch of String(text == null ? '' : text)) {
+      if (/[\s,，、．.]/.test(ch)) continue;
+      if (/[男Mm]/.test(ch)) out.push('M');
+      else if (/[女Ff]/.test(ch)) out.push('F');
+      else if (/[?？未Uu]/.test(ch)) out.push('U');
+      else return { ok: false, bad: ch };
+    }
+    if (!out.length) return { ok: false, bad: '' };
+    if (out.length > 12) return { ok: false, bad: '', tooMany: true };
+    return { ok: true, genders: out };
+  }
+  // 一次加好幾個子女：unionId 有給就加在那段關係；沒給＝這個人只有一段關係就加在那段、沒有關係就建單親家庭；
+  // 有兩段以上又沒指定＝回傳 needUnion（介面要先問是跟誰的子女）
+  function addChildren(doc, pid, genders, unionId) {
+    if (!doc.persons[pid] || !Array.isArray(genders) || !genders.length) return null;
+    let uid = unionId && doc.unions[unionId] && doc.unions[unionId].partners.includes(pid) ? unionId : null;
+    if (!uid) {
+      const us = unionsOf(doc, pid);
+      if (us.length > 1) return { needUnion: true };
+      if (us.length) uid = us[0].id;
+      else {
+        uid = newId(doc, 'u');
+        doc.unions[uid] = { id: uid, partners: [pid], type: 'Other', children: [], twins: [], note: '' };
+      }
+    }
+    return { ids: genders.slice(0, 12).map(g => addChild(doc, uid, g)), unionId: uid };
+  }
+  // 一次加好幾個手足：還沒有父母就先加上
+  function addSiblings(doc, pid, genders) {
+    if (!doc.persons[pid] || !Array.isArray(genders) || !genders.length) return null;
+    let u = parentUnionOf(doc, pid), madeParents = false;
+    if (!u) { addParents(doc, pid); u = parentUnionOf(doc, pid); madeParents = true; }
+    return { ids: genders.slice(0, 12).map(g => addChild(doc, u.id, g)), unionId: u.id, madeParents };
+  }
+
   // 把某人加為某段關係的子女（例：先各自畫好再連起來）
   function attachChild(doc, unionId, pid) {
     const u = doc.unions[unionId];
@@ -987,6 +1026,7 @@
     addField, renameField, fieldUsage, removeField, moveField,
     unionsOf, parentUnionOf, unionBetween,
     addPerson, linkPartners, addPartner, addChild, addChildToPerson, addParents, addSibling, attachChild,
+    parseKinCode, addChildren, addSiblings,
     commonParentUnion, setTwins, twinGroupOf, clearTwin,
     addRelation, addHousehold, joinHousehold, leaveHousehold, householdOf, addLabel, moveItems, snapItems, deleteItems,
     FAMILY_ID, familyAt,

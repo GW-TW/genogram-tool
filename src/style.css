@@ -243,6 +243,21 @@ body {
 .menu__item { padding-block: var(--space-2); }
 .menu__check { padding: var(--space-2) var(--space-3); margin: 0; font-size: var(--text-sm); border-top: var(--border-width) solid var(--border-soft); }
 
+/* ── 文字敘述視窗（2026-11-11）── */
+.narr__opts { display: flex; flex-wrap: wrap; gap: 0 var(--space-4); margin-bottom: var(--space-2); }
+.narr__opts .check { margin: 0; }
+.narr__text {
+  white-space: pre-wrap; overflow-wrap: anywhere; line-height: var(--leading-body);
+  max-height: 34vh; overflow-y: auto; padding: var(--space-3) var(--space-4); margin: var(--space-2) 0;
+  background: var(--surface); border: var(--border-width) solid var(--border); border-radius: var(--radius-md);
+  user-select: text; cursor: text;
+}
+.narr__text:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.narr__bar { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+
+/* 作者資訊視窗：版本更新紀錄跟上面的說明隔開一點 */
+.dialog .changelog { margin-top: var(--space-4); }
+
 /* ── 狀態列 ── */
 .statusbar {
   display: flex; align-items: center; gap: var(--space-4);

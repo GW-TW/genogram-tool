@@ -3,7 +3,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-6syNkVurJ9fcrKmkiFxGVXWLsHmMCemVf7LF/LGUCzI=' 'sha256-q3x+PTQhtjcm+bTupZqGlgcXqIFP+lVyzv59yiNwLMI=' 'sha256-xrRsK3vfjB6YRg9VoY8ViYn/Wv9/xk+35tqH0Ae8gww=' 'sha256-ra1mwaYu8zOhFMziJbWLUmKZ3Kyb9CgMQ/g3adrPLKg=' 'sha256-tMPE+cZGp1sWZYytBHnISWbn7rmfP2aXfewM4xHBMww=' 'sha256-OYtkv22caHR3e1J1HETa7m+pf+blwjCZMopaC+/pmvQ='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-H06vyuQAmND+nzmtvu6jF3Vbfql6oNpJLXJ13Tiezxg=' 'sha256-q3x+PTQhtjcm+bTupZqGlgcXqIFP+lVyzv59yiNwLMI=' 'sha256-xrRsK3vfjB6YRg9VoY8ViYn/Wv9/xk+35tqH0Ae8gww=' 'sha256-ra1mwaYu8zOhFMziJbWLUmKZ3Kyb9CgMQ/g3adrPLKg=' 'sha256-INYBGZWm6tNcTDxIc0Xz1usqCzwlmpiVye/RxVOlPIM=' 'sha256-OG5/DklqdznnkIpDo8Ne3FSpi/d8l32FgFyGCq2UfXU=' 'sha256-pLzw1eB4sBL2eJzTu2WC9bgfOefxtQ/gYKrqHs9P9Y8='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>家系圖工具</title>
 <style>
@@ -1088,6 +1088,21 @@ body {
 .menu__item { padding-block: var(--space-2); }
 .menu__check { padding: var(--space-2) var(--space-3); margin: 0; font-size: var(--text-sm); border-top: var(--border-width) solid var(--border-soft); }
 
+/* ── 文字敘述視窗（2026-11-11）── */
+.narr__opts { display: flex; flex-wrap: wrap; gap: 0 var(--space-4); margin-bottom: var(--space-2); }
+.narr__opts .check { margin: 0; }
+.narr__text {
+  white-space: pre-wrap; overflow-wrap: anywhere; line-height: var(--leading-body);
+  max-height: 34vh; overflow-y: auto; padding: var(--space-3) var(--space-4); margin: var(--space-2) 0;
+  background: var(--surface); border: var(--border-width) solid var(--border); border-radius: var(--radius-md);
+  user-select: text; cursor: text;
+}
+.narr__text:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.narr__bar { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+
+/* 作者資訊視窗：版本更新紀錄跟上面的說明隔開一點 */
+.dialog .changelog { margin-top: var(--space-4); }
+
 /* ── 狀態列 ── */
 .statusbar {
   display: flex; align-items: center; gap: var(--space-4);
@@ -1286,6 +1301,8 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
         <li><button class="menu__item" id="btnPng"><span class="menu__text"><b>匯出 PNG 圖檔</b><small>高解析度，適合列印或放進簡報；貼上後不能再改線條</small></span></button></li>
         <li><button class="menu__item" id="btnSvg"><span class="menu__text"><b>匯出 SVG 向量圖</b><small>放大不模糊；在 Word 可以轉成圖形，再改線條與文字</small></span></button></li>
         <li><label class="check menu__check"><input type="checkbox" id="optLegend"><span>圖的下方附圖例（只列這張圖用到的符號與線條）</span></label></li>
+        <li class="menu__sep" role="separator"></li>
+        <li><button class="menu__item" id="btnNarrate"><span class="menu__text"><b>產生文字敘述…</b><small>把圖上的家庭結構寫成一段文字，複製後貼進紀錄</small></span></button></li>
       </ul>
     </span>
     <span class="topbar__sep" aria-hidden="true"></span>
@@ -2494,6 +2511,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     SAVE:      '儲存失敗，檔案沒有寫入。請再按一次「儲存」，或改用「另存新檔」存到其他位置。',
     EXPORT:    '匯出圖片失敗，沒有產生檔案。請再試一次；若持續發生，請改用「匯出 SVG」。',
     CLIPBOARD: '無法複製到剪貼簿（瀏覽器沒有允許）。請改用「匯出 PNG」，再從 Word 插入圖片。',
+    COPYTEXT:  '無法複製到剪貼簿（瀏覽器沒有允許）。請用滑鼠選取視窗裡的文字，再按 Ctrl+C 複製。',
     UNEXPECTED:'發生未預期的狀況，剛才的操作可能沒有完成。建議先按「另存新檔」保存目前的圖。',
   };
   const log = [];   // 記錄（最多 200 筆）；只在開發者工具主控台看得到
@@ -4078,6 +4096,377 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 
 </script>
 <script>
+/* 家系圖工具 — narrate.js
+ * 把圖上的家庭結構寫成一段文字（家庭概況），讓社工複製後貼進紀錄（2026-11-11）。
+ *
+ * 用詞（使用者 2026-11-11 決定）：主述的人稱「服務使用者」；親屬稱謂沿用實務慣用的
+ * 案父、案母、案兄、案弟、案夫、案妻、案子、案女……（目前沒有其他專業規範可以參酌的替代用詞）。
+ *
+ * 三條原則：
+ *   1. 只寫圖上畫出來的。圖上沒畫伴侶，不寫成「未婚」；沒填年齡，不寫年齡。
+ *   2. 不靜默丟人。判斷不出稱謂的人，最後一段會列出來，說明沒有寫進前面的敘述。
+ *   3. 這裡只產生純文字；畫面上一律用 textContent 放進去，不經過 HTML。
+ * 手足的長幼＝圖上由左到右的順序（跟自動排版、使用說明講的出生序同一個規則）。
+ */
+(function (GT) {
+  'use strict';
+
+  const ORD_OLD = ['長', '次', '三', '四', '五', '六', '七', '八', '九', '十'];     // 案長兄、案次兄；案長子、案次子
+  const ORD_YOUNG = ['大', '二', '三', '四', '五', '六', '七', '八', '九', '十'];   // 案大弟、案二弟
+  const ANON = '甲乙丙丁戊己庚辛壬癸';
+
+  // 伴侶關係的類型 → 稱謂用的狀態。
+  // 「臨時關係、非承諾關係、強迫關係、其他」不是伴侶：一律用中性的「關係對象」，不可以寫成男友、女友或伴侶
+  const DATING = new Set(['CommittedRelationship', 'CasualRelationship', 'LoveAffair']);
+  function unionKind(type) {
+    const cat = (GT.FAMILY_TYPES.find(t => t.key === type) || {}).cat;
+    if (type === 'Marriage') return 'married';
+    if (type === 'Divorce' || type === 'Nullity') return 'divorced';
+    if (type === 'Widowed') return 'widowed';
+    if (type === 'Separation' || type === 'SeparationLegal') return 'separated';
+    const ended = /Separation$/.test(type), base = type.replace(/And(Legal)?Separation$/, '');
+    if (cat === 'engagement') return ended ? 'exengaged' : 'engaged';
+    if (cat === 'cohabit') return ended ? 'excohab' : 'cohab';
+    if (DATING.has(base)) return ended ? 'exdating' : 'dating';
+    return 'neutral';
+  }
+  // 句子裡怎麼寫兩人的關係：常見的幾種用口語，其餘直接寫類型名稱（不自己詮釋，例如「沒有感情的同居」不簡化成「同居」）
+  const PHRASE = { Marriage: '已婚', Separation: '分居', SeparationLegal: '合法分居', Divorce: '已離婚', Nullity: '婚姻無效', Widowed: '喪偶',
+                   Engagement: '已訂婚', Cohabitation: '同居', CohabitationAndSeparation: '曾同居，現已分開' };
+  const phraseOf = (type) => PHRASE[type] || `的關係為「${GT.labelOf(GT.FAMILY_TYPES, type)}」`;
+  const WEDDED = new Set(['married', 'separated', 'widowed']);
+  // 「某人的伴侶」怎麼稱呼：看狀態與對方的性別
+  function partnerWord(kind, gender) {
+    const mf = (m, f, u) => (gender === 'M' ? m : gender === 'F' ? f : u);
+    return { married: mf('夫', '妻', '配偶'), separated: mf('夫', '妻', '配偶'), widowed: mf('夫', '妻', '配偶'),
+             divorced: mf('前夫', '前妻', '前配偶'), engaged: mf('未婚夫', '未婚妻', '未婚伴侶'), exengaged: mf('前未婚夫', '前未婚妻', '前未婚伴侶'),
+             cohab: '同居人', excohab: '前同居人', dating: mf('男友', '女友', '伴侶'), exdating: mf('前男友', '前女友', '前伴侶'),
+             neutral: '關係對象' }[kind];
+  }
+
+  // ── 稱謂：以 ix（服務使用者）為中心，回傳 Map（人的 id → 稱謂）；判斷不出來的人不在裡面 ──
+  function kinTerms(doc, ix) {
+    const P = doc.persons, T = new Map();
+    if (!P[ix]) return T;
+    T.set(ix, '服務使用者');
+    const set = (id, term) => { if (id && P[id] && !T.has(id)) T.set(id, term); };
+    const g = (id) => P[id].gender;
+    const mf = (id, m, f, u) => (g(id) === 'M' ? m : g(id) === 'F' ? f : u);
+    const byX = (ids) => ids.filter(id => P[id]).sort((a, b) => P[a].x - P[b].x);
+    const pu = (id) => GT.parentUnionOf(doc, id);
+    const unions = (id) => GT.unionsOf(doc, id);
+    const other = (u, id) => u.partners.find(x => x !== id && P[x]);
+    const kidsOf = (u) => byX(u.children.map(c => c.id));
+    // 同一種稱謂只有一個人：案兄；有好幾個：案長兄、案次兄……
+    const numbered = (ids, one, many) => ids.forEach((id, i) => set(id, ids.length === 1 ? one : many(i)));
+    const ord = (list, i) => list[i] || '';
+
+    const U = pu(ix), parents = U ? U.partners.filter(id => P[id]) : [];
+    for (const p of parents) set(p, mf(p, '案父', '案母', '案家長'));
+
+    // 手足（同一對父母）：左邊的是兄姊、右邊的是弟妹
+    if (U) {
+      const sibs = kidsOf(U), i0 = sibs.indexOf(ix);
+      const older = sibs.slice(0, i0), younger = sibs.slice(i0 + 1);
+      const pick = (ids, gender) => ids.filter(id => g(id) === gender);
+      numbered(pick(older, 'M'), '案兄', i => `案${ord(ORD_OLD, i)}兄`);
+      numbered(pick(older, 'F'), '案姊', i => `案${ord(ORD_OLD, i)}姊`);
+      numbered(pick(younger, 'M'), '案弟', i => `案${ord(ORD_YOUNG, i)}弟`);
+      numbered(pick(younger, 'F'), '案妹', i => `案${ord(ORD_YOUNG, i)}妹`);
+      for (const s of sibs) if (s !== ix) set(s, '案手足');                    // 性別未註明的手足
+      for (const s of sibs) {
+        if (s === ix) continue;
+        const st = T.get(s), isBro = /[兄弟]$/.test(st), isSis = /[姊妹]$/.test(st);
+        for (const u of unions(s)) {
+          const q = other(u, s), kind = unionKind(u.type);
+          if (q) {
+            const inlaw = /兄$/.test(st) ? st.replace(/兄$/, '嫂') : /弟$/.test(st) ? st + '媳' : isSis ? st + '夫' : null;
+            const fits = WEDDED.has(kind) && inlaw && ((isBro && g(q) === 'F') || (isSis && g(q) === 'M'));
+            set(q, fits ? inlaw : `${st}之${partnerWord(kind, g(q))}`);
+          }
+          for (const c of kidsOf(u)) set(c, isBro ? mf(c, '案姪', '案姪女', '案姪輩') : isSis ? mf(c, '案外甥', '案外甥女', '案外甥輩') : `${st}之子女`);
+        }
+      }
+    }
+
+    // 祖父母、父母的手足、父母另一段關係
+    for (const p of parents) {
+      const pt = T.get(p), paternal = g(p) === 'M', maternal = g(p) === 'F';
+      const gu = pu(p);
+      if (gu) {
+        for (const gp of gu.partners) {
+          set(gp, paternal ? mf(gp, '案祖父', '案祖母', '案祖輩') : maternal ? mf(gp, '案外祖父', '案外祖母', '案外祖輩') : '案祖輩');
+        }
+        const ps = kidsOf(gu), i0 = ps.indexOf(p);
+        ps.forEach((s, i) => {
+          if (s === p) return;
+          const st = paternal ? mf(s, i < i0 ? '案伯父' : '案叔父', '案姑母', '案父之手足')
+                   : maternal ? mf(s, '案舅父', '案姨母', '案母之手足') : `${pt}之手足`;
+          set(s, st);
+          for (const u of unions(s)) {
+            const q = other(u, s), kind = unionKind(u.type);
+            if (q) {
+              const inlaw = { 案伯父: '案伯母', 案叔父: '案叔母', 案姑母: '案姑丈', 案舅父: '案舅母', 案姨母: '案姨丈' }[st];
+              const fits = WEDDED.has(kind) && inlaw && g(q) !== g(s) && g(q) !== 'U';
+              set(q, fits ? inlaw : `${st}之${partnerWord(kind, g(q))}`);
+            }
+            const cousin = paternal && g(s) === 'M' ? '堂' : '表';              // 父親兄弟的子女＝堂，其餘＝表
+            for (const c of kidsOf(u)) set(c, mf(c, `案${cousin}兄弟`, `案${cousin}姊妹`, `案${cousin}手足`));
+          }
+        });
+      }
+      for (const u of unions(p)) {
+        if (u === U) continue;
+        const q = other(u, p), kind = unionKind(u.type);
+        if (q) set(q, WEDDED.has(kind) ? mf(q, '案繼父', '案繼母', `${pt}之配偶`) : `${pt}之${partnerWord(kind, g(q))}`);
+        const half = paternal ? '案同父異母' : maternal ? '案同母異父' : null;
+        for (const c of kidsOf(u)) set(c, half ? half + mf(c, '兄弟', '姊妹', '手足') : `${pt}之子女`);
+      }
+    }
+
+    // 伴侶、伴侶的父母、子女、子女的伴侶、孫子女
+    const sons = [], daughters = [], kidsAll = [];
+    for (const u of unions(ix)) {
+      const q = other(u, ix), kind = unionKind(u.type);
+      if (q) {
+        set(q, kind === 'neutral' ? '關係對象' : '案' + partnerWord(kind, g(q)));
+        const qt = T.get(q), qu = pu(q);
+        if (qu) for (const pp of qu.partners) {
+          const law = kind !== 'married' && kind !== 'separated' && kind !== 'widowed' ? null
+            : g(q) === 'M' ? mf(pp, '案公公', '案婆婆', null) : g(q) === 'F' ? mf(pp, '案岳父', '案岳母', null) : null;
+          set(pp, law || `${qt}之${mf(pp, '父', '母', '家長')}`);
+        }
+        for (const u2 of unions(q)) {
+          if (u2 === u) continue;
+          for (const c of kidsOf(u2)) set(c, WEDDED.has(kind) ? mf(c, '案繼子', '案繼女', '案繼子女') : `${qt}之子女`);
+        }
+      }
+      for (const c of kidsOf(u)) kidsAll.push(c);
+    }
+    for (const c of byX(kidsAll)) (g(c) === 'M' ? sons : g(c) === 'F' ? daughters : []).push(c);
+    numbered(sons, '案子', i => `案${ord(ORD_OLD, i)}子`);
+    numbered(daughters, '案女', i => `案${ord(ORD_OLD, i)}女`);
+    for (const c of kidsAll) set(c, '案子女');
+    for (const c of kidsAll) {
+      const ct = T.get(c), son = /子$/.test(ct) && ct !== '案子女', dau = /女$/.test(ct) && ct !== '案子女';
+      for (const u of unions(c)) {
+        const q = other(u, c), kind = unionKind(u.type);
+        if (q) {
+          const inlaw = son ? ct.replace(/子$/, '媳') : dau ? ct + '婿' : null;
+          const fits = WEDDED.has(kind) && inlaw && ((son && g(q) === 'F') || (dau && g(q) === 'M'));
+          set(q, fits ? inlaw : `${ct}之${partnerWord(kind, g(q))}`);
+        }
+        for (const k of kidsOf(u)) set(k, son ? mf(k, '案孫', '案孫女', '案孫輩') : dau ? mf(k, '案外孫', '案外孫女', '案外孫輩') : '案孫輩');
+      }
+    }
+    return T;
+  }
+
+  const SECTIONS = [
+    { key: 'self',      title: '基本資料' },
+    { key: 'origin',    title: '原生家庭' },
+    { key: 'siblings',  title: '手足' },
+    { key: 'marriage',  title: '婚姻與子女' },
+    { key: 'household', title: '同住情形' },
+    { key: 'relations', title: '情感關係' },
+    { key: 'health',    title: '健康狀況' },
+    { key: 'eco',       title: '外部資源' },
+    { key: 'others',    title: '其他成員' },
+  ];
+
+  // 可以當主述的人：圖上勾了「服務使用者」的人（由上到下、由左到右）
+  const indexPersons = (doc) => Object.values(doc.persons).filter(p => p.index).sort((a, b) => a.y - b.y || a.x - b.x).map(p => p.id);
+
+  // 主程式。opts：index（主述的人，預設第一位服務使用者）、names（寫出姓名）、ages（寫出年齡）、attrs（寫出服務使用者的其他資料）、
+  // sections（要寫哪幾段的 key 陣列，預設全部）。回傳 { index, candidates, sections: [{ key, title, text }], text }
+  function build(doc, opts) {
+    const o = Object.assign({ names: true, ages: true, attrs: true }, opts || {});
+    const P = doc.persons, candidates = indexPersons(doc);
+    const ix = o.index && P[o.index] ? o.index : candidates[0] || null;
+    if (!ix) return { index: null, candidates, sections: [], text: '' };
+    const T = kinTerms(doc, ix), mentioned = new Set(), anon = new Map();
+    const g = (id) => P[id].gender;
+    const byX = (ids) => ids.filter(id => P[id]).sort((a, b) => P[a].x - P[b].x);
+    const other = (u, id) => u.partners.find(x => x !== id && P[x]);
+    const nameOf = (id) => (o.names ? P[id].name.trim() : '');
+    // 稱呼：有稱謂用稱謂；沒有稱謂的，寫姓名；連姓名都沒有（或不寫姓名）就叫「親屬甲、親屬乙」
+    const ref = (id) => {
+      mentioned.add(id);
+      if (T.has(id)) return T.get(id);
+      if (nameOf(id)) return nameOf(id);
+      if (!anon.has(id)) anon.set(id, `親屬${ANON[anon.size] || anon.size + 1}`);
+      return anon.get(id);
+    };
+    const ageBit = (id) => {
+      const p = P[id], age = GT.ageOf(doc, p).value, has = o.ages && age !== null && age !== '' && age !== undefined;
+      return has ? (p.deceased ? `歿年 ${age} 歲` : `${age} 歲`) : (p.deceased ? '已歿' : '');
+    };
+    // 第一次提到一個人：稱謂後面括號寫姓名、年齡、是否已歿
+    const who = (id) => {
+      const bits = [T.has(id) ? nameOf(id) : '', ageBit(id)].filter(Boolean);
+      return ref(id) + (bits.length ? `（${bits.join('，')}）` : '');
+    };
+    const count = (ids) => {
+      const m = ids.filter(id => g(id) === 'M').length, f = ids.filter(id => g(id) === 'F').length, u = ids.length - m - f;
+      return [m ? `${m} 子` : '', f ? `${f} 女` : '', u ? `${u} 名性別未註明的子女` : ''].filter(Boolean).join(' ');
+    };
+    const kidsOf = (u) => byX(u.children.map(c => c.id));
+    const noteOf = (u) => (u.note && u.note.trim() ? `（${u.note.trim()}）` : '');
+    const phrase = (u) => phraseOf(u.type);
+    // 一個人自己的家庭（伴侶與子女）：接在他的稱呼後面
+    const family = (id, skip) => GT.unionsOf(doc, id).filter(u => u !== skip).map(u => {
+      const q = other(u, id), kids = kidsOf(u);
+      const head = q ? `與${who(q)}${phrase(u)}${noteOf(u)}` : '';
+      const tail = kids.length ? `育有 ${count(kids)}（${kids.map(who).join('、')}）` : '';
+      return [head, tail].filter(Boolean).join('，');
+    }).filter(Boolean).join('；');
+    const S = {};
+    const p0 = P[ix];
+
+    // 1. 基本資料
+    {
+      mentioned.add(ix);
+      const bits = [{ M: '男性', F: '女性' }[p0.gender] || '', ageBit(ix),
+                    p0.life ? GT.labelOf(GT.LIFE_STATES, p0.life) : '', p0.culture ? `文化背景：${GT.labelOf(GT.CULTURES, p0.culture)}` : ''].filter(Boolean);
+      const attrs = o.attrs ? doc.settings.fields.filter(f => (p0.attrs || {})[f.key]).map(f => `${f.label}：${String(p0.attrs[f.key]).trim()}`) : [];
+      const head = '服務使用者' + (nameOf(ix) ? nameOf(ix) : '') + (bits.length ? `，${bits.join('，')}` : '');
+      if (nameOf(ix) || bits.length || attrs.length) S.self = head + '。' + (attrs.length ? attrs.join('；') + '。' : '');
+    }
+
+    // 2. 原生家庭
+    {
+      const U = GT.parentUnionOf(doc, ix), out = [];
+      if (U) {
+        const ps = U.partners.filter(id => P[id]), kids = kidsOf(U), rank = kids.indexOf(ix) + 1;
+        const link = (U.children.find(c => c.id === ix) || {}).link;
+        const lead = ps.length === 2 ? `${who(ps[0])}與${who(ps[1])}${phrase(U)}${noteOf(U)}，` : ps.length ? `${who(ps[0])}` : '';
+        const kidsText = kids.length === 1 ? `育有服務使用者 1 名子女` : `育有 ${count(kids)}，服務使用者排行第 ${rank}`;
+        out.push(lead + kidsText + (link === 'adopted' ? '，為收養子女' : link === 'foster' ? '，為寄養子女' : '') + '。');
+        const elders = [], seen = new Set(ps);
+        for (const p of ps) {
+          const gu = GT.parentUnionOf(doc, p);
+          if (gu) for (const id of gu.partners.filter(x => P[x]).concat(kidsOf(gu))) if (!seen.has(id)) { seen.add(id); elders.push(id); }
+        }
+        const gps = elders.filter(id => /祖/.test(T.get(id) || '')), aunts = elders.filter(id => !gps.includes(id));
+        if (gps.length) out.push(`祖父母輩：${gps.map(who).join('、')}。`);
+        if (aunts.length) out.push(`父母的手足：${aunts.map(id => { const f = family(id); return who(id) + (f ? `，${f}` : ''); }).join('；')}。`);
+        for (const p of ps) {
+          const f = family(p, U);
+          if (f) out.push(`${ref(p)}另${f}。`);
+        }
+      }
+      if (out.length) S.origin = out.join('');
+    }
+
+    // 3. 手足
+    {
+      const U = GT.parentUnionOf(doc, ix);
+      const sibs = U ? kidsOf(U).filter(id => id !== ix) : [];
+      if (sibs.length) S.siblings = sibs.map(id => { const f = family(id); return who(id) + (f ? `，${f}` : ''); }).join('；') + '。';
+    }
+
+    // 4. 婚姻與子女
+    {
+      const out = [], kidsAll = [];
+      for (const u of GT.unionsOf(doc, ix)) {
+        const q = other(u, ix), kids = kidsOf(u);
+        kids.forEach(k => kidsAll.push(k));
+        if (!q && !kids.length) continue;
+        const head = q ? `服務使用者與${who(q)}${phrase(u)}${noteOf(u)}` : '服務使用者';
+        out.push(head + (kids.length ? `${q ? '，' : ''}育有 ${count(kids)}：${kids.map(who).join('、')}` : '') + '。');
+        if (q) {
+          const qu = GT.parentUnionOf(doc, q), qps = qu ? qu.partners.filter(x => P[x]) : [];
+          if (qps.length) out.push(`${ref(q)}的父母：${qps.map(who).join('、')}。`);
+          const f = family(q, u);
+          if (f) out.push(`${ref(q)}另${f}。`);
+        }
+      }
+      for (const k of byX(kidsAll)) {
+        const f = family(k);
+        if (f) out.push(`${ref(k)}${f}。`);
+      }
+      if (out.length) S.marriage = out.join('');
+    }
+
+    // 5. 同住情形
+    {
+      const out = [];
+      const hs = Object.values(doc.households).sort((a, b) => (b.members.includes(ix) ? 1 : 0) - (a.members.includes(ix) ? 1 : 0));
+      for (const h of hs) {
+        const ms = h.members.filter(id => P[id]), label = h.label && h.label.trim() ? `（${h.label.trim()}）` : '';
+        if (!ms.length) continue;
+        if (ms.includes(ix)) {
+          const rest = ms.filter(id => id !== ix).sort((a, b) => P[a].y - P[b].y || P[a].x - P[b].x).map(ref);
+          out.push((rest.length ? `服務使用者與${rest.join('、')}同住` : '服務使用者獨自居住') + label + '。');
+        } else {
+          const names = ms.slice().sort((a, b) => P[a].y - P[b].y || P[a].x - P[b].x).map(ref);
+          out.push((names.length > 1 ? `${names.join('、')}同住` : `${names[0]}獨自居住`) + label + '。');
+        }
+      }
+      if (out.length) S.household = out.join('');
+    }
+
+    // 6. 情感關係
+    {
+      const rs = Object.values(doc.relations).filter(r => P[r.a] && P[r.b]);
+      const touch = (r) => (r.a === ix || r.b === ix ? 0 : 1);
+      const out = rs.sort((a, b) => touch(a) - touch(b)).map(r => {
+        const t = GT.EMOTION_TYPES.find(x => x.key === r.type) || { label: r.type };
+        return `${ref(r.a)}${t.dir ? '對' : '與'}${ref(r.b)}：${t.label}` + (r.note && r.note.trim() ? `（${r.note.trim()}）` : '');
+      });
+      if (out.length) S.relations = out.join('；') + '。';
+    }
+
+    // 7. 健康狀況
+    {
+      const order = Object.values(P).sort((a, b) => (a.id === ix ? -1 : b.id === ix ? 1 : a.y - b.y || a.x - b.x));
+      const out = [];
+      for (const p of order) {
+        const cond = (kind) => (p.conditions || []).map(k => GT.CONDITIONS.find(c => c.key === k)).filter(c => c && c.kind === kind).map(c => c.label);
+        const med = cond('medical'), bits = [];
+        if (p.illness || med.length) bits.push((p.illness === 'recovery' ? '疾病復原中' : '身體或精神疾病') + (med.length ? `（${med.join('、')}）` : ''));
+        if (p.substance) bits.push({ active: '酒精或藥物濫用', suspected: '疑似酒精或藥物濫用', recovery: '酒精或藥物濫用復原中' }[p.substance]);
+        cond('addiction').forEach(x => bits.push(x));
+        if (bits.length) out.push(`${ref(p.id)}：${bits.join('、')}`);
+      }
+      if (out.length) S.health = out.join('；') + '。';
+    }
+
+    // 8. 外部資源（生態圖）
+    {
+      const end = (id) => (P[id] ? ref(id)
+        : doc.systems[id] ? `「${doc.systems[id].name.trim() || '資源'}」`
+        : doc.households[id] ? `${doc.households[id].label && doc.households[id].label.trim() ? `「${doc.households[id].label.trim()}」` : ''}同住家庭` : '');
+      const out = [], used = new Set();
+      for (const t of Object.values(doc.ties)) {
+        const a = end(t.a), b = end(t.b);
+        if (!a || !b) continue;
+        used.add(t.a); used.add(t.b);
+        out.push(`${a}與${b}：關係${GT.TIE_STRENGTHS.find(x => x.key === t.strength).short}` + (t.stress ? '，有壓力或衝突' : '') +
+          (t.dir === 'a2b' ? `，資源由${a}流向${b}` : t.dir === 'b2a' ? `，資源由${b}流向${a}` : t.dir === 'both' ? '，雙向往來' : '') +
+          (t.note && t.note.trim() ? `（${t.note.trim()}）` : ''));
+      }
+      const loose = Object.values(doc.systems).filter(s => !used.has(s.id)).map(s => `「${s.name.trim() || '資源'}」`);
+      if (loose.length) out.push(`圖上另有資源${loose.join('、')}，尚未畫出連結`);
+      if (out.length) S.eco = out.join('；') + '。';
+    }
+
+    // 9. 其他成員：前面每一段都沒提到的人（判斷不出稱謂、也不在同住或關係線裡）→ 列出來，不靜默丟掉
+    {
+      const rest = Object.values(P).filter(p => !mentioned.has(p.id)).sort((a, b) => a.y - b.y || a.x - b.x).map(p => p.id);
+      if (rest.length) S.others = `圖上另有 ${rest.length} 人，判斷不出與服務使用者的稱謂，沒有寫進上面的敘述：${rest.map(who).join('、')}。`;
+    }
+
+    const want = Array.isArray(o.sections) ? new Set(o.sections) : null;
+    const sections = SECTIONS.filter(s => S[s.key] && (!want || want.has(s.key))).map(s => ({ key: s.key, title: s.title, text: S[s.key] }));
+    return { index: ix, candidates, sections, text: sections.map(s => s.text).join('\n') };
+  }
+
+  GT.narrate = { build, kinTerms, unionKind, phraseOf, indexPersons, SECTIONS };
+})(globalThis.GT = globalThis.GT || {});
+
+</script>
+<script>
 /* 家系圖工具 — manual.js
  * 內建「使用說明」與「圖例說明」的原稿（使用者 2026-09-21 要求放在檔案裡；BASE 模式 16 A 案：原稿就是本檔）。
  * 改了使用者看得到的功能，同一批要改這裡（測試會檢查每種線條都有說明、關鍵功能都有寫到）。
@@ -4105,8 +4494,8 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       '新增：「作者資訊」下方有版本更新紀錄，可以查這一版改了什麼。',
       '新增：左右兩欄可以收起來，畫布變大；視窗比較窄時，右邊的資料欄會在點到東西時才滑出來。',
       '新增：右下角多一顆「移動畫面」，按下去之後拖曳就是移動畫面，不必按住空白鍵；觸控螢幕可以用兩指移動與縮放。',
-      '新增：點選一個人，四周會出現「父母、手足、伴侶、子女」的加號，按了直接加；子女可以輸入「男女女」一次加好幾個。',
-      '新增：選取的東西旁邊會出現一小排常用動作（拉線、圈成生活圈、對齊、刪除）。',
+      '新增：點選一個人，他的上方會出現「手足、父母、伴侶」、下方出現「子女」的加號，按了直接加；子女與手足可以輸入「男女女」一次加好幾個。',
+      '新增：選取人之後，畫布左上角的工具列後面會多出常用動作（拉情感線、整理子孫、連為伴侶、圈成生活圈、排成一列）。',
       '新增：匯出選單每個選項都寫了什麼時候用；可以勾「附圖例」，只列這張圖用到的符號與線條；最上面有「貼進 Word 之後怎麼改」。',
       '新增：點生活圈的虛線，右邊列出所有人的名字，點一下就加入或移出，不必拖曳。',
       '新增：使用說明改成右側的說明欄，可以開著邊看邊畫；最上面是四步的建議畫法。',
@@ -4115,6 +4504,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       '新增：「匯出」裡的「產生文字敘述」會把圖上的家庭結構寫成一段文字，複製後貼進紀錄。',
       '調整：上方的「新增」改叫「開新圖」；放棄變更與刪除欄位的確認改用工具自己的視窗，按鈕寫清楚會做什麼。',
       '調整：管理欄位打完新欄位名稱，按 Enter 就新增。',
+      '調整：拖人進生活圈之後的「要加入嗎」會留到你做下一個動作，不會幾秒就消失。',
     ] },
     { v: '0.8.7', date: '2026-11-11', items: [
       '修正：祖孫同住、父母不同住這類跨代的生活圈，虛線框會把中間那一代不同住的人也框進去。現在兩代之間改用細細一條連接帶，會繞過不同住的人。',
@@ -4439,10 +4829,39 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 
 匯出的圖會照目前的顯示設定，例如切到「生態圖」模式時，匯出的就是生態圖。
 ` },
+    { key: 'narrate', title: '產生文字敘述', body: `
+## 這是做什麼的
+畫完家系圖，紀錄裡通常還要寫一段家庭概況。按上方「匯出」的「產生文字敘述…」，工具會照圖上的內容寫出一段文字，按「複製這段文字」，再到紀錄或 Word 貼上。
+
+## 先勾選服務使用者
+文字是以「服務使用者」為中心寫的，所以圖上要先有一個人勾了「服務使用者」（點那個人，右邊「基本資料」）。圖上有兩位以上時，視窗裡可以選以誰為主。
+
+## 用詞
+- 主述的人寫成「服務使用者」。
+- 其他家人用慣用的稱謂：案父、案母、案祖父、案外祖母、案兄、案大妹、案夫、案妻、案長子、案女、案孫、案嫂、案姪……
+- 手足的長幼看圖上由左到右的順序：在服務使用者左邊的是兄姊，右邊的是弟妹。
+- 判斷不出稱謂的人，會列在最後一段「圖上另有幾人」，不會漏掉。
+
+## 可以選要寫什麼
+- 「寫出姓名」「寫出年齡」「寫出職業、經濟等資料」可以各自取消。對外的文件不想出現姓名時，取消「寫出姓名」。
+- 下面一排是段落：基本資料、原生家庭、手足、婚姻與子女、同住情形、情感關係、健康狀況、外部資源、其他成員。圖上有內容的段落才會出現，不要的取消勾選。
+
+## 只寫圖上畫的
+- 圖上沒畫伴侶的人，不會寫成「未婚」；沒填年齡就不寫年齡。
+- 伴侶關係照你選的線條寫：結婚寫「已婚」、離婚寫「已離婚」；比較少見的類型直接寫出類型名稱。
+- 強迫關係、臨時關係這類不是伴侶的關係，對方一律寫成「關係對象」，不會寫成男友、女友。
+
+> 這段文字是草稿。貼上之後請再讀一次，補上圖上看不出來的事（例如誰是主要照顧者、家人之間實際的互動）。
+` },
     { key: 'faq', title: '常見問題', body: `
 ## 符號中間沒有年齡
 - 看右邊「年齡」有沒有填，或出生日期有沒有填。
 - 已歿的人，數字是「過世時的年齡」：請填死亡日期或過世時年齡。
+
+## 文字敘述裡的稱謂不對
+- 先確認勾「服務使用者」的是不是對的人。
+- 手足的長幼是看圖上由左到右的順序：把哥哥姊姊拖到服務使用者的左邊、弟弟妹妹拖到右邊。
+- 父母、伴侶的稱謂是看性別與伴侶線的類型：點那個人或那條線檢查一下。
 
 ## 找不到某條線
 兩端疊在一起的線畫不出來。點那個人、資源或生活圈，右邊「生態連結」清單可以直接選到那條線。
@@ -4624,7 +5043,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 (function (GT) {
   'use strict';
   const APP_VERSION = '0.9.0';
-  const BUILD = '2026-11-11 16:36';
+  const BUILD = '2026-11-11 16:50';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -6131,6 +6550,57 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       [{ label: '看使用說明', onClick: () => openHelp('about') }, { label: '關閉', primary: true }], { wide: true });
   }
 
+  // 文字敘述（2026-11-11）：把圖上的家庭結構寫成一段文字，複製後貼進紀錄。內容由 src/narrate.js 產生，這裡只管選項與複製
+  const narrOpt = { names: true, ages: true, attrs: true, off: new Set(), index: null };     // 只放在這次開啟的視窗裡
+  function openNarrate() {
+    const d = state.doc, cands = GT.narrate.indexPersons(d);
+    if (!cands.length) {
+      dialog('產生文字敘述', `<div class="help-doc"><p>這張圖還沒有勾選誰是<b>服務使用者</b>，所以不知道要以誰為主來寫。</p>
+        <p>請先點選那個人，在右邊「基本資料」勾選「服務使用者」，再按一次「匯出」的「產生文字敘述」。</p></div>`);
+      return;
+    }
+    if (!cands.includes(narrOpt.index)) narrOpt.index = cands[0];
+    const body = dialog('產生文字敘述', `
+      ${cands.length > 1 ? `<div class="field"><label for="nvIndex">圖上有 ${cands.length} 位服務使用者，以誰為主來寫</label>
+        <select class="input" id="nvIndex">${cands.map(id => `<option value="${esc(id)}"${id === narrOpt.index ? ' selected' : ''}>${esc(personName(id))}</option>`).join('')}</select></div>` : ''}
+      <fieldset class="field"><legend>要寫哪些內容</legend><div class="narr__opts">
+        <label class="check"><input type="checkbox" data-nv="names"${narrOpt.names ? ' checked' : ''}><span>寫出姓名</span></label>
+        <label class="check"><input type="checkbox" data-nv="ages"${narrOpt.ages ? ' checked' : ''}><span>寫出年齡</span></label>
+        <label class="check"><input type="checkbox" data-nv="attrs"${narrOpt.attrs ? ' checked' : ''}><span>寫出職業、經濟等資料</span></label>
+      </div><div class="narr__opts" id="nvSecs"></div></fieldset>
+      <div class="narr__text" id="nvText" tabindex="0" role="region" aria-label="文字敘述"></div>
+      <div class="narr__bar"><button class="btn btn--primary" id="nvCopy">複製這段文字</button><span class="help" id="nvState" role="status"></span></div>
+      <p class="help">這段文字只寫圖上畫出來的內容：圖上沒畫伴侶，不會寫成未婚；沒填年齡就不寫年齡。貼上之後請再讀一次，補上需要的說明。</p>`,
+      [{ label: '關閉' }], { wide: true });
+    const draw = () => {
+      const full = GT.narrate.build(state.doc, { index: narrOpt.index, names: narrOpt.names, ages: narrOpt.ages, attrs: narrOpt.attrs });
+      // 只列這張圖寫得出內容的段落
+      body.querySelector('#nvSecs').innerHTML = full.sections.map(s =>
+        `<label class="check"><input type="checkbox" data-nvsec="${esc(s.key)}"${narrOpt.off.has(s.key) ? '' : ' checked'}><span>${esc(s.title)}</span></label>`).join('');
+      const text = full.sections.filter(s => !narrOpt.off.has(s.key)).map(s => s.text).join('\n');
+      body.querySelector('#nvText').textContent = text || '（沒有勾選任何內容）';      // 純文字：使用者打的字不經過 HTML
+      body.querySelector('#nvCopy').disabled = !text;
+      body.querySelector('#nvState').textContent = text ? `共 ${text.replace(/\s/g, '').length} 字` : '';
+      return text;
+    };
+    let current = draw();
+    body.addEventListener('change', (e) => {
+      const t = e.target;
+      if (t.id === 'nvIndex') narrOpt.index = t.value;
+      else if (t.dataset.nv) narrOpt[t.dataset.nv] = t.checked;
+      else if (t.dataset.nvsec) { if (t.checked) narrOpt.off.delete(t.dataset.nvsec); else narrOpt.off.add(t.dataset.nvsec); }
+      else return;
+      const key = focusKey(t);
+      current = draw();
+      const back = key && body.querySelector(key);                     // 段落的勾選框重畫過：焦點放回同一顆
+      if (back && document.activeElement !== back) back.focus();
+    });
+    body.querySelector('#nvCopy').addEventListener('click', () => act('COPYTEXT', async () => {
+      await navigator.clipboard.writeText(current);
+      body.querySelector('#nvState').textContent = '已複製。到紀錄或 Word 按 Ctrl+V 貼上。';
+    }));
+  }
+
   // ───── 檔案 ─────
   const TYPES_JSON = [{ description: '家系圖檔案', accept: { 'application/json': ['.json'] } }];
 
@@ -6382,6 +6852,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     });
     $('optLegend').addEventListener('change', (e) => { ui.legend = e.target.checked; });
     $('btnWordHelp').addEventListener('click', () => openHelp('save'));
+    $('btnNarrate').addEventListener('click', openNarrate);
     document.addEventListener('click', (e) => { if (!exportMenu.hidden && !e.target.closest('.menu')) closeExport(); });
     $('btnExport').closest('.menu').addEventListener('focusout', (e) => {
       if (!exportMenu.hidden && !(e.relatedTarget && e.target.closest('.menu').contains(e.relatedTarget))) closeExport();
@@ -6770,6 +7241,29 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       undo();
       checks.branch = !!branchBtn && askedBranch && !!onlyBtn && tidied && pos() === messy && !$('dlg').open;
       undo();
+      // 文字敘述（2026-11-11）：主述的人稱「服務使用者」、親屬用案父案母這類稱謂；可以不寫姓名、可以只要某幾段；
+      // 沒有人勾「服務使用者」時說明要先勾，不硬寫
+      select([]);
+      $('btnNarrate').click();
+      const nvt = () => ($('nvText') ? $('nvText').textContent : '');
+      const narrOpen = $('dlg').open && $('dlgTitle').textContent === '產生文字敘述' && nvt().startsWith('服務使用者測試甲，男性，45 歲。') &&
+                       /案(妻|同居人)/.test(nvt()) && nvt().includes('育有') && !$('nvCopy').disabled;
+      const narrTiny = [...document.querySelectorAll('#dlg button, #dlg select, #dlg .check')]
+        .filter(el => el.offsetParent !== null && (el.offsetHeight < 44 || (el.matches('button, select') && el.offsetWidth < 44))).map(el => `narrate:${el.id || el.textContent.trim()}:${el.offsetWidth}x${el.offsetHeight}`);
+      document.querySelector('#dlg [data-nv=names]').click();
+      const noName = !nvt().includes('測試甲') && nvt().startsWith('服務使用者，男性，45 歲。');
+      document.querySelector('#dlg [data-nv=names]').click();
+      document.querySelector('#dlg [data-nvsec=self]').click();
+      const secOff = !nvt().includes('測試甲，男性') && nvt().includes('育有') && !document.querySelector('#dlg [data-nvsec=self]').checked;
+      document.querySelector('#dlg [data-nvsec=self]').click();
+      const restored = nvt().startsWith('服務使用者測試甲，男性，45 歲。');
+      $('dlg').close();
+      mutate(d => { d.persons[a].index = false; });
+      $('btnNarrate').click();
+      const needIndex = $('dlg').open && $('dlgBody').textContent.includes('還沒有勾選') && !$('nvText');
+      $('dlg').close();
+      undo();
+      checks.narrate = narrOpen && noName && secOff && restored && needIndex && state.doc.persons[a].index === true;
       // 線旁說明：特殊線條自動標名稱；顯示設定可以關掉
       mutate(d => { d.unions[u0].type = 'SeparationLegal'; });
       checks.linelabel = $('world').innerHTML.includes('合法分居');
@@ -6904,7 +7398,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
           if (el.matches('button') && GLYPH.test(el.textContent)) glyph.push(`${where}:${el.textContent.trim()}`);
         }
       };
-      for (const b of helpTiny) tiny.push(b);
+      for (const b of helpTiny.concat(narrTiny)) tiny.push(b);
       inspect('doc');
       select([a]);
       const accHealth = document.querySelector('#props [data-acc=health]');
@@ -6959,7 +7453,11 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       inspect('empty');
       document.querySelector('#tplList [data-tpl=three]').click();
       const tps = Object.values(state.doc.persons);
-      const built = tps.length === 6 && $('empty').hidden && tps.every(p => !p.name && !p.index) &&
+      // 放上去之後有排版：兩個孩子置中在父母下方（突變實驗 2026-11-11：原本只查不重疊，拿掉排版也照樣全綠）
+      const fam2 = Object.values(state.doc.unions).find(u => u.children.length === 2);
+      const midOf = (ids) => { const xs = ids.map(id => state.doc.persons[id].x); return (Math.min(...xs) + Math.max(...xs)) / 2; };
+      const centered = !!fam2 && Math.abs(midOf(fam2.children.map(c => c.id)) - midOf(fam2.partners)) <= GT.GRID;
+      const built = tps.length === 6 && $('empty').hidden && tps.every(p => !p.name && !p.index) && centered &&
                     tps.every(p => tps.every(o => o === p || o.y !== p.y || Math.abs(o.x - p.x) >= 60)) && state.sel.size === 0;
       undo();
       checks.template = emptyShown && built && Object.keys(state.doc.persons).length === 0 && !$('empty').hidden;
@@ -7012,7 +7510,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       const x = GT.newDoc();
       const p1 = GT.addPerson(x, { gender: 'M', x: 0, y: 0 });
       const rp = GT.addPartner(x, p1), kid = GT.addChild(x, rp.unionId, 'F');
-      Object.assign(x.persons[p1], { name: evil, birth: evil.slice(0, 20), attrs: { occupation: evil } });
+      Object.assign(x.persons[p1], { name: evil, birth: evil.slice(0, 20), attrs: { occupation: evil }, index: true });
       x.persons[kid].name = evil;
       x.settings.fields[0].label = evil.slice(0, 20);
       x.unions[rp.unionId].note = evil.slice(0, 60);
@@ -7034,9 +7532,11 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       openLegend('family'); scan('legend'); $('dlg').close();
       openFieldManager(); scan('fields'); $('dlg').close();
       openHelp('draw'); scan('help'); closeHelp();
+      openNarrate(); scan('narrate'); $('dlg').close();
+      const narrPlain = GT.narrate.build(state.doc).text.includes('<img');     // 文字敘述裡是原樣的純文字，畫面上沒有變成標籤
       notice(evil); scan('alert'); clearError();
       toast(evil, 'warn', 1000, { label: evil, run: () => {} }); scan('toast');
-      checks.injection = dirty.length === 0 && window.__pwn === undefined &&
+      checks.injection = dirty.length === 0 && window.__pwn === undefined && narrPlain &&
                          !/<(img|script|svg)\b/i.test(GT.render.exportSVG(state.doc).replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '').replace(/<svg xmlns[^>]*>/g, ''));
       ui.width = 0; ui.left = ui.right = null; syncLayout();
       const blob = await pngBlob();

@@ -1512,6 +1512,57 @@
       [{ label: '看使用說明', onClick: () => openHelp('about') }, { label: '關閉', primary: true }], { wide: true });
   }
 
+  // 文字敘述（2026-11-11）：把圖上的家庭結構寫成一段文字，複製後貼進紀錄。內容由 src/narrate.js 產生，這裡只管選項與複製
+  const narrOpt = { names: true, ages: true, attrs: true, off: new Set(), index: null };     // 只放在這次開啟的視窗裡
+  function openNarrate() {
+    const d = state.doc, cands = GT.narrate.indexPersons(d);
+    if (!cands.length) {
+      dialog('產生文字敘述', `<div class="help-doc"><p>這張圖還沒有勾選誰是<b>服務使用者</b>，所以不知道要以誰為主來寫。</p>
+        <p>請先點選那個人，在右邊「基本資料」勾選「服務使用者」，再按一次「匯出」的「產生文字敘述」。</p></div>`);
+      return;
+    }
+    if (!cands.includes(narrOpt.index)) narrOpt.index = cands[0];
+    const body = dialog('產生文字敘述', `
+      ${cands.length > 1 ? `<div class="field"><label for="nvIndex">圖上有 ${cands.length} 位服務使用者，以誰為主來寫</label>
+        <select class="input" id="nvIndex">${cands.map(id => `<option value="${esc(id)}"${id === narrOpt.index ? ' selected' : ''}>${esc(personName(id))}</option>`).join('')}</select></div>` : ''}
+      <fieldset class="field"><legend>要寫哪些內容</legend><div class="narr__opts">
+        <label class="check"><input type="checkbox" data-nv="names"${narrOpt.names ? ' checked' : ''}><span>寫出姓名</span></label>
+        <label class="check"><input type="checkbox" data-nv="ages"${narrOpt.ages ? ' checked' : ''}><span>寫出年齡</span></label>
+        <label class="check"><input type="checkbox" data-nv="attrs"${narrOpt.attrs ? ' checked' : ''}><span>寫出職業、經濟等資料</span></label>
+      </div><div class="narr__opts" id="nvSecs"></div></fieldset>
+      <div class="narr__text" id="nvText" tabindex="0" role="region" aria-label="文字敘述"></div>
+      <div class="narr__bar"><button class="btn btn--primary" id="nvCopy">複製這段文字</button><span class="help" id="nvState" role="status"></span></div>
+      <p class="help">這段文字只寫圖上畫出來的內容：圖上沒畫伴侶，不會寫成未婚；沒填年齡就不寫年齡。貼上之後請再讀一次，補上需要的說明。</p>`,
+      [{ label: '關閉' }], { wide: true });
+    const draw = () => {
+      const full = GT.narrate.build(state.doc, { index: narrOpt.index, names: narrOpt.names, ages: narrOpt.ages, attrs: narrOpt.attrs });
+      // 只列這張圖寫得出內容的段落
+      body.querySelector('#nvSecs').innerHTML = full.sections.map(s =>
+        `<label class="check"><input type="checkbox" data-nvsec="${esc(s.key)}"${narrOpt.off.has(s.key) ? '' : ' checked'}><span>${esc(s.title)}</span></label>`).join('');
+      const text = full.sections.filter(s => !narrOpt.off.has(s.key)).map(s => s.text).join('\n');
+      body.querySelector('#nvText').textContent = text || '（沒有勾選任何內容）';      // 純文字：使用者打的字不經過 HTML
+      body.querySelector('#nvCopy').disabled = !text;
+      body.querySelector('#nvState').textContent = text ? `共 ${text.replace(/\s/g, '').length} 字` : '';
+      return text;
+    };
+    let current = draw();
+    body.addEventListener('change', (e) => {
+      const t = e.target;
+      if (t.id === 'nvIndex') narrOpt.index = t.value;
+      else if (t.dataset.nv) narrOpt[t.dataset.nv] = t.checked;
+      else if (t.dataset.nvsec) { if (t.checked) narrOpt.off.delete(t.dataset.nvsec); else narrOpt.off.add(t.dataset.nvsec); }
+      else return;
+      const key = focusKey(t);
+      current = draw();
+      const back = key && body.querySelector(key);                     // 段落的勾選框重畫過：焦點放回同一顆
+      if (back && document.activeElement !== back) back.focus();
+    });
+    body.querySelector('#nvCopy').addEventListener('click', () => act('COPYTEXT', async () => {
+      await navigator.clipboard.writeText(current);
+      body.querySelector('#nvState').textContent = '已複製。到紀錄或 Word 按 Ctrl+V 貼上。';
+    }));
+  }
+
   // ───── 檔案 ─────
   const TYPES_JSON = [{ description: '家系圖檔案', accept: { 'application/json': ['.json'] } }];
 
@@ -1763,6 +1814,7 @@
     });
     $('optLegend').addEventListener('change', (e) => { ui.legend = e.target.checked; });
     $('btnWordHelp').addEventListener('click', () => openHelp('save'));
+    $('btnNarrate').addEventListener('click', openNarrate);
     document.addEventListener('click', (e) => { if (!exportMenu.hidden && !e.target.closest('.menu')) closeExport(); });
     $('btnExport').closest('.menu').addEventListener('focusout', (e) => {
       if (!exportMenu.hidden && !(e.relatedTarget && e.target.closest('.menu').contains(e.relatedTarget))) closeExport();
@@ -2151,6 +2203,29 @@
       undo();
       checks.branch = !!branchBtn && askedBranch && !!onlyBtn && tidied && pos() === messy && !$('dlg').open;
       undo();
+      // 文字敘述（2026-11-11）：主述的人稱「服務使用者」、親屬用案父案母這類稱謂；可以不寫姓名、可以只要某幾段；
+      // 沒有人勾「服務使用者」時說明要先勾，不硬寫
+      select([]);
+      $('btnNarrate').click();
+      const nvt = () => ($('nvText') ? $('nvText').textContent : '');
+      const narrOpen = $('dlg').open && $('dlgTitle').textContent === '產生文字敘述' && nvt().startsWith('服務使用者測試甲，男性，45 歲。') &&
+                       /案(妻|同居人)/.test(nvt()) && nvt().includes('育有') && !$('nvCopy').disabled;
+      const narrTiny = [...document.querySelectorAll('#dlg button, #dlg select, #dlg .check')]
+        .filter(el => el.offsetParent !== null && (el.offsetHeight < 44 || (el.matches('button, select') && el.offsetWidth < 44))).map(el => `narrate:${el.id || el.textContent.trim()}:${el.offsetWidth}x${el.offsetHeight}`);
+      document.querySelector('#dlg [data-nv=names]').click();
+      const noName = !nvt().includes('測試甲') && nvt().startsWith('服務使用者，男性，45 歲。');
+      document.querySelector('#dlg [data-nv=names]').click();
+      document.querySelector('#dlg [data-nvsec=self]').click();
+      const secOff = !nvt().includes('測試甲，男性') && nvt().includes('育有') && !document.querySelector('#dlg [data-nvsec=self]').checked;
+      document.querySelector('#dlg [data-nvsec=self]').click();
+      const restored = nvt().startsWith('服務使用者測試甲，男性，45 歲。');
+      $('dlg').close();
+      mutate(d => { d.persons[a].index = false; });
+      $('btnNarrate').click();
+      const needIndex = $('dlg').open && $('dlgBody').textContent.includes('還沒有勾選') && !$('nvText');
+      $('dlg').close();
+      undo();
+      checks.narrate = narrOpen && noName && secOff && restored && needIndex && state.doc.persons[a].index === true;
       // 線旁說明：特殊線條自動標名稱；顯示設定可以關掉
       mutate(d => { d.unions[u0].type = 'SeparationLegal'; });
       checks.linelabel = $('world').innerHTML.includes('合法分居');
@@ -2285,7 +2360,7 @@
           if (el.matches('button') && GLYPH.test(el.textContent)) glyph.push(`${where}:${el.textContent.trim()}`);
         }
       };
-      for (const b of helpTiny) tiny.push(b);
+      for (const b of helpTiny.concat(narrTiny)) tiny.push(b);
       inspect('doc');
       select([a]);
       const accHealth = document.querySelector('#props [data-acc=health]');
@@ -2340,7 +2415,11 @@
       inspect('empty');
       document.querySelector('#tplList [data-tpl=three]').click();
       const tps = Object.values(state.doc.persons);
-      const built = tps.length === 6 && $('empty').hidden && tps.every(p => !p.name && !p.index) &&
+      // 放上去之後有排版：兩個孩子置中在父母下方（突變實驗 2026-11-11：原本只查不重疊，拿掉排版也照樣全綠）
+      const fam2 = Object.values(state.doc.unions).find(u => u.children.length === 2);
+      const midOf = (ids) => { const xs = ids.map(id => state.doc.persons[id].x); return (Math.min(...xs) + Math.max(...xs)) / 2; };
+      const centered = !!fam2 && Math.abs(midOf(fam2.children.map(c => c.id)) - midOf(fam2.partners)) <= GT.GRID;
+      const built = tps.length === 6 && $('empty').hidden && tps.every(p => !p.name && !p.index) && centered &&
                     tps.every(p => tps.every(o => o === p || o.y !== p.y || Math.abs(o.x - p.x) >= 60)) && state.sel.size === 0;
       undo();
       checks.template = emptyShown && built && Object.keys(state.doc.persons).length === 0 && !$('empty').hidden;
@@ -2393,7 +2472,7 @@
       const x = GT.newDoc();
       const p1 = GT.addPerson(x, { gender: 'M', x: 0, y: 0 });
       const rp = GT.addPartner(x, p1), kid = GT.addChild(x, rp.unionId, 'F');
-      Object.assign(x.persons[p1], { name: evil, birth: evil.slice(0, 20), attrs: { occupation: evil } });
+      Object.assign(x.persons[p1], { name: evil, birth: evil.slice(0, 20), attrs: { occupation: evil }, index: true });
       x.persons[kid].name = evil;
       x.settings.fields[0].label = evil.slice(0, 20);
       x.unions[rp.unionId].note = evil.slice(0, 60);
@@ -2415,9 +2494,11 @@
       openLegend('family'); scan('legend'); $('dlg').close();
       openFieldManager(); scan('fields'); $('dlg').close();
       openHelp('draw'); scan('help'); closeHelp();
+      openNarrate(); scan('narrate'); $('dlg').close();
+      const narrPlain = GT.narrate.build(state.doc).text.includes('<img');     // 文字敘述裡是原樣的純文字，畫面上沒有變成標籤
       notice(evil); scan('alert'); clearError();
       toast(evil, 'warn', 1000, { label: evil, run: () => {} }); scan('toast');
-      checks.injection = dirty.length === 0 && window.__pwn === undefined &&
+      checks.injection = dirty.length === 0 && window.__pwn === undefined && narrPlain &&
                          !/<(img|script|svg)\b/i.test(GT.render.exportSVG(state.doc).replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '').replace(/<svg xmlns[^>]*>/g, ''));
       ui.width = 0; ui.left = ui.right = null; syncLayout();
       const blob = await pngBlob();

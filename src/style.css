@@ -42,7 +42,7 @@ body {
 .topbar__actions { flex-wrap: wrap; row-gap: var(--space-2); }
 
 .workspace {
-  display: grid;
+  display: grid; position: relative;
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--props-w);
   min-height: 0;
 }
@@ -50,9 +50,27 @@ body {
    這個工具的外框自己管高度，所以覆寫掉，不然側欄會把版面撐破。 */
 .workspace .sidebar {
   position: static; height: auto; max-height: none;
-  grid-column: auto; grid-row: auto;
+  grid-column: 1; grid-row: 1;
   overflow-y: auto; min-height: 0; gap: var(--space-5);
 }
+.workspace .stage { grid-column: 2; grid-row: 1; }
+.workspace .props { grid-column: 3; grid-row: 1; }
+/* 左右兩欄可以收起來（2026-11-11：1366 寬時畫布只有 762px，800 寬只剩 300px）。
+   欄位各佔固定的格線位置，收起來時那一欄寬度變 0，畫布不會跑到別欄去。
+   類別由 app.js 的 syncLayout() 依視窗寬度與使用者的操作加上：
+   left-off／right-off＝收起；narrow＝視窗窄，右欄改成浮在畫布上；tiny＝更窄，左欄也浮在畫布上 */
+.workspace.left-off { --sidebar-w: 0px; }
+.workspace.right-off { --props-w: 0px; }
+.workspace.left-off > .sidebar, .workspace.right-off > .props, .workspace.help-off > .helpdock { display: none; }
+.workspace.narrow { grid-template-columns: var(--sidebar-w) minmax(0, 1fr) 0; }
+.workspace.narrow > .props, .workspace.tiny > .sidebar {
+  position: absolute; top: 0; bottom: 0; z-index: 8; grid-column: 1 / -1;
+  box-shadow: var(--elev-overlay);
+}
+.workspace.narrow > .props { right: 0; width: min(320px, 88%); }
+.workspace.tiny { grid-template-columns: 0 minmax(0, 1fr) 0; }
+.workspace.tiny > .sidebar { left: 0; width: min(264px, 88%); }
+.toolbar__sep { width: 1px; align-self: stretch; margin: var(--space-1) 0; background: var(--border-soft); }
 .toolgroup { display: flex; flex-direction: column; }
 .toolgroup .sidebar__group { padding-left: 0; padding-top: 0; }
 .sidebar .field > legend { font-size: var(--text-xs); color: var(--fg-2); font-weight: 700; }
@@ -119,8 +137,19 @@ body {
   border-radius: var(--radius-md); box-shadow: var(--elev-raised); padding: var(--space-1);
   gap: var(--space-1);
 }
+.stage__side { position: absolute; z-index: 5; }
+.stage__toolbar, .stage__zoom, .stage__side { flex-wrap: nowrap; }
+.stage__side {
+  background: var(--surface); border: var(--border-width) solid var(--border-soft);
+  border-radius: var(--radius-md); box-shadow: var(--elev-raised); padding: var(--space-1);
+  right: var(--space-4); top: var(--space-4);
+}
 .stage__toolbar { left: var(--space-4); top: var(--space-4); }
 .stage__zoom { right: var(--space-4); bottom: var(--space-4); }
+/* 右上角的按鈕：說明往下、靠右對齊，才不會超出視窗 */
+.stage__side .tooltip::after { bottom: auto; top: calc(100% + 6px); left: auto; right: 0; transform: none; }
+/* 「移動畫面」開著：按鈕看得出來是按下的狀態 */
+.btn[aria-pressed="true"] { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); color: var(--fg); }
 .zoomval { min-width: 52px; text-align: center; font-size: var(--text-sm); color: var(--fg-2); }
 
 /* 提示條與錯誤訊息：工具列下方、上下疊放、寬度跟著畫布走
@@ -307,6 +336,6 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
   :root { --sidebar-w: 236px; --props-w: 300px; }
 }
 @media (max-width: 1024px) {
-  .workspace { grid-template-columns: 220px minmax(0, 1fr) 280px; }
+  :root { --sidebar-w: 220px; --props-w: 280px; }
   .topbar__title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 }

@@ -4,7 +4,7 @@
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.8.7';
+  const APP_VERSION = '0.9.0';
   const BUILD = '__BUILD__';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
@@ -151,7 +151,38 @@
     applyView();
   }
 
-  let drag = null, raf = 0, spaceDown = false;
+  let drag = null, raf = 0, spaceDown = false, held = false;      // held＝滑鼠或手指還按在畫布上
+
+  // ───── 版面：左右兩欄可以收起來；視窗窄時右欄浮在畫布上（2026-11-11）─────
+  // left／right：null＝自動（看視窗寬度與有沒有選取），true／false＝使用者自己按的；pan＝「移動畫面」開著
+  const ui = { left: null, right: null, pan: false, width: 0 };     // width：自我測試用來假裝視窗寬度（0＝用真的）
+  GT.app.ui = ui;
+  const winW = () => ui.width || window.innerWidth;
+  const leftOpen = () => (ui.left == null ? winW() > 640 : ui.left);
+  // 視窗窄的時候右欄會蓋住畫布：沒選東西先收著，點到東西（放開滑鼠之後）才滑出來
+  const rightOpen = () => (ui.right != null ? ui.right : winW() > 1024 || (state.sel.size > 0 && !held));
+  function syncLayout() {
+    const ws = document.querySelector('.workspace'), w = winW();
+    const before = canvas.getBoundingClientRect().left;
+    ws.classList.toggle('narrow', w <= 1024);
+    ws.classList.toggle('tiny', w <= 640);
+    ws.classList.toggle('left-off', !leftOpen());
+    ws.classList.toggle('right-off', !rightOpen());
+    const shift = before - canvas.getBoundingClientRect().left;       // 左欄收合時畫布左緣會移動：圖留在螢幕上原來的位置
+    if (shift) { state.view.x += shift; applyView(); }
+    const set = (id, open, side) => {
+      const b = $(id), tip = `${open ? '收起' : '展開'}${side}`;
+      b.setAttribute('aria-expanded', String(open)); b.dataset.tip = tip; b.setAttribute('aria-label', tip);
+    };
+    set('btnPanelL', leftOpen(), '左邊的工具欄'); set('btnPanelR', rightOpen(), '右邊的資料欄');
+  }
+  // 「移動畫面」（2026-11-11）：原本只能按住空白鍵或滑鼠中鍵拖曳，不知道快捷鍵的人、用觸控螢幕的人沒辦法移動畫面
+  function setPan(on) {
+    ui.pan = on;
+    $('btnPan').setAttribute('aria-pressed', String(on));
+    canvas.classList.toggle('grab', on || spaceDown);
+  }
+
   const scheduleRender = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; renderCanvas(); }); };
 
   // 拖曳圈選的框（畫在 viewport 裡，跟著縮放；線寬固定）
@@ -166,15 +197,32 @@
 
   // 操作方式（使用者 2026-09-18 要求拖曳圈選）：空白處左鍵拖曳＝圈選（Shift 追加）；
   // 平移＝滑鼠中鍵拖曳或按住空白鍵拖曳；滾輪＝捲動，Shift＋滾輪＝左右捲動，Ctrl＋滾輪＝縮放
+  // 觸控（2026-11-11）：兩指＝移動畫面與縮放；一指跟滑鼠一樣（拖人、框選）
+  const touches = new Map();
+  const localPt = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  function startPinch() {
+    finishDrag();                                               // 第二指落下：先結束第一指正在做的事
+    const [a, b] = [...touches.values()];
+    drag = { mode: 'pinch', d0: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+             mid0: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, view0: Object.assign({}, state.view) };
+  }
   canvas.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 && e.button !== 1) return;
     try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* 沒有實體指標（自我測試的合成事件）時不需要捕捉 */ }
+    held = true;
+    if (e.pointerType === 'touch') {
+      touches.set(e.pointerId, localPt(e));
+      if (touches.size === 2) { startPinch(); return; }
+      if (touches.size > 2) return;
+    }
     if (e.button === 1 || spaceDown) { e.preventDefault(); startPan(e); return; }
     let hit = e.target.closest('[data-kind]');
     if (hit && hit.getAttribute('data-kind') === 'household') {         // 生活圈內部看不見的接縫不算點到外框（當成空白處）
       const w = toWorld(e), h = state.doc.households[hit.getAttribute('data-id')];
       if (h && R.householdInterior(state.doc, h, w.x, w.y)) hit = null;
     }
+    // 「移動畫面」開著：拖曳一律是移動畫面；沒有拖、只是點一下＝選取點到的東西（點選模式中照常點選另一端）
+    if (ui.pan && !state.pending) { startPan(e); drag.tap = hit ? hit.getAttribute('data-id') : ''; return; }
     const additive = e.shiftKey || e.ctrlKey || e.metaKey;
     if (!hit) {
       if (state.pending) { startPan(e); return; }        // 點選模式中不圈選：拖曳空白處照舊移動畫面
@@ -232,9 +280,19 @@
     } });
   }
   canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch' && touches.has(e.pointerId)) touches.set(e.pointerId, localPt(e));
     if (!drag) return;
+    if (drag.mode === 'pinch') {
+      if (touches.size < 2) return;
+      const [a, b] = [...touches.values()], v0 = drag.view0;
+      const k = clamp(v0.k * Math.hypot(a.x - b.x, a.y - b.y) / drag.d0, 0.2, 4);
+      const wx = (drag.mid0.x - v0.x) / v0.k, wy = (drag.mid0.y - v0.y) / v0.k;   // 兩指中間那一點在圖上的位置：跟著手指走
+      state.view = { k, x: (a.x + b.x) / 2 - wx * k, y: (a.y + b.y) / 2 - wy * k };
+      applyView(); return;
+    }
     if (drag.mode === 'pan') {
       state.view.x = drag.vx + e.clientX - drag.sx; state.view.y = drag.vy + e.clientY - drag.sy;
+      if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) >= 4) drag.far = true;
       applyView(); return;
     }
     if (drag.mode === 'marquee') {
@@ -255,9 +313,14 @@
     if (drag.zones.length) drag.target = (dropTarget(drag.zones) || {}).hid || null;
     scheduleRender();
   });
-  const endDrag = () => {
+  const finishDrag = () => {
     if (!drag) return;
     canvas.classList.remove('panning');
+    if (drag.mode === 'pan' && drag.tap !== undefined && !drag.far) {       // 「移動畫面」開著時點一下＝選取
+      const t = drag.tap;
+      drag = null; select(t ? [t] : []);
+      return;
+    }
     if (drag.mode === 'move') {
       if (drag.moved) {
         GT.snapItems(state.doc, drag.ids);
@@ -276,8 +339,19 @@
     }
     drag = null;
   };
-  canvas.addEventListener('pointerup', endDrag);
-  canvas.addEventListener('pointercancel', endDrag);
+  const endDrag = () => { held = false; finishDrag(); syncLayout(); };
+  const onPointerEnd = (e) => {
+    if (e.pointerType === 'touch') {
+      touches.delete(e.pointerId);
+      if (drag && drag.mode === 'pinch') {                       // 放開一指就結束縮放；剩下那一指不接著做別的事
+        if (touches.size < 2) { drag = null; held = touches.size > 0; syncLayout(); }
+        return;
+      }
+    }
+    endDrag();
+  };
+  canvas.addEventListener('pointerup', onPointerEnd);
+  canvas.addEventListener('pointercancel', onPointerEnd);
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     const r = canvas.getBoundingClientRect();
@@ -292,7 +366,7 @@
   canvas.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
   canvas.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
   // 按住空白鍵＝拖曳可移動畫面（放開或視窗失焦就恢復）
-  const setSpace = (on) => { spaceDown = on; canvas.classList.toggle('grab', on); };
+  const setSpace = (on) => { spaceDown = on; canvas.classList.toggle('grab', on || ui.pan); };
   // 用滑鼠點過的按鈕不保留焦點：接著按空白鍵是平移畫面，不會又觸發那顆按鈕一次。
   // e.detail === 0 ＝鍵盤（或程式）觸發的 click，不動它，鍵盤操作照常
   document.addEventListener('click', (e) => {
@@ -547,7 +621,7 @@
     }
     return r;
   }
-  const renderPanel = () => keepFocus($('props'), renderPanelNow);
+  const renderPanel = () => { keepFocus($('props'), renderPanelNow); syncLayout(); };
   function renderPanelNow() {
     const P = $('props'), ids = [...state.sel];
     if (!ids.length) return panelDoc(P);
@@ -890,7 +964,8 @@
       <ul class="help" style="padding-left:18px;margin:0">
         <li>點人物，在右邊填年齡、職業、經濟，圖會即時更新。</li>
         <li>在空白處按住左鍵拖曳可以框選多個人；按住 <b>Shift</b> 點選或框選可以加選。</li>
-        <li>移動畫面：按住<b>空白鍵</b>拖曳，或按住滑鼠中鍵拖曳；滾輪上下捲動，<b>Shift</b>＋滾輪左右捲動。</li>
+        <li>移動畫面：按右下角的「移動畫面」再拖曳，或按住<b>空白鍵</b>拖曳；滾輪上下捲動，<b>Shift</b>＋滾輪左右捲動。</li>
+        <li>畫布左上角、右上角的按鈕可以把左右兩欄收起來，畫布會變大。</li>
         <li><b>Ctrl</b>＋滾輪放大縮小。</li>
         <li><b>Ctrl+Z</b> 復原、<b>Ctrl+S</b> 儲存、<b>Delete</b> 刪除。</li>
         <li>「複製圖片」後到 Word 按 <b>Ctrl+V</b> 就能貼上。</li>
@@ -1206,13 +1281,20 @@
   // 作者資訊（使用者 2026-10-28：放在「使用說明」旁邊；照交接系統「開發者資訊」的格式，最後一行是 CRPD 宣言）
   function openAbout() {
     const A = GT.manual.ABOUT, row = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
+    // 版本更新紀錄（設計規範 2026-10-29：資訊畫面下方一定要有；由新到舊、目前這一版標「目前使用中」）
+    const log = GT.manual.CHANGELOG.map(c => `<article class="changelog__entry"><h3><span class="changelog__ver">v${esc(c.v)}</span>` +
+      `<time class="changelog__date" datetime="${esc(c.date)}">${esc(c.date)}</time>` +
+      (c.v === APP_VERSION ? '<span class="changelog__now">目前使用中</span>' : '') +
+      `</h3><ul>${c.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></article>`).join('');
     dialog('作者資訊', `<dl class="dl about">` +
       row('系統名稱', esc(A.name)) + row('作者', `<b>${esc(A.author)}</b>`) +
       row('版本號', `v${esc(APP_VERSION)}（${esc(BUILD)}）`) + row('授權', esc(A.license)) +
       row('聯絡', esc(A.contact)) + row('專案網址', esc(A.url)) + `</dl>
       <div class="crpd"><b>CRPD</b><p>「${esc(A.crpd)}」</p></div>
-      <p class="help">授權全文在專案的 LICENSE；使用說明的「關於這個工具」有授權重點。</p>`,
-      [{ label: '看使用說明', onClick: () => openHelp('about') }, { label: '關閉', primary: true }]);
+      <p class="help">授權全文在專案的 LICENSE；使用說明的「關於這個工具」有授權重點。</p>
+      <section class="changelog" aria-labelledby="changelogTitle"><h2 id="changelogTitle">版本更新紀錄</h2>
+      <div class="changelog__body" tabindex="0" role="region" aria-labelledby="changelogTitle">${log || '<p class="changelog__empty">這是第一版，還沒有更新紀錄。</p>'}</div></section>`,
+      [{ label: '看使用說明', onClick: () => openHelp('about') }, { label: '關閉', primary: true }], { wide: true });
   }
 
   // ───── 檔案 ─────
@@ -1410,6 +1492,14 @@
     const setIcon = (id, name) => { const el = $(id); if (el) el.insertAdjacentHTML('afterbegin', ico(name)); };
     setIcon('btnUndo', 'undo-2'); setIcon('btnRedo', 'redo-2'); setIcon('btnDelete', 'trash-2');
     setIcon('zoomIn', 'zoom-in'); setIcon('zoomOut', 'zoom-out');
+    setIcon('btnPanelL', 'panel-left'); setIcon('btnPanelR', 'panel-right'); setIcon('btnPan', 'hand');
+    $('btnPanelL').addEventListener('click', () => { ui.left = !leftOpen(); syncLayout(); });
+    $('btnPanelR').addEventListener('click', () => { ui.right = !rightOpen(); syncLayout(); });
+    $('btnPan').addEventListener('click', () => {
+      setPan(!ui.pan);
+      toast(ui.pan ? '「移動畫面」已開啟：拖曳就是移動畫面，點一下照樣可以選取。再按一次關閉。' : '「移動畫面」已關閉：拖曳空白處是框選。', 'info', 5000);
+    });
+    window.addEventListener('resize', syncLayout);
     setIcon('errorClose', 'x');
     $('stSafe').insertAdjacentHTML('afterbegin', ico('lock-keyhole', 16));
     $('errorClose').addEventListener('click', clearError);
@@ -1546,6 +1636,7 @@
       const r = GT.addPartner(d, a);
       GT.addChild(d, r.unionId, 'F');
       GT.addRelation(d, a, r.personId, 'Discord');
+      ui.width = 1366;                        // 自我測試固定用寬視窗的版面跑（無頭瀏覽器的視窗只有 800 寬）；窄視窗另外測
       setDoc(d, { dirty: false });
       const html = $('world').innerHTML;
       const checks = {
@@ -1681,6 +1772,49 @@
       const hs2 = Object.values(state.doc.households);
       checks.hhunique = superset && askedMerge && hs2.length === 1 && hs2[0].id === hid && hs2[0].members.length === 3 &&
         Object.keys(state.doc.persons).every(p => hs2.filter(h => h.members.includes(p)).length <= 1);
+      // 版面（2026-11-11）：左右兩欄收得起來、畫布變寬、圖留在螢幕上原來的位置；再按一次回來
+      const ws = document.querySelector('.workspace'), cw = () => canvas.getBoundingClientRect().width;
+      const disp = (el) => getComputedStyle(el).display;
+      select([a]);
+      const w0 = cw(), vx0 = state.view.x, sx0 = canvas.getBoundingClientRect().left + state.view.x;
+      const bothOpen = disp($('tools')) !== 'none' && disp($('props')) !== 'none' && !ws.classList.contains('narrow');
+      $('btnPanelL').click();
+      const lOff = disp($('tools')) === 'none' && cw() > w0 + 100 && Math.abs(canvas.getBoundingClientRect().left + state.view.x - sx0) < 1 &&
+                   $('btnPanelL').getAttribute('aria-expanded') === 'false' && $('btnPanelL').getAttribute('aria-label').startsWith('展開');
+      $('btnPanelR').click();
+      const rOff = disp($('props')) === 'none' && $('btnPanelR').getAttribute('aria-expanded') === 'false';
+      $('btnPanelL').click(); $('btnPanelR').click();
+      checks.panels = bothOpen && lOff && rOff && Math.abs(cw() - w0) < 1 && Math.abs(state.view.x - vx0) < 1 && disp($('props')) !== 'none';
+      ui.left = ui.right = null;
+      // 視窗窄：右欄浮在畫布上（不擠畫布）；沒選東西先收著，點到人、放開滑鼠之後才滑出來（按著拖的時候不出來擋路）
+      ui.width = 900; select([]);
+      const nClosed = ws.classList.contains('narrow') && disp($('props')) === 'none', wN = cw();
+      const pA = scr(pa.x, pa.y);
+      ptr('pointerdown', pA, $('world').querySelector(`[data-id="${a}"]`));
+      const heldShut = state.sel.has(a) && disp($('props')) === 'none';
+      ptr('pointerup', pA);
+      checks.narrow = nClosed && heldShut && disp($('props')) !== 'none' && getComputedStyle($('props')).position === 'absolute' && cw() === wN;
+      ui.width = 1366; select([]);
+      // 「移動畫面」（2026-11-11）：開著時拖曳空白處是移動畫面（不是框選），點一下人照樣選得到；再按一次關閉
+      $('btnPan').click();
+      const v1 = Object.assign({}, state.view);
+      pe('pointerdown', 5, 5); pe('pointermove', 25, 20); pe('pointermove', 45, 35); pe('pointerup', 45, 35);
+      const panned = Math.abs(state.view.x - v1.x - 40) < 1e-6 && Math.abs(state.view.y - v1.y - 30) < 1e-6 && state.sel.size === 0 && $('overlay').innerHTML === '';
+      const pB = scr(pa.x, pa.y);
+      ptr('pointerdown', pB, $('world').querySelector(`[data-id="${a}"]`)); ptr('pointerup', pB);
+      const tapped = state.sel.size === 1 && state.sel.has(a) && $('btnPan').getAttribute('aria-pressed') === 'true' && canvas.classList.contains('grab');
+      $('btnPan').click();
+      checks.panmode = panned && tapped && $('btnPan').getAttribute('aria-pressed') === 'false' && !canvas.classList.contains('grab');
+      // 觸控：兩指張開＝放大，兩指中間那一點留在手指中間；放開後不會留下框選或選取
+      select([]);
+      const tp = (type, id, x, y) => canvas.dispatchEvent(new PointerEvent(type, { clientX: cr.left + x, clientY: cr.top + y, button: 0,
+        buttons: type === 'pointerup' ? 0 : 1, pointerId: id, pointerType: 'touch', bubbles: true }));
+      const v2 = Object.assign({}, state.view), kExp = clamp(v2.k * 1.5, 0.2, 4);
+      tp('pointerdown', 21, 100, 100); tp('pointerdown', 22, 200, 100); tp('pointermove', 22, 250, 100);
+      const zoomed = Math.abs(state.view.k - kExp) < 1e-9 && Math.abs((175 - state.view.x) / state.view.k - (150 - v2.x) / v2.k) < 1e-6;
+      tp('pointerup', 22, 250, 100); tp('pointermove', 21, 130, 140); tp('pointerup', 21, 130, 140);
+      checks.pinch = zoomed && state.sel.size === 0 && $('overlay').innerHTML === '' && Math.abs(state.view.k - kExp) < 1e-9;
+      state.view = v2; applyView();
       // 自動排版：要確認才排；排完不重疊；一次復原回到原樣
       const beforeLayout = JSON.stringify(state.doc);
       // 手足出生序（使用者 2026-10-28 附圖：排版把長女、次女對調）：每段關係的子女，排版前後左右順序一樣
@@ -1715,6 +1849,11 @@
       checks.about = nextToHelp && $('dlg').open && $('dlgTitle').textContent === '作者資訊' &&
                      ['系統名稱', 'GW-TW', 'v' + APP_VERSION, 'github.com/GW-TW/genogram-tool/issues', '僅限公益用途', '不開放商業使用', 'CRPD', GT.manual.ABOUT.crpd]
                        .every(w => $('dlgBody').textContent.includes(w));
+      // 版本更新紀錄（設計規範：資訊畫面下方一定要有）：最新一筆就是現在這一版、只有它標「目前使用中」、每一筆都列出來、鍵盤進得去
+      const cl = GT.manual.CHANGELOG, entries = [...$('dlgBody').querySelectorAll('.changelog__entry')];
+      checks.changelog = cl[0].v === APP_VERSION && entries.length === cl.length && $('dlgBody').querySelectorAll('.changelog__now').length === 1 &&
+                         entries[0].querySelector('.changelog__ver').textContent === 'v' + APP_VERSION && !!entries[0].querySelector('.changelog__now') &&
+                         $('dlgBody').querySelector('.changelog__body').tabIndex === 0 && $('dlgBody').textContent.includes('版本更新紀錄');
       $('dlg').close();
       openLegend('family');
       checks.legenddesc = $('dlgBody').textContent.includes(GT.manual.LEGEND_DESC.SeparationLegal);
@@ -1893,6 +2032,7 @@
       toast(evil, 'warn', 1000, { label: evil, run: () => {} }); scan('toast');
       checks.injection = dirty.length === 0 && window.__pwn === undefined &&
                          !/<(img|script|svg)\b/i.test(GT.render.exportSVG(state.doc).replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '').replace(/<svg xmlns[^>]*>/g, ''));
+      ui.width = 0; ui.left = ui.right = null; syncLayout();
       const blob = await pngBlob();
       const bad = Object.keys(checks).filter(k => !checks[k]);
       document.body.dataset.selftest = `${bad.length ? 'fail-' + bad.join('-') : 'ok'}:${Object.keys(state.doc.persons).length}:${blob.size}`;

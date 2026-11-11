@@ -138,6 +138,8 @@
     </div></div>
 
     <div class="stage__toolbar toolbar" role="toolbar" aria-label="編輯">
+      <button id="btnPanelL" class="btn btn--icon tooltip" data-tip="收起左邊的工具欄" aria-label="收起左邊的工具欄" aria-expanded="true" aria-controls="tools"></button>
+      <span class="toolbar__sep" aria-hidden="true"></span>
       <button id="btnUndo" class="btn btn--icon tooltip" data-tip="復原（Ctrl+Z）" aria-label="復原"></button>
       <button id="btnRedo" class="btn btn--icon tooltip" data-tip="重做（Ctrl+Y）" aria-label="重做"></button>
       <button id="btnDelete" class="btn btn--icon btn--danger tooltip" data-tip="刪除選取的項目（Delete）" aria-label="刪除選取的項目"></button>
@@ -157,7 +159,13 @@
       </div>
     </div>
 
+    <div class="stage__side toolbar" role="toolbar" aria-label="右邊的資料欄">
+      <button id="btnPanelR" class="btn btn--icon tooltip" data-tip="收起右邊的資料欄" aria-label="收起右邊的資料欄" aria-expanded="true" aria-controls="props"></button>
+    </div>
+
     <div class="stage__zoom toolbar" role="toolbar" aria-label="檢視">
+      <button id="btnPan" class="btn btn--icon tooltip" data-tip="移動畫面：按下後，拖曳就是移動畫面" aria-label="移動畫面：按下後，拖曳就是移動畫面" aria-pressed="false"></button>
+      <span class="toolbar__sep" aria-hidden="true"></span>
       <button id="zoomOut" class="btn btn--icon tooltip" data-tip="縮小" aria-label="縮小"></button>
       <span class="zoomval num" id="zoomVal">100%</span>
       <button id="zoomIn" class="btn btn--icon tooltip" data-tip="放大" aria-label="放大"></button>

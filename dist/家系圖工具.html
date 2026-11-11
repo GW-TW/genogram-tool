@@ -3,12 +3,12 @@
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-DJtht9GXj8GdYTyPRj5NGOCuJdGTjSyGxgo8RUkbMik=' 'sha256-BxaLDMXQD3feP3T3K/ienP7fcCLfpYiGfqWYlkx5mj4=' 'sha256-dD1zJ0RkwLncOUox/CCBPTmbICMAXvp04VryUlDWLRM=' 'sha256-MQHxv3ws6RX1zXjs2ddzGuzRkLxsqmCvC2Z6+7TcwhM=' 'sha256-reelGG0dkx7hYkQD3JNIWDuVekdqQhOmKE66WV98OhY=' 'sha256-ACSSHAuDyZ5a+Q8pkxG+GPwvtJqsBmbSSKlX+FVGh/A='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-DJtht9GXj8GdYTyPRj5NGOCuJdGTjSyGxgo8RUkbMik=' 'sha256-OtY6/vaNe4gG/yQfv5z9IoXWkny+Oi5k72VevsB7BvM=' 'sha256-dD1zJ0RkwLncOUox/CCBPTmbICMAXvp04VryUlDWLRM=' 'sha256-MQHxv3ws6RX1zXjs2ddzGuzRkLxsqmCvC2Z6+7TcwhM=' 'sha256-bxzRDINroK4Waq3KVep1OjGecTvzXYGkjESlhjeBQOI=' 'sha256-pY/DdWr6vkAOBQkHlRGOuiZWFfekxj+Gowwjb5QaTlY='; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>家系圖工具</title>
 <style>
 /* 【產生檔，不要手改】來源：共用設計系統的色彩與字級（薰衣草紫配色）
- * 複製日期：2026-10-28。要更新：由作者從設計系統重新複製。
+ * 複製日期：2026-11-11。要更新：由作者從設計系統重新複製。
  * 專案自己的樣式寫在 style.css，不要改這個檔。 */
 /*
  * 薰衣草紫（Design System · lavender）
@@ -237,7 +237,7 @@
 </style>
 <style>
 /* 【產生檔，不要手改】來源：共用設計系統的基礎樣式
- * 複製日期：2026-10-28。要更新：由作者從設計系統重新複製。
+ * 複製日期：2026-11-11。要更新：由作者從設計系統重新複製。
  * 專案自己的樣式寫在 style.css，不要改這個檔。 */
 /*
  * 共用基底：重設、中文排版、標題字級、連結、焦點、工具類別、列印與減少動效。
@@ -415,7 +415,7 @@ a.quiet:hover { text-decoration: underline; }
 </style>
 <style>
 /* 【產生檔，不要手改】來源：共用設計系統的元件樣式
- * 複製日期：2026-10-28。要更新：由作者從設計系統重新複製。
+ * 複製日期：2026-11-11。要更新：由作者從設計系統重新複製。
  * 專案自己的樣式寫在 style.css，不要改這個檔。 */
 /*
  * 共用設計系統共用元件。只用 token，不寫色碼；接上任何一套 02-設計系統/<套件>/tokens.css 都成立。
@@ -828,6 +828,19 @@ a.list__item:hover { background: var(--accent-tint); margin-inline: calc(var(--s
 .easy-choice { display: grid; gap: var(--space-3); }
 .easy-choice .btn { min-height: calc(var(--tap-min) + 8px); font-size: var(--text-lg); justify-content: flex-start; gap: var(--space-4); }
 .easy-choice .btn .ico { font-size: 1.5em; }
+
+/* ---------- 09 關於與版本資訊：版本更新紀錄（規則 2026-10-29：自己開發的工具都要有）---------- */
+.changelog { display: grid; gap: var(--space-2); }
+.changelog > h2 { margin: 0; font-size: var(--text-base); font-weight: 700; color: var(--fg); }
+.changelog__body { max-height: 320px; overflow-y: auto; padding: var(--space-3) var(--space-4); background: var(--surface); border: var(--border-width) solid var(--border-soft); border-radius: var(--radius-md); }
+.changelog__body:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.changelog__entry + .changelog__entry { margin-top: var(--space-4); }
+.changelog__entry h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); margin: 0 0 var(--space-1); font-size: var(--text-base); }
+.changelog__ver { color: var(--accent); font-weight: 700; }
+.changelog__date { color: var(--muted); font-size: var(--text-sm); font-weight: 400; }
+.changelog__now { color: var(--success); font-size: var(--text-sm); font-weight: 600; }
+.changelog__entry ul { margin: 0; padding-left: var(--space-5); line-height: var(--leading-body); color: var(--fg); }
+.changelog__empty { margin: 0; color: var(--muted); }
 </style>
 <style>
 /* 家系圖工具 — style.css（只放這個工具自己的樣式）
@@ -874,7 +887,7 @@ body {
 .topbar__actions { flex-wrap: wrap; row-gap: var(--space-2); }
 
 .workspace {
-  display: grid;
+  display: grid; position: relative;
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--props-w);
   min-height: 0;
 }
@@ -882,9 +895,27 @@ body {
    這個工具的外框自己管高度，所以覆寫掉，不然側欄會把版面撐破。 */
 .workspace .sidebar {
   position: static; height: auto; max-height: none;
-  grid-column: auto; grid-row: auto;
+  grid-column: 1; grid-row: 1;
   overflow-y: auto; min-height: 0; gap: var(--space-5);
 }
+.workspace .stage { grid-column: 2; grid-row: 1; }
+.workspace .props { grid-column: 3; grid-row: 1; }
+/* 左右兩欄可以收起來（2026-11-11：1366 寬時畫布只有 762px，800 寬只剩 300px）。
+   欄位各佔固定的格線位置，收起來時那一欄寬度變 0，畫布不會跑到別欄去。
+   類別由 app.js 的 syncLayout() 依視窗寬度與使用者的操作加上：
+   left-off／right-off＝收起；narrow＝視窗窄，右欄改成浮在畫布上；tiny＝更窄，左欄也浮在畫布上 */
+.workspace.left-off { --sidebar-w: 0px; }
+.workspace.right-off { --props-w: 0px; }
+.workspace.left-off > .sidebar, .workspace.right-off > .props, .workspace.help-off > .helpdock { display: none; }
+.workspace.narrow { grid-template-columns: var(--sidebar-w) minmax(0, 1fr) 0; }
+.workspace.narrow > .props, .workspace.tiny > .sidebar {
+  position: absolute; top: 0; bottom: 0; z-index: 8; grid-column: 1 / -1;
+  box-shadow: var(--elev-overlay);
+}
+.workspace.narrow > .props { right: 0; width: min(320px, 88%); }
+.workspace.tiny { grid-template-columns: 0 minmax(0, 1fr) 0; }
+.workspace.tiny > .sidebar { left: 0; width: min(264px, 88%); }
+.toolbar__sep { width: 1px; align-self: stretch; margin: var(--space-1) 0; background: var(--border-soft); }
 .toolgroup { display: flex; flex-direction: column; }
 .toolgroup .sidebar__group { padding-left: 0; padding-top: 0; }
 .sidebar .field > legend { font-size: var(--text-xs); color: var(--fg-2); font-weight: 700; }
@@ -951,8 +982,19 @@ body {
   border-radius: var(--radius-md); box-shadow: var(--elev-raised); padding: var(--space-1);
   gap: var(--space-1);
 }
+.stage__side { position: absolute; z-index: 5; }
+.stage__toolbar, .stage__zoom, .stage__side { flex-wrap: nowrap; }
+.stage__side {
+  background: var(--surface); border: var(--border-width) solid var(--border-soft);
+  border-radius: var(--radius-md); box-shadow: var(--elev-raised); padding: var(--space-1);
+  right: var(--space-4); top: var(--space-4);
+}
 .stage__toolbar { left: var(--space-4); top: var(--space-4); }
 .stage__zoom { right: var(--space-4); bottom: var(--space-4); }
+/* 右上角的按鈕：說明往下、靠右對齊，才不會超出視窗 */
+.stage__side .tooltip::after { bottom: auto; top: calc(100% + 6px); left: auto; right: 0; transform: none; }
+/* 「移動畫面」開著：按鈕看得出來是按下的狀態 */
+.btn[aria-pressed="true"] { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); color: var(--fg); }
 .zoomval { min-width: 52px; text-align: center; font-size: var(--text-sm); color: var(--fg-2); }
 
 /* 提示條與錯誤訊息：工具列下方、上下疊放、寬度跟著畫布走
@@ -1139,7 +1181,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
   :root { --sidebar-w: 236px; --props-w: 300px; }
 }
 @media (max-width: 1024px) {
-  .workspace { grid-template-columns: 220px minmax(0, 1fr) 280px; }
+  :root { --sidebar-w: 220px; --props-w: 280px; }
   .topbar__title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 }
 </style>
@@ -1271,6 +1313,8 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     </div></div>
 
     <div class="stage__toolbar toolbar" role="toolbar" aria-label="編輯">
+      <button id="btnPanelL" class="btn btn--icon tooltip" data-tip="收起左邊的工具欄" aria-label="收起左邊的工具欄" aria-expanded="true" aria-controls="tools"></button>
+      <span class="toolbar__sep" aria-hidden="true"></span>
       <button id="btnUndo" class="btn btn--icon tooltip" data-tip="復原（Ctrl+Z）" aria-label="復原"></button>
       <button id="btnRedo" class="btn btn--icon tooltip" data-tip="重做（Ctrl+Y）" aria-label="重做"></button>
       <button id="btnDelete" class="btn btn--icon btn--danger tooltip" data-tip="刪除選取的項目（Delete）" aria-label="刪除選取的項目"></button>
@@ -1290,7 +1334,13 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       </div>
     </div>
 
+    <div class="stage__side toolbar" role="toolbar" aria-label="右邊的資料欄">
+      <button id="btnPanelR" class="btn btn--icon tooltip" data-tip="收起右邊的資料欄" aria-label="收起右邊的資料欄" aria-expanded="true" aria-controls="props"></button>
+    </div>
+
     <div class="stage__zoom toolbar" role="toolbar" aria-label="檢視">
+      <button id="btnPan" class="btn btn--icon tooltip" data-tip="移動畫面：按下後，拖曳就是移動畫面" aria-label="移動畫面：按下後，拖曳就是移動畫面" aria-pressed="false"></button>
+      <span class="toolbar__sep" aria-hidden="true"></span>
       <button id="zoomOut" class="btn btn--icon tooltip" data-tip="縮小" aria-label="縮小"></button>
       <span class="zoomval num" id="zoomVal">100%</span>
       <button id="zoomIn" class="btn btn--icon tooltip" data-tip="放大" aria-label="放大"></button>
@@ -2343,6 +2393,10 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     'zoom-out': 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3M8 11h6',
     'chevron-down': 'm6 9 6 6 6-6',
     'chevron-up': 'm18 15-6-6-6 6',
+    // 版面：收合左右兩欄、移動畫面
+    'panel-left': 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM9 3v18',
+    'panel-right': 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM15 3v18',
+    hand: 'M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v2M10 10.5V6a2 2 0 0 0-4 0v8M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.3l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15',
     // 配色
     sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
     moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z',
@@ -3740,6 +3794,71 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     crpd: '身心障礙者平等享有人權、自由與尊嚴，尊重自主、不歧視、全面參與、機會均等',
   };
 
+  // 版本更新紀錄（設計規範：自己開發的工具，作者資訊下方一定要有；由新到舊）。
+  // 寫給使用的人看：用「新增：」「修正：」「調整：」開頭；修正要寫原本會發生什麼事；不寫檔名與程式名詞。
+  // 每次改版在最前面加一筆，版本號要跟 app.js 的 APP_VERSION 一樣（開機自我測試會檢查）
+  const CHANGELOG = [
+    { v: '0.9.0', date: '2026-11-11', items: [
+      '新增：「作者資訊」下方有版本更新紀錄，可以查這一版改了什麼。',
+      '新增：左右兩欄可以收起來，畫布變大；視窗比較窄時，右邊的資料欄會在點到東西時才滑出來。',
+      '新增：右下角多一顆「移動畫面」，按下去之後拖曳就是移動畫面，不必按住空白鍵；觸控螢幕可以用兩指移動與縮放。',
+      '新增：點選一個人，四周會出現「父母、手足、伴侶、子女」的加號，按了直接加；子女可以輸入「男女女」一次加好幾個。',
+      '新增：選取的東西旁邊會出現一小排常用動作（拉線、圈成生活圈、對齊、刪除）。',
+      '新增：匯出選單每個選項都寫了什麼時候用；可以勾「附圖例」，只列這張圖用到的符號與線條；最上面有「貼進 Word 之後怎麼改」。',
+      '新增：點生活圈的虛線，右邊列出所有人的名字，點一下就加入或移出，不必拖曳。',
+      '新增：使用說明改成右側的說明欄，可以開著邊看邊畫；最上面是四步的建議畫法。',
+      '新增：空白畫面有四個範本（核心家庭、三代同堂、單親、重組家庭），按了就有一張可以改的圖。',
+      '新增：自動排版可以只整理一個人和他的子孫，其他人不動。',
+      '新增：「匯出」裡的「產生文字敘述」會把圖上的家庭結構寫成一段文字，複製後貼進紀錄。',
+      '調整：上方的「新增」改叫「開新圖」；放棄變更與刪除欄位的確認改用工具自己的視窗，按鈕寫清楚會做什麼。',
+      '調整：管理欄位打完新欄位名稱，按 Enter 就新增。',
+    ] },
+    { v: '0.8.7', date: '2026-11-11', items: [
+      '修正：祖孫同住、父母不同住這類跨代的生活圈，虛線框會把中間那一代不同住的人也框進去。現在兩代之間改用細細一條連接帶，會繞過不同住的人。',
+    ] },
+    { v: '0.8.6', date: '2026-10-28', items: [
+      '修正：兩個生活圈靠得近時，虛線框會疊在一起。現在碰到別的生活圈就改從另一邊繞過去。',
+    ] },
+    { v: '0.8.5', date: '2026-10-28', items: [
+      '修正：手足緊挨在旁邊時按「伴侶」，新伴侶會被排到整排最後面，伴侶線從別人底下穿過。現在會把旁邊的人往外推，伴侶貼在本人旁邊。',
+    ] },
+    { v: '0.8.4', date: '2026-10-28', items: [
+      '修正：自動排版會把兄弟姊妹的左右順序調換，看起來像小孩跑到隔壁家。現在手足的順序照你原本畫的，不會被調換。',
+    ] },
+    { v: '0.8.3', date: '2026-10-28', items: [
+      '調整：作者資訊改成一張清單（系統名稱、作者、版本、授權、聯絡），最後是 CRPD 宣言。',
+    ] },
+    { v: '0.8.2', date: '2026-10-28', items: [
+      '新增：作者資訊與授權說明。本工具僅限公益用途，不開放商業使用。',
+    ] },
+    { v: '0.8.1', date: '2026-10-28', items: [
+      '修正：同一個人可以被圈進兩個生活圈。現在一個人只能在一個生活圈，重疊的會合併成一個。',
+    ] },
+    { v: '0.8.0', date: '2026-10-28', items: [
+      '新增：自動排版（按了會先問，不滿意可以復原）。',
+      '新增：把人拖進生活圈就能加入；右邊可以把成員移出。',
+      '新增：生態圖模式的「家庭」圓可以拖曳。',
+      '修正：英文姓名或機構名稱換行時會從單字中間斷開。現在整個單字一起換行。',
+    ] },
+    { v: '0.7.0', date: '2026-10-28', items: [
+      '調整：介面改版（薰衣草紫配色、淺色與深色、按鈕加大方便觸控）。',
+      '調整：用詞統一為「服務使用者」。',
+    ] },
+    { v: '0.6.0', date: '2026-09-21', items: [
+      '調整：存檔的預設檔名改成「個案編號_家系生態圖_建立日期」，不放姓名。',
+    ] },
+    { v: '0.5.0', date: '2026-09-21', items: [
+      '調整：不再讀取 GenoPro 的 .gno 檔；交換檔一律用本工具的 .json。',
+    ] },
+    { v: '0.4.0', date: '2026-09-21', items: [
+      '新增：比較少見的線條會在線旁自動寫出名稱；每條線也可以自己寫一句說明。',
+      '新增：內建使用說明與圖例說明。',
+    ] },
+    { v: '0.3.0', date: '2026-09-21', items: [
+      '第一個公開版本：家系圖、生態圖、人物資料顯示在圖上、匯出圖片貼進 Word。',
+    ] },
+  ];
+
   const MANUAL = [
     { key: 'start', title: '開始之前', body: `
 ## 這是什麼
@@ -3756,7 +3875,14 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 - **左邊**：新增人物、家庭關係、情感關係、標註、生態圖、顯示設定。
 - **中間**：畫布，家系圖畫在這裡。
 - **右邊**：點選畫布上的東西（人、線、生活圈、資源），右邊就會出現它的資料，可以直接修改。
-- **上方**：新增、開啟、儲存、另存新檔、匯出（複製圖片、PNG、SVG）、配色切換、這份使用說明，以及「作者：GW-TW」（作者資訊：版本、授權、聯絡方式與 CRPD 宣言）。
+- **上方**：開新圖、開啟、儲存、另存新檔、匯出（複製圖片、PNG、SVG、文字敘述）、配色切換、這份使用說明，以及「作者：GW-TW」（作者資訊：版本、授權、聯絡方式、CRPD 宣言與版本更新紀錄）。
+
+## 把左右兩欄收起來
+- 畫布左上角第一顆按鈕：收起或展開左邊的工具欄；畫布右上角的按鈕：收起或展開右邊的資料欄。收起來之後畫布會變大。
+- 視窗比較窄的時候，右邊的資料欄平常是收著的，點到人或線、放開滑鼠之後才滑出來，蓋在畫布右邊；不想讓它出來，就按右上角的按鈕收起來。
+
+## 這一版改了什麼
+按上方「作者：GW-TW」，最下面有「版本更新紀錄」，由新到舊列出每一版改了什麼；你正在用的這一版會標「目前使用中」。
 
 ## 配色
 「使用說明」左邊的小按鈕可以切換介面配色：跟隨系統、淺色、深色，每按一次換一種。畫布永遠是白紙、深色線條，匯出的圖也一樣，不受配色影響。
@@ -3925,7 +4051,9 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 - 點空白處：取消選取。
 
 ## 移動畫面與縮放
-- 按住 [[空白鍵]] 再拖曳，或按住滑鼠中間的滾輪拖曳：移動畫面。
+- 按右下角的「移動畫面」（手的圖示）：開著的時候，拖曳就是移動畫面；點一下人或線照樣可以選取。再按一次關閉。
+- 也可以按住 [[空白鍵]] 再拖曳，或按住滑鼠中間的滾輪拖曳。
+- 觸控螢幕：兩指一起拖曳是移動畫面，兩指張開或捏合是放大縮小。
 - 滾輪：上下捲動；按住 [[Shift]] 再滾：左右捲動。
 - 按住 [[Ctrl]] 再滾：放大縮小。
 - 右下角「符合畫面」：把整張圖放進畫面。
@@ -4131,7 +4259,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     return out.join('');
   }
 
-  GT.manual = { MANUAL, LEGEND_DESC, ABOUT, render };
+  GT.manual = { MANUAL, LEGEND_DESC, ABOUT, CHANGELOG, render };
 })(globalThis.GT = globalThis.GT || {});
 
 </script>
@@ -4142,8 +4270,8 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
  */
 (function (GT) {
   'use strict';
-  const APP_VERSION = '0.8.7';
-  const BUILD = '2026-11-11 15:31';
+  const APP_VERSION = '0.9.0';
+  const BUILD = '2026-11-11 16:12';
   const R = GT.render, esc = R.esc;
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -4289,7 +4417,38 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     applyView();
   }
 
-  let drag = null, raf = 0, spaceDown = false;
+  let drag = null, raf = 0, spaceDown = false, held = false;      // held＝滑鼠或手指還按在畫布上
+
+  // ───── 版面：左右兩欄可以收起來；視窗窄時右欄浮在畫布上（2026-11-11）─────
+  // left／right：null＝自動（看視窗寬度與有沒有選取），true／false＝使用者自己按的；pan＝「移動畫面」開著
+  const ui = { left: null, right: null, pan: false, width: 0 };     // width：自我測試用來假裝視窗寬度（0＝用真的）
+  GT.app.ui = ui;
+  const winW = () => ui.width || window.innerWidth;
+  const leftOpen = () => (ui.left == null ? winW() > 640 : ui.left);
+  // 視窗窄的時候右欄會蓋住畫布：沒選東西先收著，點到東西（放開滑鼠之後）才滑出來
+  const rightOpen = () => (ui.right != null ? ui.right : winW() > 1024 || (state.sel.size > 0 && !held));
+  function syncLayout() {
+    const ws = document.querySelector('.workspace'), w = winW();
+    const before = canvas.getBoundingClientRect().left;
+    ws.classList.toggle('narrow', w <= 1024);
+    ws.classList.toggle('tiny', w <= 640);
+    ws.classList.toggle('left-off', !leftOpen());
+    ws.classList.toggle('right-off', !rightOpen());
+    const shift = before - canvas.getBoundingClientRect().left;       // 左欄收合時畫布左緣會移動：圖留在螢幕上原來的位置
+    if (shift) { state.view.x += shift; applyView(); }
+    const set = (id, open, side) => {
+      const b = $(id), tip = `${open ? '收起' : '展開'}${side}`;
+      b.setAttribute('aria-expanded', String(open)); b.dataset.tip = tip; b.setAttribute('aria-label', tip);
+    };
+    set('btnPanelL', leftOpen(), '左邊的工具欄'); set('btnPanelR', rightOpen(), '右邊的資料欄');
+  }
+  // 「移動畫面」（2026-11-11）：原本只能按住空白鍵或滑鼠中鍵拖曳，不知道快捷鍵的人、用觸控螢幕的人沒辦法移動畫面
+  function setPan(on) {
+    ui.pan = on;
+    $('btnPan').setAttribute('aria-pressed', String(on));
+    canvas.classList.toggle('grab', on || spaceDown);
+  }
+
   const scheduleRender = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; renderCanvas(); }); };
 
   // 拖曳圈選的框（畫在 viewport 裡，跟著縮放；線寬固定）
@@ -4304,15 +4463,32 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 
   // 操作方式（使用者 2026-09-18 要求拖曳圈選）：空白處左鍵拖曳＝圈選（Shift 追加）；
   // 平移＝滑鼠中鍵拖曳或按住空白鍵拖曳；滾輪＝捲動，Shift＋滾輪＝左右捲動，Ctrl＋滾輪＝縮放
+  // 觸控（2026-11-11）：兩指＝移動畫面與縮放；一指跟滑鼠一樣（拖人、框選）
+  const touches = new Map();
+  const localPt = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  function startPinch() {
+    finishDrag();                                               // 第二指落下：先結束第一指正在做的事
+    const [a, b] = [...touches.values()];
+    drag = { mode: 'pinch', d0: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+             mid0: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, view0: Object.assign({}, state.view) };
+  }
   canvas.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 && e.button !== 1) return;
     try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* 沒有實體指標（自我測試的合成事件）時不需要捕捉 */ }
+    held = true;
+    if (e.pointerType === 'touch') {
+      touches.set(e.pointerId, localPt(e));
+      if (touches.size === 2) { startPinch(); return; }
+      if (touches.size > 2) return;
+    }
     if (e.button === 1 || spaceDown) { e.preventDefault(); startPan(e); return; }
     let hit = e.target.closest('[data-kind]');
     if (hit && hit.getAttribute('data-kind') === 'household') {         // 生活圈內部看不見的接縫不算點到外框（當成空白處）
       const w = toWorld(e), h = state.doc.households[hit.getAttribute('data-id')];
       if (h && R.householdInterior(state.doc, h, w.x, w.y)) hit = null;
     }
+    // 「移動畫面」開著：拖曳一律是移動畫面；沒有拖、只是點一下＝選取點到的東西（點選模式中照常點選另一端）
+    if (ui.pan && !state.pending) { startPan(e); drag.tap = hit ? hit.getAttribute('data-id') : ''; return; }
     const additive = e.shiftKey || e.ctrlKey || e.metaKey;
     if (!hit) {
       if (state.pending) { startPan(e); return; }        // 點選模式中不圈選：拖曳空白處照舊移動畫面
@@ -4370,9 +4546,19 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     } });
   }
   canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch' && touches.has(e.pointerId)) touches.set(e.pointerId, localPt(e));
     if (!drag) return;
+    if (drag.mode === 'pinch') {
+      if (touches.size < 2) return;
+      const [a, b] = [...touches.values()], v0 = drag.view0;
+      const k = clamp(v0.k * Math.hypot(a.x - b.x, a.y - b.y) / drag.d0, 0.2, 4);
+      const wx = (drag.mid0.x - v0.x) / v0.k, wy = (drag.mid0.y - v0.y) / v0.k;   // 兩指中間那一點在圖上的位置：跟著手指走
+      state.view = { k, x: (a.x + b.x) / 2 - wx * k, y: (a.y + b.y) / 2 - wy * k };
+      applyView(); return;
+    }
     if (drag.mode === 'pan') {
       state.view.x = drag.vx + e.clientX - drag.sx; state.view.y = drag.vy + e.clientY - drag.sy;
+      if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) >= 4) drag.far = true;
       applyView(); return;
     }
     if (drag.mode === 'marquee') {
@@ -4393,9 +4579,14 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     if (drag.zones.length) drag.target = (dropTarget(drag.zones) || {}).hid || null;
     scheduleRender();
   });
-  const endDrag = () => {
+  const finishDrag = () => {
     if (!drag) return;
     canvas.classList.remove('panning');
+    if (drag.mode === 'pan' && drag.tap !== undefined && !drag.far) {       // 「移動畫面」開著時點一下＝選取
+      const t = drag.tap;
+      drag = null; select(t ? [t] : []);
+      return;
+    }
     if (drag.mode === 'move') {
       if (drag.moved) {
         GT.snapItems(state.doc, drag.ids);
@@ -4414,8 +4605,19 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     }
     drag = null;
   };
-  canvas.addEventListener('pointerup', endDrag);
-  canvas.addEventListener('pointercancel', endDrag);
+  const endDrag = () => { held = false; finishDrag(); syncLayout(); };
+  const onPointerEnd = (e) => {
+    if (e.pointerType === 'touch') {
+      touches.delete(e.pointerId);
+      if (drag && drag.mode === 'pinch') {                       // 放開一指就結束縮放；剩下那一指不接著做別的事
+        if (touches.size < 2) { drag = null; held = touches.size > 0; syncLayout(); }
+        return;
+      }
+    }
+    endDrag();
+  };
+  canvas.addEventListener('pointerup', onPointerEnd);
+  canvas.addEventListener('pointercancel', onPointerEnd);
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     const r = canvas.getBoundingClientRect();
@@ -4430,7 +4632,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
   canvas.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
   canvas.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
   // 按住空白鍵＝拖曳可移動畫面（放開或視窗失焦就恢復）
-  const setSpace = (on) => { spaceDown = on; canvas.classList.toggle('grab', on); };
+  const setSpace = (on) => { spaceDown = on; canvas.classList.toggle('grab', on || ui.pan); };
   // 用滑鼠點過的按鈕不保留焦點：接著按空白鍵是平移畫面，不會又觸發那顆按鈕一次。
   // e.detail === 0 ＝鍵盤（或程式）觸發的 click，不動它，鍵盤操作照常
   document.addEventListener('click', (e) => {
@@ -4685,7 +4887,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     }
     return r;
   }
-  const renderPanel = () => keepFocus($('props'), renderPanelNow);
+  const renderPanel = () => { keepFocus($('props'), renderPanelNow); syncLayout(); };
   function renderPanelNow() {
     const P = $('props'), ids = [...state.sel];
     if (!ids.length) return panelDoc(P);
@@ -5028,7 +5230,8 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       <ul class="help" style="padding-left:18px;margin:0">
         <li>點人物，在右邊填年齡、職業、經濟，圖會即時更新。</li>
         <li>在空白處按住左鍵拖曳可以框選多個人；按住 <b>Shift</b> 點選或框選可以加選。</li>
-        <li>移動畫面：按住<b>空白鍵</b>拖曳，或按住滑鼠中鍵拖曳；滾輪上下捲動，<b>Shift</b>＋滾輪左右捲動。</li>
+        <li>移動畫面：按右下角的「移動畫面」再拖曳，或按住<b>空白鍵</b>拖曳；滾輪上下捲動，<b>Shift</b>＋滾輪左右捲動。</li>
+        <li>畫布左上角、右上角的按鈕可以把左右兩欄收起來，畫布會變大。</li>
         <li><b>Ctrl</b>＋滾輪放大縮小。</li>
         <li><b>Ctrl+Z</b> 復原、<b>Ctrl+S</b> 儲存、<b>Delete</b> 刪除。</li>
         <li>「複製圖片」後到 Word 按 <b>Ctrl+V</b> 就能貼上。</li>
@@ -5344,13 +5547,20 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
   // 作者資訊（使用者 2026-10-28：放在「使用說明」旁邊；照交接系統「開發者資訊」的格式，最後一行是 CRPD 宣言）
   function openAbout() {
     const A = GT.manual.ABOUT, row = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
+    // 版本更新紀錄（設計規範 2026-10-29：資訊畫面下方一定要有；由新到舊、目前這一版標「目前使用中」）
+    const log = GT.manual.CHANGELOG.map(c => `<article class="changelog__entry"><h3><span class="changelog__ver">v${esc(c.v)}</span>` +
+      `<time class="changelog__date" datetime="${esc(c.date)}">${esc(c.date)}</time>` +
+      (c.v === APP_VERSION ? '<span class="changelog__now">目前使用中</span>' : '') +
+      `</h3><ul>${c.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></article>`).join('');
     dialog('作者資訊', `<dl class="dl about">` +
       row('系統名稱', esc(A.name)) + row('作者', `<b>${esc(A.author)}</b>`) +
       row('版本號', `v${esc(APP_VERSION)}（${esc(BUILD)}）`) + row('授權', esc(A.license)) +
       row('聯絡', esc(A.contact)) + row('專案網址', esc(A.url)) + `</dl>
       <div class="crpd"><b>CRPD</b><p>「${esc(A.crpd)}」</p></div>
-      <p class="help">授權全文在專案的 LICENSE；使用說明的「關於這個工具」有授權重點。</p>`,
-      [{ label: '看使用說明', onClick: () => openHelp('about') }, { label: '關閉', primary: true }]);
+      <p class="help">授權全文在專案的 LICENSE；使用說明的「關於這個工具」有授權重點。</p>
+      <section class="changelog" aria-labelledby="changelogTitle"><h2 id="changelogTitle">版本更新紀錄</h2>
+      <div class="changelog__body" tabindex="0" role="region" aria-labelledby="changelogTitle">${log || '<p class="changelog__empty">這是第一版，還沒有更新紀錄。</p>'}</div></section>`,
+      [{ label: '看使用說明', onClick: () => openHelp('about') }, { label: '關閉', primary: true }], { wide: true });
   }
 
   // ───── 檔案 ─────
@@ -5548,6 +5758,14 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
     const setIcon = (id, name) => { const el = $(id); if (el) el.insertAdjacentHTML('afterbegin', ico(name)); };
     setIcon('btnUndo', 'undo-2'); setIcon('btnRedo', 'redo-2'); setIcon('btnDelete', 'trash-2');
     setIcon('zoomIn', 'zoom-in'); setIcon('zoomOut', 'zoom-out');
+    setIcon('btnPanelL', 'panel-left'); setIcon('btnPanelR', 'panel-right'); setIcon('btnPan', 'hand');
+    $('btnPanelL').addEventListener('click', () => { ui.left = !leftOpen(); syncLayout(); });
+    $('btnPanelR').addEventListener('click', () => { ui.right = !rightOpen(); syncLayout(); });
+    $('btnPan').addEventListener('click', () => {
+      setPan(!ui.pan);
+      toast(ui.pan ? '「移動畫面」已開啟：拖曳就是移動畫面，點一下照樣可以選取。再按一次關閉。' : '「移動畫面」已關閉：拖曳空白處是框選。', 'info', 5000);
+    });
+    window.addEventListener('resize', syncLayout);
     setIcon('errorClose', 'x');
     $('stSafe').insertAdjacentHTML('afterbegin', ico('lock-keyhole', 16));
     $('errorClose').addEventListener('click', clearError);
@@ -5684,6 +5902,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       const r = GT.addPartner(d, a);
       GT.addChild(d, r.unionId, 'F');
       GT.addRelation(d, a, r.personId, 'Discord');
+      ui.width = 1366;                        // 自我測試固定用寬視窗的版面跑（無頭瀏覽器的視窗只有 800 寬）；窄視窗另外測
       setDoc(d, { dirty: false });
       const html = $('world').innerHTML;
       const checks = {
@@ -5819,6 +6038,49 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       const hs2 = Object.values(state.doc.households);
       checks.hhunique = superset && askedMerge && hs2.length === 1 && hs2[0].id === hid && hs2[0].members.length === 3 &&
         Object.keys(state.doc.persons).every(p => hs2.filter(h => h.members.includes(p)).length <= 1);
+      // 版面（2026-11-11）：左右兩欄收得起來、畫布變寬、圖留在螢幕上原來的位置；再按一次回來
+      const ws = document.querySelector('.workspace'), cw = () => canvas.getBoundingClientRect().width;
+      const disp = (el) => getComputedStyle(el).display;
+      select([a]);
+      const w0 = cw(), vx0 = state.view.x, sx0 = canvas.getBoundingClientRect().left + state.view.x;
+      const bothOpen = disp($('tools')) !== 'none' && disp($('props')) !== 'none' && !ws.classList.contains('narrow');
+      $('btnPanelL').click();
+      const lOff = disp($('tools')) === 'none' && cw() > w0 + 100 && Math.abs(canvas.getBoundingClientRect().left + state.view.x - sx0) < 1 &&
+                   $('btnPanelL').getAttribute('aria-expanded') === 'false' && $('btnPanelL').getAttribute('aria-label').startsWith('展開');
+      $('btnPanelR').click();
+      const rOff = disp($('props')) === 'none' && $('btnPanelR').getAttribute('aria-expanded') === 'false';
+      $('btnPanelL').click(); $('btnPanelR').click();
+      checks.panels = bothOpen && lOff && rOff && Math.abs(cw() - w0) < 1 && Math.abs(state.view.x - vx0) < 1 && disp($('props')) !== 'none';
+      ui.left = ui.right = null;
+      // 視窗窄：右欄浮在畫布上（不擠畫布）；沒選東西先收著，點到人、放開滑鼠之後才滑出來（按著拖的時候不出來擋路）
+      ui.width = 900; select([]);
+      const nClosed = ws.classList.contains('narrow') && disp($('props')) === 'none', wN = cw();
+      const pA = scr(pa.x, pa.y);
+      ptr('pointerdown', pA, $('world').querySelector(`[data-id="${a}"]`));
+      const heldShut = state.sel.has(a) && disp($('props')) === 'none';
+      ptr('pointerup', pA);
+      checks.narrow = nClosed && heldShut && disp($('props')) !== 'none' && getComputedStyle($('props')).position === 'absolute' && cw() === wN;
+      ui.width = 1366; select([]);
+      // 「移動畫面」（2026-11-11）：開著時拖曳空白處是移動畫面（不是框選），點一下人照樣選得到；再按一次關閉
+      $('btnPan').click();
+      const v1 = Object.assign({}, state.view);
+      pe('pointerdown', 5, 5); pe('pointermove', 25, 20); pe('pointermove', 45, 35); pe('pointerup', 45, 35);
+      const panned = Math.abs(state.view.x - v1.x - 40) < 1e-6 && Math.abs(state.view.y - v1.y - 30) < 1e-6 && state.sel.size === 0 && $('overlay').innerHTML === '';
+      const pB = scr(pa.x, pa.y);
+      ptr('pointerdown', pB, $('world').querySelector(`[data-id="${a}"]`)); ptr('pointerup', pB);
+      const tapped = state.sel.size === 1 && state.sel.has(a) && $('btnPan').getAttribute('aria-pressed') === 'true' && canvas.classList.contains('grab');
+      $('btnPan').click();
+      checks.panmode = panned && tapped && $('btnPan').getAttribute('aria-pressed') === 'false' && !canvas.classList.contains('grab');
+      // 觸控：兩指張開＝放大，兩指中間那一點留在手指中間；放開後不會留下框選或選取
+      select([]);
+      const tp = (type, id, x, y) => canvas.dispatchEvent(new PointerEvent(type, { clientX: cr.left + x, clientY: cr.top + y, button: 0,
+        buttons: type === 'pointerup' ? 0 : 1, pointerId: id, pointerType: 'touch', bubbles: true }));
+      const v2 = Object.assign({}, state.view), kExp = clamp(v2.k * 1.5, 0.2, 4);
+      tp('pointerdown', 21, 100, 100); tp('pointerdown', 22, 200, 100); tp('pointermove', 22, 250, 100);
+      const zoomed = Math.abs(state.view.k - kExp) < 1e-9 && Math.abs((175 - state.view.x) / state.view.k - (150 - v2.x) / v2.k) < 1e-6;
+      tp('pointerup', 22, 250, 100); tp('pointermove', 21, 130, 140); tp('pointerup', 21, 130, 140);
+      checks.pinch = zoomed && state.sel.size === 0 && $('overlay').innerHTML === '' && Math.abs(state.view.k - kExp) < 1e-9;
+      state.view = v2; applyView();
       // 自動排版：要確認才排；排完不重疊；一次復原回到原樣
       const beforeLayout = JSON.stringify(state.doc);
       // 手足出生序（使用者 2026-10-28 附圖：排版把長女、次女對調）：每段關係的子女，排版前後左右順序一樣
@@ -5853,6 +6115,11 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       checks.about = nextToHelp && $('dlg').open && $('dlgTitle').textContent === '作者資訊' &&
                      ['系統名稱', 'GW-TW', 'v' + APP_VERSION, 'github.com/GW-TW/genogram-tool/issues', '僅限公益用途', '不開放商業使用', 'CRPD', GT.manual.ABOUT.crpd]
                        .every(w => $('dlgBody').textContent.includes(w));
+      // 版本更新紀錄（設計規範：資訊畫面下方一定要有）：最新一筆就是現在這一版、只有它標「目前使用中」、每一筆都列出來、鍵盤進得去
+      const cl = GT.manual.CHANGELOG, entries = [...$('dlgBody').querySelectorAll('.changelog__entry')];
+      checks.changelog = cl[0].v === APP_VERSION && entries.length === cl.length && $('dlgBody').querySelectorAll('.changelog__now').length === 1 &&
+                         entries[0].querySelector('.changelog__ver').textContent === 'v' + APP_VERSION && !!entries[0].querySelector('.changelog__now') &&
+                         $('dlgBody').querySelector('.changelog__body').tabIndex === 0 && $('dlgBody').textContent.includes('版本更新紀錄');
       $('dlg').close();
       openLegend('family');
       checks.legenddesc = $('dlgBody').textContent.includes(GT.manual.LEGEND_DESC.SeparationLegal);
@@ -6031,6 +6298,7 @@ dialog.dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
       toast(evil, 'warn', 1000, { label: evil, run: () => {} }); scan('toast');
       checks.injection = dirty.length === 0 && window.__pwn === undefined &&
                          !/<(img|script|svg)\b/i.test(GT.render.exportSVG(state.doc).replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '').replace(/<svg xmlns[^>]*>/g, ''));
+      ui.width = 0; ui.left = ui.right = null; syncLayout();
       const blob = await pngBlob();
       const bad = Object.keys(checks).filter(k => !checks[k]);
       document.body.dataset.selftest = `${bad.length ? 'fail-' + bad.join('-') : 'ok'}:${Object.keys(state.doc.persons).length}:${blob.size}`;

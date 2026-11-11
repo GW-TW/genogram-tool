@@ -1,5 +1,5 @@
 /* 【產生檔，不要手改】來源：共用設計系統的元件樣式
- * 複製日期：2026-10-28。要更新：由作者從設計系統重新複製。
+ * 複製日期：2026-11-11。要更新：由作者從設計系統重新複製。
  * 專案自己的樣式寫在 style.css，不要改這個檔。 */
 /*
  * 共用設計系統共用元件。只用 token，不寫色碼；接上任何一套 02-設計系統/<套件>/tokens.css 都成立。
@@ -412,3 +412,16 @@ a.list__item:hover { background: var(--accent-tint); margin-inline: calc(var(--s
 .easy-choice { display: grid; gap: var(--space-3); }
 .easy-choice .btn { min-height: calc(var(--tap-min) + 8px); font-size: var(--text-lg); justify-content: flex-start; gap: var(--space-4); }
 .easy-choice .btn .ico { font-size: 1.5em; }
+
+/* ---------- 09 關於與版本資訊：版本更新紀錄（規則 2026-10-29：自己開發的工具都要有）---------- */
+.changelog { display: grid; gap: var(--space-2); }
+.changelog > h2 { margin: 0; font-size: var(--text-base); font-weight: 700; color: var(--fg); }
+.changelog__body { max-height: 320px; overflow-y: auto; padding: var(--space-3) var(--space-4); background: var(--surface); border: var(--border-width) solid var(--border-soft); border-radius: var(--radius-md); }
+.changelog__body:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.changelog__entry + .changelog__entry { margin-top: var(--space-4); }
+.changelog__entry h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); margin: 0 0 var(--space-1); font-size: var(--text-base); }
+.changelog__ver { color: var(--accent); font-weight: 700; }
+.changelog__date { color: var(--muted); font-size: var(--text-sm); font-weight: 400; }
+.changelog__now { color: var(--success); font-size: var(--text-sm); font-weight: 600; }
+.changelog__entry ul { margin: 0; padding-left: var(--space-5); line-height: var(--leading-body); color: var(--fg); }
+.changelog__empty { margin: 0; color: var(--muted); }
